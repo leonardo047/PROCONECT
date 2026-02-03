@@ -1,0 +1,31 @@
+{
+  "name": "ClientSubscription",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio cliente"
+    },
+    "plan_type": {
+      "type": "string",
+      "enum": [
+        "diario",
+        "vitalicio"
+      ],
+      "description": "Tipo do plano"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data de expira\u00e7\u00e3o (null para vital\u00edcio)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "user_id",
+    "plan_type"
+  ]
+}

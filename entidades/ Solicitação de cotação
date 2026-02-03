@@ -1,0 +1,132 @@
+{
+  "name": "QuoteRequest",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "client_phone": {
+      "type": "string",
+      "description": "Telefone do cliente"
+    },
+    "category": {
+      "type": "string",
+      "description": "Categoria do servi\u00e7o"
+    },
+    "profession": {
+      "type": "string",
+      "description": "Profiss\u00e3o espec\u00edfica solicitada"
+    },
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo do pedido"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do servi\u00e7o"
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Fotos enviadas pelo cliente"
+    },
+    "city": {
+      "type": "string",
+      "description": "Cidade do servi\u00e7o"
+    },
+    "state": {
+      "type": "string",
+      "description": "Estado"
+    },
+    "address": {
+      "type": "string",
+      "description": "Endere\u00e7o completo"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Coordenadas"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "budget_range": {
+      "type": "string",
+      "enum": [
+        "ate_500",
+        "500_1000",
+        "1000_3000",
+        "3000_5000",
+        "acima_5000",
+        "a_negociar"
+      ],
+      "description": "Faixa de or\u00e7amento"
+    },
+    "urgency": {
+      "type": "string",
+      "enum": [
+        "urgente",
+        "esta_semana",
+        "este_mes",
+        "flexivel"
+      ],
+      "default": "flexivel",
+      "description": "Urg\u00eancia do servi\u00e7o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "in_progress",
+        "quotes_received",
+        "hired",
+        "cancelled",
+        "completed"
+      ],
+      "default": "open",
+      "description": "Status do pedido"
+    },
+    "auto_match": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se deve enviar automaticamente para profissionais"
+    },
+    "matched_professionals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs dos profissionais que receberam o pedido"
+    },
+    "responses_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Quantidade de respostas recebidas"
+    },
+    "views_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Visualiza\u00e7\u00f5es do pedido"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de expira\u00e7\u00e3o do pedido (30 dias)"
+    }
+  },
+  "required": [
+    "client_id",
+    "client_name",
+    "category",
+    "title",
+    "description",
+    "city",
+    "state"
+  ]
+}

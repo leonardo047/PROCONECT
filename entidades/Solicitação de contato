@@ -1,0 +1,38 @@
+{
+  "name": "ContactRequest",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "professional_id": {
+      "type": "string",
+      "description": "ID do profissional"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_payment",
+        "paid",
+        "free",
+        "declined"
+      ],
+      "default": "pending_payment",
+      "description": "Status do contato"
+    },
+    "payment_amount": {
+      "type": "number",
+      "description": "Valor pago pelo contato"
+    },
+    "contact_revealed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o contato foi revelado"
+    }
+  },
+  "required": [
+    "client_id",
+    "professional_id"
+  ]
+}

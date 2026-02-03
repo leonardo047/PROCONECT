@@ -1,0 +1,87 @@
+{
+  "name": "QuoteResponse",
+  "type": "object",
+  "properties": {
+    "quote_request_id": {
+      "type": "string",
+      "description": "ID do pedido de or\u00e7amento"
+    },
+    "professional_id": {
+      "type": "string",
+      "description": "ID do profissional"
+    },
+    "professional_name": {
+      "type": "string",
+      "description": "Nome do profissional"
+    },
+    "estimated_price": {
+      "type": "number",
+      "description": "Pre\u00e7o estimado em reais"
+    },
+    "estimated_time": {
+      "type": "string",
+      "description": "Tempo estimado (ex: 2-3 dias)"
+    },
+    "message": {
+      "type": "string",
+      "description": "Mensagem do profissional"
+    },
+    "includes_materials": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o pre\u00e7o inclui materiais"
+    },
+    "warranty": {
+      "type": "string",
+      "description": "Garantia oferecida"
+    },
+    "payment_methods": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Formas de pagamento aceitas"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "declined",
+        "hired"
+      ],
+      "default": "pending",
+      "description": "Status da resposta"
+    },
+    "is_paid_response": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se foi uma resposta paga"
+    },
+    "payment_amount": {
+      "type": "number",
+      "description": "Valor pago pela resposta (se aplic\u00e1vel)"
+    },
+    "response_time_minutes": {
+      "type": "number",
+      "description": "Tempo de resposta em minutos"
+    },
+    "viewed_by_client": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o cliente visualizou"
+    },
+    "viewed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Quando foi visualizado"
+    }
+  },
+  "required": [
+    "quote_request_id",
+    "professional_id",
+    "professional_name",
+    "estimated_price",
+    "message"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "Availability",
+  "type": "object",
+  "properties": {
+    "professional_id": {
+      "type": "string",
+      "description": "ID do profissional"
+    },
+    "day_of_week": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 6,
+      "description": "Dia da semana (0=Domingo, 6=S\u00e1bado)"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Hora de in\u00edcio (HH:mm)"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "Hora de t\u00e9rmino (HH:mm)"
+    },
+    "is_available": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se est\u00e1 dispon\u00edvel"
+    }
+  },
+  "required": [
+    "professional_id",
+    "day_of_week",
+    "start_time",
+    "end_time"
+  ]
+}

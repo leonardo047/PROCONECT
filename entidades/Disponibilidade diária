@@ -1,0 +1,42 @@
+{
+  "name": "DailyAvailability",
+  "type": "object",
+  "properties": {
+    "professional_id": {
+      "type": "string",
+      "description": "ID do profissional"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data espec\u00edfica"
+    },
+    "is_available": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se est\u00e1 dispon\u00edvel neste dia"
+    },
+    "total_slots": {
+      "type": "number",
+      "default": 5,
+      "description": "Total de vagas para este dia"
+    },
+    "booked_slots": {
+      "type": "number",
+      "default": 0,
+      "description": "Vagas j\u00e1 reservadas"
+    },
+    "blocked_reason": {
+      "type": "string",
+      "description": "Motivo do bloqueio (feriado, f\u00e9rias, etc)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es do dia"
+    }
+  },
+  "required": [
+    "professional_id",
+    "date"
+  ]
+}

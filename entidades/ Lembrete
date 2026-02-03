@@ -1,0 +1,45 @@
+{
+  "name": "Reminder",
+  "type": "object",
+  "properties": {
+    "appointment_id": {
+      "type": "string",
+      "description": "ID do agendamento"
+    },
+    "recipient_id": {
+      "type": "string",
+      "description": "ID do destinat\u00e1rio (cliente)"
+    },
+    "reminder_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data do lembrete (1 dia antes)"
+    },
+    "service_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data do servi\u00e7o"
+    },
+    "message": {
+      "type": "string",
+      "description": "Mensagem do lembrete"
+    },
+    "sent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o lembrete foi enviado"
+    },
+    "professional_name": {
+      "type": "string",
+      "description": "Nome do profissional"
+    }
+  },
+  "required": [
+    "appointment_id",
+    "recipient_id",
+    "reminder_date",
+    "service_date",
+    "message",
+    "professional_name"
+  ]
+}

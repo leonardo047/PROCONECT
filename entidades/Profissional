@@ -1,0 +1,233 @@
+{
+  "name": "Professional",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio associado"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Identificador \u00fanico para URL p\u00fablica (ex: joao-pedreiro)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nome ou nome da empresa"
+    },
+    "profession": {
+      "type": "string",
+      "description": "Profiss\u00e3o principal"
+    },
+    "niche": {
+      "type": "string",
+      "description": "Nicho de atua\u00e7\u00e3o espec\u00edfico"
+    },
+    "city": {
+      "type": "string",
+      "description": "Cidade de atua\u00e7\u00e3o"
+    },
+    "state": {
+      "type": "string",
+      "description": "Estado"
+    },
+    "service_radius_km": {
+      "type": "number",
+      "default": 30,
+      "description": "Raio de atendimento em km"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Latitude da localiza\u00e7\u00e3o"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Longitude da localiza\u00e7\u00e3o"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o curta do servi\u00e7o"
+    },
+    "whatsapp": {
+      "type": "string",
+      "description": "N\u00famero do WhatsApp"
+    },
+    "instagram": {
+      "type": "string",
+      "description": "Instagram (opcional)"
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "URLs das fotos de trabalhos"
+    },
+    "video_url": {
+      "type": "string",
+      "description": "URL do v\u00eddeo (opcional)"
+    },
+    "cnpj": {
+      "type": "string",
+      "description": "CNPJ da empresa"
+    },
+    "cpf": {
+      "type": "string",
+      "description": "CPF"
+    },
+    "google_maps_link": {
+      "type": "string",
+      "description": "Link do Google Maps"
+    },
+    "business_hours": {
+      "type": "string",
+      "description": "Hor\u00e1rio de funcionamento"
+    },
+    "plan_type": {
+      "type": "string",
+      "enum": [
+        "free",
+        "pay_per_quote",
+        "starter",
+        "professional",
+        "business"
+      ],
+      "default": "free",
+      "description": "Tipo do plano"
+    },
+    "plan_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se o perfil est\u00e1 ativo"
+    },
+    "plan_expires_at": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de expira\u00e7\u00e3o do plano"
+    },
+    "free_quotes_used": {
+      "type": "number",
+      "default": 0,
+      "description": "Or\u00e7amentos respondidos gratuitamente (m\u00e1x 3)"
+    },
+    "free_quotes_reset_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de reset do contador mensal"
+    },
+    "total_quotes_responded": {
+      "type": "number",
+      "default": 0,
+      "description": "Total de or\u00e7amentos respondidos"
+    },
+    "is_approved": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se foi aprovado pelo admin"
+    },
+    "is_blocked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se est\u00e1 bloqueado"
+    },
+    "profile_complete": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se o perfil est\u00e1 completo"
+    },
+    "rating": {
+      "type": "number",
+      "description": "Avalia\u00e7\u00e3o m\u00e9dia (0-5)"
+    },
+    "total_jobs": {
+      "type": "number",
+      "default": 0,
+      "description": "Total de trabalhos realizados"
+    },
+    "level": {
+      "type": "number",
+      "default": 1,
+      "description": "N\u00edvel do profissional"
+    },
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Badges conquistadas"
+    },
+    "availability_status": {
+      "type": "string",
+      "enum": [
+        "available_today",
+        "available_from_date",
+        "fully_booked",
+        "unavailable"
+      ],
+      "default": "available_today",
+      "description": "Status de disponibilidade"
+    },
+    "available_from_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data dispon\u00edvel"
+    },
+    "daily_slots": {
+      "type": "number",
+      "default": 5,
+      "description": "Vagas por dia"
+    },
+    "average_service_time": {
+      "type": "number",
+      "default": 60,
+      "description": "Tempo m\u00e9dio em minutos"
+    },
+    "slots_booked_today": {
+      "type": "number",
+      "default": 0,
+      "description": "Vagas reservadas hoje"
+    },
+    "next_available_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Pr\u00f3xima data dispon\u00edvel"
+    },
+    "ranking_score": {
+      "type": "number",
+      "default": 0,
+      "description": "Score de ranking (0-100)"
+    },
+    "average_response_time_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Tempo m\u00e9dio de resposta"
+    },
+    "response_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "Taxa de resposta (0-100%)"
+    },
+    "last_active_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "\u00daltima atividade"
+    },
+    "profile_completeness": {
+      "type": "number",
+      "default": 0,
+      "description": "Completude do perfil (0-100%)"
+    },
+    "featured": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se est\u00e1 em destaque"
+    }
+  },
+  "required": [
+    "user_id",
+    "name",
+    "profession",
+    "city",
+    "state",
+    "whatsapp"
+  ]
+}

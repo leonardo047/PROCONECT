@@ -1,0 +1,43 @@
+{
+  "name": "PlanConfig",
+  "type": "object",
+  "properties": {
+    "plan_key": {
+      "type": "string",
+      "enum": [
+        "cliente_diario",
+        "profissional_per_contact",
+        "profissional_starter_3months",
+        "profissional_monthly",
+        "empresa_mensal",
+        "empresa_semestral",
+        "empresa_anual"
+      ],
+      "description": "Identificador do plano"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nome do plano"
+    },
+    "price": {
+      "type": "number",
+      "description": "Pre\u00e7o em reais"
+    },
+    "description": {
+      "type": "string"
+    },
+    "marketing_percentage": {
+      "type": "number",
+      "description": "Porcentagem destinada a marketing"
+    },
+    "marketing_details": {
+      "type": "string",
+      "description": "Detalhes do investimento em marketing"
+    }
+  },
+  "required": [
+    "plan_key",
+    "name",
+    "price"
+  ]
+}

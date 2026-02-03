@@ -1,0 +1,75 @@
+{
+  "name": "Appointment",
+  "type": "object",
+  "properties": {
+    "professional_id": {
+      "type": "string",
+      "description": "ID do profissional"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "ID do cliente"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "client_phone": {
+      "type": "string",
+      "description": "Telefone do cliente"
+    },
+    "service_type": {
+      "type": "string",
+      "description": "Tipo de servi\u00e7o solicitado"
+    },
+    "description": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do servi\u00e7o"
+    },
+    "preferred_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data preferida para o servi\u00e7o"
+    },
+    "preferred_time": {
+      "type": "string",
+      "description": "Hor\u00e1rio preferido (manh\u00e3, tarde, noite)"
+    },
+    "address": {
+      "type": "string",
+      "description": "Endere\u00e7o onde ser\u00e1 realizado o servi\u00e7o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "declined",
+        "completed",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "Status do agendamento"
+    },
+    "professional_notes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es do profissional"
+    },
+    "estimated_price": {
+      "type": "number",
+      "description": "Pre\u00e7o estimado pelo profissional"
+    },
+    "confirmed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data e hora confirmadas"
+    }
+  },
+  "required": [
+    "professional_id",
+    "client_id",
+    "client_name",
+    "service_type",
+    "preferred_date"
+  ]
+}

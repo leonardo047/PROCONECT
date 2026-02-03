@@ -1,0 +1,46 @@
+{
+  "name": "Message",
+  "type": "object",
+  "properties": {
+    "appointment_id": {
+      "type": "string",
+      "description": "ID do agendamento relacionado"
+    },
+    "sender_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio que enviou"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Nome do remetente"
+    },
+    "sender_type": {
+      "type": "string",
+      "enum": [
+        "professional",
+        "client"
+      ],
+      "description": "Tipo do remetente"
+    },
+    "message": {
+      "type": "string",
+      "description": "Conte\u00fado da mensagem"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se a mensagem foi lida"
+    },
+    "attachment_url": {
+      "type": "string",
+      "description": "URL de anexo (foto, documento)"
+    }
+  },
+  "required": [
+    "appointment_id",
+    "sender_id",
+    "sender_name",
+    "sender_type",
+    "message"
+  ]
+}

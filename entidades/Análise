@@ -1,0 +1,54 @@
+{
+  "name": "Review",
+  "type": "object",
+  "properties": {
+    "professional_id": {
+      "type": "string",
+      "description": "ID do profissional avaliado"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "ID do cliente que avaliou"
+    },
+    "client_name": {
+      "type": "string",
+      "description": "Nome do cliente"
+    },
+    "rating": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Nota de 1 a 5 estrelas"
+    },
+    "comment": {
+      "type": "string",
+      "description": "Coment\u00e1rio do cliente"
+    },
+    "response": {
+      "type": "string",
+      "description": "Resposta do profissional"
+    },
+    "response_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Data da resposta"
+    },
+    "is_featured": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se \u00e9 um depoimento em destaque"
+    },
+    "is_approved": {
+      "type": "boolean",
+      "default": true,
+      "description": "Se foi aprovado (modera\u00e7\u00e3o)"
+    }
+  },
+  "required": [
+    "professional_id",
+    "client_id",
+    "client_name",
+    "rating",
+    "comment"
+  ]
+}
