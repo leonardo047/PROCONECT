@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from './supabase';
 import { User, ProfessionalService } from './entities';
 
@@ -12,41 +12,92 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  useEffect(() => {
-    // Check initial session
-    checkSession();
+  const isLoadingRef = useRef(false);
+  const mountedRef = useRef(true);
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          await loadUserData(session.user);
-        } else if (event === 'SIGNED_OUT') {
-          clearUserData();
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          await loadUserData(session.user);
-        }
-      }
-    );
-
-    return () => {
-      subscription?.unsubscribe();
-    };
+  const clearUserData = useCallback(() => {
+    setUser(null);
+    setProfile(null);
+    setProfessional(null);
+    setIsAuthenticated(false);
   }, []);
 
-  const checkSession = async () => {
+  // Carregar dados do professional em background (não bloqueia)
+  const loadProfessionalInBackground = useCallback(async (userId) => {
     try {
-      setIsLoadingAuth(true);
-      setAuthError(null);
+      const professionalData = await ProfessionalService.findByUserId(userId);
+      if (mountedRef.current) {
+        setProfessional(professionalData);
+      }
+    } catch (error) {
+      // Silencioso - professional profile é opcional
+    }
+  }, []);
 
+  const loadUserData = useCallback(async (authUser) => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+
+    try {
+      // Criar usuário básico imediatamente com dados do auth
+      const basicUser = {
+        id: authUser.id,
+        user_id: authUser.id,
+        email: authUser.email,
+        full_name: authUser.user_metadata?.full_name || '',
+        user_type: 'cliente',
+        role: 'user'
+      };
+
+      // Liberar o loading rapidamente com dados básicos
+      setUser(basicUser);
+      setIsAuthenticated(true);
+      setIsLoadingAuth(false);
+
+      // Carregar profile do banco em background
+      try {
+        const userProfile = await User.get(authUser.id);
+        if (mountedRef.current && userProfile) {
+          const combinedUser = {
+            ...basicUser,
+            ...userProfile,
+            user_type: userProfile.user_type || 'cliente',
+            role: userProfile.role || 'user'
+          };
+          setUser(combinedUser);
+          setProfile(userProfile);
+
+          // Se for profissional, carregar dados do professional em background
+          if (userProfile.user_type === 'profissional') {
+            loadProfessionalInBackground(authUser.id);
+          }
+        }
+      } catch (error) {
+        // Profile não existe ainda - ok para novos usuários
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      if (mountedRef.current) {
+        setAuthError({ type: 'load_error', message: 'Failed to load user data' });
+        setIsLoadingAuth(false);
+      }
+    } finally {
+      isLoadingRef.current = false;
+    }
+  }, [loadProfessionalInBackground]);
+
+  const checkSession = useCallback(async () => {
+    if (isLoadingRef.current) return;
+
+    try {
+      setAuthError(null);
       const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (!mountedRef.current) return;
 
       if (error) {
         console.error('Session error:', error);
-        setAuthError({
-          type: 'session_error',
-          message: error.message
-        });
+        setAuthError({ type: 'session_error', message: error.message });
         setIsLoadingAuth(false);
         return;
       }
@@ -58,249 +109,170 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error checking session:', error);
-      setAuthError({
-        type: 'unknown',
-        message: error.message || 'An unexpected error occurred'
-      });
-      setIsLoadingAuth(false);
-    }
-  };
-
-  const loadUserData = async (authUser) => {
-    try {
-      setIsLoadingAuth(true);
-
-      // Load user profile
-      let userProfile = null;
-      try {
-        userProfile = await User.get(authUser.id);
-      } catch (error) {
-        // Profile might not exist yet for new users
-        console.log('Profile not found, will be created on first update');
+      if (mountedRef.current) {
+        setAuthError({ type: 'unknown', message: error.message || 'An unexpected error occurred' });
+        setIsLoadingAuth(false);
       }
+    }
+  }, [loadUserData]);
 
-      // If professional, load professional data
-      let professionalData = null;
-      if (userProfile?.user_type === 'profissional') {
-        try {
-          professionalData = await ProfessionalService.findByUserId(authUser.id);
-        } catch (error) {
-          console.log('Professional profile not found');
+  useEffect(() => {
+    mountedRef.current = true;
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mountedRef.current) return;
+        if (event === 'INITIAL_SESSION') return;
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          await loadUserData(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          clearUserData();
+          setIsLoadingAuth(false);
+        } else if (event === 'TOKEN_REFRESHED' && session?.user && isAuthenticated) {
+          await loadUserData(session.user);
         }
       }
+    );
 
-      // Create a combined user object for backward compatibility
-      const combinedUser = {
-        id: authUser.id,
-        user_id: authUser.id,
-        email: authUser.email,
-        ...userProfile,
-        user_type: userProfile?.user_type || 'cliente',
-        role: userProfile?.role || 'user'
-      };
+    // Timeout reduzido para 5 segundos
+    const timeout = setTimeout(() => {
+      if (mountedRef.current && isLoadingAuth) {
+        console.warn('Auth loading timeout - forcing stop');
+        setIsLoadingAuth(false);
+      }
+    }, 5000);
 
-      setUser(combinedUser);
-      setProfile(userProfile);
-      setProfessional(professionalData);
-      setIsAuthenticated(true);
-      setIsLoadingAuth(false);
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      setAuthError({
-        type: 'load_error',
-        message: 'Failed to load user data'
-      });
-      setIsLoadingAuth(false);
-    }
-  };
+    return () => {
+      mountedRef.current = false;
+      subscription?.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, []);
 
-  const clearUserData = () => {
-    setUser(null);
-    setProfile(null);
-    setProfessional(null);
-    setIsAuthenticated(false);
-  };
-
-  // Sign in with email and password
-  const signIn = async (email, password) => {
+  const signIn = useCallback(async (email, password) => {
     try {
       setAuthError(null);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
+      setIsLoadingAuth(true);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       return data;
     } catch (error) {
-      setAuthError({
-        type: 'sign_in_error',
-        message: error.message
-      });
+      setAuthError({ type: 'sign_in_error', message: error.message });
+      setIsLoadingAuth(false);
       throw error;
     }
-  };
+  }, []);
 
-  // Sign up with email and password
-  const signUp = async (email, password, metadata = {}) => {
+  const signUp = useCallback(async (email, password, metadata = {}) => {
     try {
       setAuthError(null);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: metadata
-        }
+        options: { data: metadata }
       });
-
       if (error) throw error;
       return data;
     } catch (error) {
-      setAuthError({
-        type: 'sign_up_error',
-        message: error.message
-      });
+      setAuthError({ type: 'sign_up_error', message: error.message });
       throw error;
     }
-  };
+  }, []);
 
-  // Sign in with OAuth provider (Google, Facebook, etc.)
-  const signInWithProvider = async (provider) => {
+  const signInWithProvider = useCallback(async (provider) => {
     try {
       setAuthError(null);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: {
-          redirectTo: window.location.origin
-        }
+        options: { redirectTo: window.location.origin }
       });
-
       if (error) throw error;
       return data;
     } catch (error) {
-      setAuthError({
-        type: 'oauth_error',
-        message: error.message
-      });
+      setAuthError({ type: 'oauth_error', message: error.message });
       throw error;
     }
-  };
+  }, []);
 
-  // Sign out
-  const logout = async (shouldRedirect = true) => {
+  const logout = useCallback(async (shouldRedirect = true) => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
+      await supabase.auth.signOut();
       clearUserData();
-
-      if (shouldRedirect) {
-        window.location.href = '/';
-      }
+      if (shouldRedirect) window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
-      // Clear local state even if remote signout fails
       clearUserData();
-      if (shouldRedirect) {
-        window.location.href = '/';
-      }
+      if (shouldRedirect) window.location.href = '/';
     }
-  };
+  }, [clearUserData]);
 
-  // Navigate to login page
-  const navigateToLogin = () => {
+  const navigateToLogin = useCallback(() => {
     window.location.href = '/login';
-  };
+  }, []);
 
-  // Redirect to login with return URL
-  const redirectToLogin = (returnUrl = window.location.href) => {
-    const encodedUrl = encodeURIComponent(returnUrl);
-    window.location.href = `/login?returnUrl=${encodedUrl}`;
-  };
+  const redirectToLogin = useCallback((returnUrl = window.location.href) => {
+    window.location.href = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+  }, []);
 
-  // Update user profile
-  const updateProfile = async (updates) => {
+  const updateProfile = useCallback(async (updates) => {
     if (!user?.id) throw new Error('No user logged in');
-
     const updatedProfile = await User.update(user.id, updates);
     setProfile(updatedProfile);
-
-    // Update combined user object
-    setUser(prev => ({
-      ...prev,
-      ...updatedProfile
-    }));
-
+    setUser(prev => ({ ...prev, ...updatedProfile }));
     return updatedProfile;
-  };
+  }, [user?.id]);
 
-  // Update Supabase auth user metadata
-  const updateAuthUser = async (metadata) => {
-    const { data, error } = await supabase.auth.updateUser({
-      data: metadata
-    });
-
+  const updateAuthUser = useCallback(async (metadata) => {
+    const { data, error } = await supabase.auth.updateUser({ data: metadata });
     if (error) throw error;
     return data;
-  };
+  }, []);
 
-  // Reset password
-  const resetPassword = async (email) => {
+  const resetPassword = useCallback(async (email) => {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`
     });
-
     if (error) throw error;
     return data;
-  };
+  }, []);
 
-  // Update password
-  const updatePassword = async (newPassword) => {
-    const { data, error } = await supabase.auth.updateUser({
-      password: newPassword
-    });
-
+  const updatePassword = useCallback(async (newPassword) => {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
     return data;
-  };
+  }, []);
 
-  // Check if user is authenticated (synchronous check)
-  const isAuthenticatedSync = () => {
-    return isAuthenticated && user !== null;
-  };
+  const isAuthenticatedSync = useCallback(() => isAuthenticated && user !== null, [isAuthenticated, user]);
 
-  // Get current user (for backward compatibility with base44.auth.me())
-  const me = async () => {
+  const me = useCallback(async () => {
     if (user) return user;
-
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       await loadUserData(session.user);
       return user;
     }
     return null;
-  };
+  }, [user, loadUserData]);
 
-  // Refresh user data
-  const refreshUserData = async () => {
+  const refreshUserData = useCallback(async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
+      isLoadingRef.current = false;
       await loadUserData(authUser);
     }
-  };
+  }, [loadUserData]);
 
-  const value = {
-    // State
+  const value = useMemo(() => ({
     user,
     profile,
     professional,
     isAuthenticated,
     isLoadingAuth,
-    isLoadingPublicSettings: false, // For backward compatibility
+    isLoadingPublicSettings: false,
     authError,
-    appPublicSettings: null, // For backward compatibility
-
-    // Auth methods
+    appPublicSettings: null,
     signIn,
     signUp,
     signInWithProvider,
@@ -309,17 +281,18 @@ export const AuthProvider = ({ children }) => {
     redirectToLogin,
     resetPassword,
     updatePassword,
-
-    // Profile methods
     updateProfile,
     updateAuthUser,
     refreshUserData,
-
-    // Backward compatibility methods
     me,
     isAuthenticatedSync,
     checkAppState: checkSession
-  };
+  }), [
+    user, profile, professional, isAuthenticated, isLoadingAuth, authError,
+    signIn, signUp, signInWithProvider, logout, navigateToLogin, redirectToLogin,
+    resetPassword, updatePassword, updateProfile, updateAuthUser, refreshUserData,
+    me, isAuthenticatedSync, checkSession
+  ]);
 
   return (
     <AuthContext.Provider value={value}>

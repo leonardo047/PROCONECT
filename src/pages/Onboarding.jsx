@@ -242,10 +242,17 @@ export default function Onboarding() {
     setSaving(true);
 
     try {
-      await updateProfile({
-        ...formData,
+      // Apenas enviar campos que existem na tabela profiles
+      // Campos profissionais serão salvos na tabela professionals
+      const profileData = {
+        user_type: formData.user_type,
+        phone: formData.phone,
+        city: formData.city,
+        state: formData.state,
         onboarding_complete: true
-      });
+      };
+
+      await updateProfile(profileData);
 
       if (formData.user_type === 'profissional') {
         // Generate unique referral code
@@ -264,6 +271,21 @@ export default function Onboarding() {
         }
 
         // Create professional profile with referral code
+        // Construir descrição com informações adicionais
+        let description = '';
+        if (formData.specializations.length > 0) {
+          description = `Especializado em: ${formData.specializations.join(', ')}`;
+        }
+        if (formData.years_experience) {
+          description += description ? ` | ${formData.years_experience} anos de experiência` : `${formData.years_experience} anos de experiência`;
+        }
+        if (formData.address) {
+          description += description ? ` | Endereço: ${formData.address}` : `Endereço: ${formData.address}`;
+        }
+        if (formData.business_hours) {
+          description += description ? ` | Horário: ${formData.business_hours}` : `Horário: ${formData.business_hours}`;
+        }
+
         const newProfessional = await Professional.create({
           user_id: user.id,
           name: user.full_name,
@@ -271,9 +293,7 @@ export default function Onboarding() {
           city: formData.city,
           state: formData.state,
           whatsapp: formData.phone,
-          description: formData.specializations.length > 0
-            ? `Especializado em: ${formData.specializations.join(', ')}`
-            : '',
+          description: description,
           photos: [],
           plan_type: 'free',
           plan_active: true,

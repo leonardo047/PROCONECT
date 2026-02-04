@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { QuoteRequest, QuoteResponse } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
@@ -6,24 +6,29 @@ import { Button } from "@/componentes/interface do usuário/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import { Badge } from "@/componentes/interface do usuário/badge";
-import { Plus, Search, MessageSquare, CheckCircle, Loader2 } from "lucide-react";
+import { Plus, Search, MessageSquare, CheckCircle, Loader2, ChevronDown } from "lucide-react";
 import QuoteRequestForm from "@/componentes/profissional/QuoteRequestForm";
 import QuoteCard from "@/componentes/citações/QuoteCard";
 import { Dialog, DialogContent } from "@/componentes/interface do usuário/dialog";
+
+const ITEMS_PER_PAGE = 9;
 
 export default function ClientQuotes() {
   const { user, isLoadingAuth } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState(null);
+  const [visibleOpen, setVisibleOpen] = useState(ITEMS_PER_PAGE);
+  const [visibleClosed, setVisibleClosed] = useState(ITEMS_PER_PAGE);
 
-  const { data: myQuotes = [] } = useQuery({
+  const { data: myQuotes = [], isLoading } = useQuery({
     queryKey: ['client-quotes', user?.id],
     queryFn: () => QuoteRequest.filter({
       filters: { client_id: user.id },
       orderBy: { field: 'created_date', direction: 'desc' },
       limit: 100
     }),
-    enabled: !!user
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: responses = [] } = useQuery({
@@ -36,7 +41,20 @@ export default function ClientQuotes() {
     enabled: !!selectedQuote
   });
 
-  if (isLoadingAuth) {
+  const openQuotes = useMemo(() =>
+    myQuotes.filter(q => q.status === 'open' || q.status === 'quotes_received'),
+    [myQuotes]
+  );
+
+  const closedQuotes = useMemo(() =>
+    myQuotes.filter(q => ['hired', 'completed', 'cancelled'].includes(q.status)),
+    [myQuotes]
+  );
+
+  const visibleOpenQuotes = openQuotes.slice(0, visibleOpen);
+  const visibleClosedQuotes = closedQuotes.slice(0, visibleClosed);
+
+  if (isLoadingAuth || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
@@ -44,16 +62,13 @@ export default function ClientQuotes() {
     );
   }
 
-  const openQuotes = myQuotes.filter(q => q.status === 'open' || q.status === 'quotes_received');
-  const closedQuotes = myQuotes.filter(q => ['hired', 'completed', 'cancelled'].includes(q.status));
-
   return (
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Meus Pedidos de Orcamento</h1>
-            <p className="text-slate-600">Gerencie suas solicitacoes e orcamentos recebidos</p>
+            <h1 className="text-3xl font-bold text-slate-900">Meus Pedidos de Orçamento</h1>
+            <p className="text-slate-600">Gerencie suas solicitações e orçamentos recebidos</p>
           </div>
           <Button
             onClick={() => setShowForm(true)}
@@ -76,7 +91,7 @@ export default function ClientQuotes() {
 
           <TabsContent value="open">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {openQuotes.map((quote) => (
+              {visibleOpenQuotes.map((quote) => (
                 <QuoteCard
                   key={quote.id}
                   quote={quote}
@@ -85,12 +100,25 @@ export default function ClientQuotes() {
                 />
               ))}
             </div>
+
+            {visibleOpen < openQuotes.length && (
+              <div className="mt-6 text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setVisibleOpen(v => v + ITEMS_PER_PAGE)}
+                >
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Carregar Mais ({openQuotes.length - visibleOpen} restantes)
+                </Button>
+              </div>
+            )}
+
             {openQuotes.length === 0 && (
               <Card>
                 <CardContent className="p-12 text-center">
                   <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                   <h3 className="text-xl font-bold text-slate-900 mb-2">Nenhum pedido aberto</h3>
-                  <p className="text-slate-600 mb-4">Crie seu primeiro pedido de orcamento</p>
+                  <p className="text-slate-600 mb-4">Crie seu primeiro pedido de orçamento</p>
                   <Button onClick={() => setShowForm(true)}>
                     Criar Pedido
                   </Button>
@@ -101,7 +129,7 @@ export default function ClientQuotes() {
 
           <TabsContent value="closed">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {closedQuotes.map((quote) => (
+              {visibleClosedQuotes.map((quote) => (
                 <QuoteCard
                   key={quote.id}
                   quote={quote}
@@ -110,6 +138,18 @@ export default function ClientQuotes() {
                 />
               ))}
             </div>
+
+            {visibleClosed < closedQuotes.length && (
+              <div className="mt-6 text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setVisibleClosed(v => v + ITEMS_PER_PAGE)}
+                >
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Carregar Mais ({closedQuotes.length - visibleClosed} restantes)
+                </Button>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
@@ -130,12 +170,12 @@ export default function ClientQuotes() {
                   <p className="text-sm text-slate-600 mt-2">{selectedQuote?.description}</p>
                 </div>
                 <Badge>
-                  {selectedQuote?.responses_count || 0} orcamentos
+                  {selectedQuote?.responses_count || 0} orçamentos
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
-              <h3 className="font-bold text-lg mb-4">Orcamentos Recebidos</h3>
+              <h3 className="font-bold text-lg mb-4">Orçamentos Recebidos</h3>
               <div className="space-y-4">
                 {responses.map((response) => (
                   <Card key={response.id}>
@@ -175,7 +215,7 @@ export default function ClientQuotes() {
                 ))}
                 {responses.length === 0 && (
                   <div className="text-center py-8 text-slate-500">
-                    Aguardando orcamentos...
+                    Aguardando orçamentos...
                   </div>
                 )}
               </div>

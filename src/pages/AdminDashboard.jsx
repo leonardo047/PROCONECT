@@ -18,7 +18,8 @@ import {
   DollarSign, Eye, EyeOff, Plus, Edit, Trash,
   GripVertical, Save, CheckCircle, XCircle, Loader2,
   BarChart3, Award, Target, Zap, AlertCircle,
-  History, Send, Copy, ArrowUp, ArrowDown, Home, Package
+  History, Send, Copy, ArrowUp, ArrowDown, Home, Package,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -26,6 +27,8 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
   const [editingCategory, setEditingCategory] = useState(null);
   const [editingText, setEditingText] = useState(null);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -269,6 +272,18 @@ export default function AdminDashboard() {
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.city?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Paginação
+  const totalPages = Math.ceil(filteredProfessionals.length / ITEMS_PER_PAGE);
+  const paginatedProfessionals = filteredProfessionals.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset página quando busca muda
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   return (
     <div className="min-h-screen bg-slate-50 py-8">
@@ -767,66 +782,123 @@ export default function AdminDashboard() {
                     <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
                   </div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Cidade</TableHead>
-                        <TableHead>Plano</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Acoes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredProfessionals.map((prof) => (
-                        <TableRow key={prof.id}>
-                          <TableCell className="font-medium">{prof.name}</TableCell>
-                          <TableCell>{prof.city}, {prof.state}</TableCell>
-                          <TableCell>
-                            <Badge className={prof.plan_type !== 'free' ? 'bg-orange-500' : 'bg-slate-400'}>
-                              {prof.plan_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              {prof.is_approved ? (
-                                <Badge className="bg-green-500">Aprovado</Badge>
-                              ) : (
-                                <Badge className="bg-yellow-500">Pendente</Badge>
-                              )}
-                              {prof.is_blocked && <Badge variant="destructive">Bloqueado</Badge>}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              {!prof.is_approved && (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm text-slate-600">
+                        Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredProfessionals.length)} de {filteredProfessionals.length}
+                      </p>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Cidade</TableHead>
+                          <TableHead>Plano</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Acoes</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedProfessionals.map((prof) => (
+                          <TableRow key={prof.id}>
+                            <TableCell className="font-medium">{prof.name}</TableCell>
+                            <TableCell>{prof.city}, {prof.state}</TableCell>
+                            <TableCell>
+                              <Badge className={prof.plan_type !== 'free' ? 'bg-orange-500' : 'bg-slate-400'}>
+                                {prof.plan_type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {prof.is_approved ? (
+                                  <Badge className="bg-green-500">Aprovado</Badge>
+                                ) : (
+                                  <Badge className="bg-yellow-500">Pendente</Badge>
+                                )}
+                                {prof.is_blocked && <Badge variant="destructive">Bloqueado</Badge>}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                {!prof.is_approved && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => updateProfessionalMutation.mutate({
+                                      id: prof.id,
+                                      data: { is_approved: true }
+                                    })}
+                                    className="bg-green-500 hover:bg-green-600"
+                                  >
+                                    Aprovar
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
+                                  variant="outline"
                                   onClick={() => updateProfessionalMutation.mutate({
                                     id: prof.id,
-                                    data: { is_approved: true }
+                                    data: { is_blocked: !prof.is_blocked }
                                   })}
-                                  className="bg-green-500 hover:bg-green-600"
                                 >
-                                  Aprovar
+                                  {prof.is_blocked ? 'Desbloquear' : 'Bloquear'}
                                 </Button>
-                              )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+
+                    {/* Paginação */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-2 mt-6">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+
+                        <div className="flex gap-1">
+                          {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) {
+                              pageNum = i + 1;
+                            } else if (currentPage <= 3) {
+                              pageNum = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i;
+                            } else {
+                              pageNum = currentPage - 2 + i;
+                            }
+
+                            return (
                               <Button
+                                key={pageNum}
+                                variant={currentPage === pageNum ? "default" : "outline"}
                                 size="sm"
-                                variant="outline"
-                                onClick={() => updateProfessionalMutation.mutate({
-                                  id: prof.id,
-                                  data: { is_blocked: !prof.is_blocked }
-                                })}
+                                onClick={() => setCurrentPage(pageNum)}
+                                className={currentPage === pageNum ? "bg-orange-500 hover:bg-orange-600" : ""}
                               >
-                                {prof.is_blocked ? 'Desbloquear' : 'Bloquear'}
+                                {pageNum}
                               </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                            );
+                          })}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
