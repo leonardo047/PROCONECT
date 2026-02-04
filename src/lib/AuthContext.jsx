@@ -199,20 +199,34 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(async (shouldRedirect = true) => {
     // Limpar dados do usuário imediatamente
     clearUserData();
+    setIsLoadingAuth(false);
 
+    // Limpar TODOS os storages ANTES do signOut
     try {
-      // Fazer signOut com scope local para garantir limpeza da sessão
-      await supabase.auth.signOut({ scope: 'local' });
-    } catch (error) {
-      console.error('SignOut error:', error);
-    }
-
-    // Limpar qualquer storage residual do Supabase
-    try {
-      localStorage.removeItem('sb-lyuuxunevzpdfzliqdyb-auth-token');
+      const allKeys = Object.keys(localStorage);
+      allKeys.forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
+          localStorage.removeItem(key);
+        }
+      });
       sessionStorage.clear();
+
+      // Limpar cookies do Supabase
+      document.cookie.split(";").forEach(cookie => {
+        const name = cookie.split("=")[0].trim();
+        if (name.startsWith('sb-') || name.includes('supabase')) {
+          document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+        }
+      });
     } catch (e) {
       // Ignorar erros de storage
+    }
+
+    // Fazer signOut
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      // Ignorar erros de signOut
     }
 
     // Redirecionar

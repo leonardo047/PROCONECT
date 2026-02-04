@@ -24,23 +24,7 @@ export default function ClientQuotes() {
   const { data: myQuotes = [], isLoading } = useQuery({
     queryKey: ['client-quotes', user?.id],
     queryFn: async () => {
-      console.log('=== INICIO FETCH QUOTES ===');
-      console.log('User ID:', user?.id);
-
       try {
-        // Verificar sessão
-        console.log('Verificando sessão...');
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('Erro ao verificar sessão:', sessionError);
-        }
-
-        console.log('Session user ID:', sessionData?.session?.user?.id);
-        console.log('Session access token exists:', !!sessionData?.session?.access_token);
-
-        // Query direta no Supabase
-        console.log('Executando query...');
         const { data, error } = await supabase
           .from('quote_requests')
           .select('*')
@@ -48,18 +32,12 @@ export default function ClientQuotes() {
           .order('created_at', { ascending: false })
           .limit(100);
 
-        console.log('Query finalizada');
-
         if (error) {
-          console.error('Erro na query:', error.message, error.code, error.details);
           return [];
         }
 
-        console.log('Quotes carregados:', data?.length || 0, 'registros');
-        console.log('Dados:', data);
         return data || [];
       } catch (error) {
-        console.error('Erro geral:', error.message, error);
         return [];
       }
     },
