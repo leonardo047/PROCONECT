@@ -24,11 +24,13 @@ export default function ClientQuotes() {
     queryKey: ['client-quotes', user?.id],
     queryFn: async () => {
       try {
-        return await QuoteRequest.filter({
+        const result = await QuoteRequest.filter({
           filters: { client_id: user.id },
-          orderBy: { field: 'created_date', direction: 'desc' },
+          orderBy: { field: 'created_at', direction: 'desc' },
           limit: 100
         });
+        console.log('Quotes loaded:', result);
+        return result;
       } catch (error) {
         console.log('Quotes query error:', error);
         return [];
@@ -45,7 +47,7 @@ export default function ClientQuotes() {
       try {
         return await QuoteResponse.filter({
           filters: { quote_request_id: selectedQuote.id },
-          orderBy: { field: 'created_date', direction: 'desc' },
+          orderBy: { field: 'created_at', direction: 'desc' },
           limit: 50
         });
       } catch (error) {

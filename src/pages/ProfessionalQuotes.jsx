@@ -46,32 +46,44 @@ export default function ProfessionalQuotes() {
   const { data: availableQuotes = [], isLoading: loadingAvailable } = useQuery({
     queryKey: ['available-quotes', professional?.id],
     queryFn: async () => {
-      const quotes = await QuoteRequest.filter({
-        filters: {
-          profession: professional.profession,
-          city: professional.city,
-          status: 'open'
-        },
-        orderBy: { field: 'created_date', direction: 'desc' },
-        limit: 50
-      });
-      return quotes;
+      try {
+        const quotes = await QuoteRequest.filter({
+          filters: {
+            profession: professional.profession,
+            city: professional.city,
+            status: 'open'
+          },
+          orderBy: { field: 'created_at', direction: 'desc' },
+          limit: 50
+        });
+        return quotes;
+      } catch (error) {
+        console.log('Available quotes error:', error);
+        return [];
+      }
     },
     enabled: !!professional,
+    retry: false,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: myResponses = [], isLoading: loadingResponses } = useQuery({
     queryKey: ['my-responses', professional?.id],
     queryFn: async () => {
-      const responses = await QuoteResponse.filter({
-        filters: { professional_id: professional.id },
-        orderBy: { field: 'created_date', direction: 'desc' },
-        limit: 100
-      });
-      return responses;
+      try {
+        const responses = await QuoteResponse.filter({
+          filters: { professional_id: professional.id },
+          orderBy: { field: 'created_at', direction: 'desc' },
+          limit: 100
+        });
+        return responses;
+      } catch (error) {
+        console.log('My responses error:', error);
+        return [];
+      }
     },
     enabled: !!professional,
+    retry: false,
     staleTime: 5 * 60 * 1000,
   });
 
