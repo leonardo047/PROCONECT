@@ -63,6 +63,7 @@ import PublicProfile from './pages/PublicProfile';
 import RequestQuote from './pages/RequestQuote';
 import ClientQuotes from './pages/ClientQuotes';
 import ProfessionalQuotes from './pages/ProfessionalQuotes';
+import JobOpportunities from './pages/JobOpportunities';
 import __Layout from './Layout.jsx';
 
 
@@ -83,6 +84,7 @@ export const PAGES = {
     "RequestQuote": RequestQuote,
     "ClientQuotes": ClientQuotes,
     "ProfessionalQuotes": ProfessionalQuotes,
+    "JobOpportunities": JobOpportunities,
 }
 
 export const pagesConfig = {

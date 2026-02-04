@@ -1,6 +1,6 @@
 import React from 'react';
 import { Badge } from "@/componentes/interface do usuário/badge";
-import { Clock, CheckCircle, AlertCircle, XCircle, Calendar } from "lucide-react";
+import { Clock, CheckCircle, AlertCircle, XCircle, Calendar, FileText, Briefcase } from "lucide-react";
 
 export default function AvailabilityStatusBadge({ professional, showDetails = false }) {
   const getStatusConfig = () => {
@@ -27,17 +27,43 @@ export default function AvailabilityStatusBadge({ professional, showDetails = fa
         }
         return {
           icon: CheckCircle,
-          label: showDetails ? `${slotsLeft} vagas hoje` : 'Disponível Hoje',
+          label: showDetails ? `${slotsLeft} vagas hoje` : 'Disponivel Hoje',
           className: 'bg-green-500 text-white',
           color: 'green'
+        };
+
+      case 'quotes_only':
+        return {
+          icon: FileText,
+          label: 'Somente Orcamento',
+          className: 'bg-blue-500 text-white',
+          color: 'blue'
+        };
+
+      case 'busy':
+        return {
+          icon: Briefcase,
+          label: 'Ocupado',
+          className: 'bg-orange-500 text-white',
+          color: 'orange'
+        };
+
+      case 'returning_soon':
+        return {
+          icon: Calendar,
+          label: showDetails && professional?.available_from_date
+            ? `Retorno: ${new Date(professional.available_from_date).toLocaleDateString('pt-BR')}`
+            : 'Retorno em Breve',
+          className: 'bg-purple-500 text-white',
+          color: 'purple'
         };
 
       case 'available_from_date':
         return {
           icon: Calendar,
-          label: showDetails && professional?.available_from_date 
-            ? `Disponível a partir de ${new Date(professional.available_from_date).toLocaleDateString('pt-BR')}`
-            : 'Disponível em Breve',
+          label: showDetails && professional?.available_from_date
+            ? `Disponivel a partir de ${new Date(professional.available_from_date).toLocaleDateString('pt-BR')}`
+            : 'Disponivel em Breve',
           className: 'bg-blue-500 text-white',
           color: 'blue'
         };
@@ -46,7 +72,7 @@ export default function AvailabilityStatusBadge({ professional, showDetails = fa
         return {
           icon: AlertCircle,
           label: professional?.next_available_date
-            ? `Próxima vaga: ${new Date(professional.next_available_date).toLocaleDateString('pt-BR')}`
+            ? `Proxima vaga: ${new Date(professional.next_available_date).toLocaleDateString('pt-BR')}`
             : 'Agenda Cheia',
           className: 'bg-orange-500 text-white',
           color: 'orange'
@@ -55,7 +81,7 @@ export default function AvailabilityStatusBadge({ professional, showDetails = fa
       case 'unavailable':
         return {
           icon: XCircle,
-          label: 'Indisponível',
+          label: 'Indisponivel',
           className: 'bg-gray-500 text-white',
           color: 'gray'
         };
@@ -63,7 +89,7 @@ export default function AvailabilityStatusBadge({ professional, showDetails = fa
       default:
         return {
           icon: CheckCircle,
-          label: 'Disponível',
+          label: 'Disponivel',
           className: 'bg-green-500 text-white',
           color: 'green'
         };

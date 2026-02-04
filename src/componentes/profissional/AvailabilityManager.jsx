@@ -95,16 +95,22 @@ export default function AvailabilityManager({ professionalId, professional }) {
 
   const statusColors = {
     available_today: 'bg-green-500',
+    quotes_only: 'bg-blue-500',
+    busy: 'bg-orange-500',
+    returning_soon: 'bg-purple-500',
     available_from_date: 'bg-blue-500',
     fully_booked: 'bg-red-500',
     unavailable: 'bg-gray-500'
   };
 
   const statusLabels = {
-    available_today: 'Disponível Hoje',
-    available_from_date: 'Disponível a partir de...',
+    available_today: 'Disponivel Hoje',
+    quotes_only: 'Somente Orcamento',
+    busy: 'Ocupado',
+    returning_soon: 'Retorno em Breve',
+    available_from_date: 'Disponivel a partir de...',
     fully_booked: 'Agenda Cheia',
-    unavailable: 'Indisponível'
+    unavailable: 'Indisponivel'
   };
 
   return (
@@ -128,17 +134,17 @@ export default function AvailabilityManager({ professionalId, professional }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="available_today">Disponível Hoje</SelectItem>
-                <SelectItem value="available_from_date">Disponível a partir de...</SelectItem>
-                <SelectItem value="fully_booked">Agenda Cheia</SelectItem>
-                <SelectItem value="unavailable">Indisponível</SelectItem>
+                <SelectItem value="available_today">Disponivel Hoje</SelectItem>
+                <SelectItem value="quotes_only">Somente Orcamento</SelectItem>
+                <SelectItem value="busy">Ocupado</SelectItem>
+                <SelectItem value="returning_soon">Retorno em Breve</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {professional?.availability_status === 'available_from_date' && (
+          {(professional?.availability_status === 'returning_soon' || professional?.availability_status === 'available_from_date') && (
             <div>
-              <Label>Disponível a partir de</Label>
+              <Label>Data de Retorno</Label>
               <Input
                 type="date"
                 defaultValue={professional?.available_from_date}

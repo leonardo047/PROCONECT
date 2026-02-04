@@ -13,9 +13,13 @@ import { Badge } from "@/componentes/interface do usuário/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import {
   User, Camera, Save, Loader2, AlertCircle, CheckCircle,
-  Upload, X, CreditCard, Eye, Clock, ImagePlus, Sparkles
+  Upload, X, CreditCard, Eye, Clock, ImagePlus, Sparkles,
+  Gift, Users, Share2, Copy, MessageCircle, Briefcase
 } from "lucide-react";
-import { KirvanoCheckoutButton } from "@/componentes/pagamento/KirvanoCheckout";
+import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
+import JobOpportunityManager from "@/componentes/profissional/JobOpportunityManager";
+
+const PHOTO_LIMITS = { MIN: 3, MAX: 5 };
 
 const professions = [
   { value: "pintura_residencial", label: "Pintura Residencial e Comercial" },
@@ -73,6 +77,8 @@ export default function ProfessionalDashboard() {
   const { user, isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
   const [formData, setFormData] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -131,11 +137,21 @@ export default function ProfessionalDashboard() {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
+    const currentCount = formData.photos?.length || 0;
+    const remainingSlots = PHOTO_LIMITS.MAX - currentCount;
+
+    if (remainingSlots <= 0) {
+      alert(`Limite de ${PHOTO_LIMITS.MAX} fotos atingido. Remova uma foto para adicionar outra.`);
+      return;
+    }
+
+    const filesToUpload = files.slice(0, remainingSlots);
+
     setUploading(true);
 
     try {
       const uploadedUrls = [];
-      for (const file of files) {
+      for (const file of filesToUpload) {
         const fileUrl = await uploadFile(file);
         uploadedUrls.push(fileUrl);
       }
@@ -333,12 +349,14 @@ export default function ProfessionalDashboard() {
         )}
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="bg-white shadow-sm border">
+          <TabsList className="bg-white shadow-sm border flex-wrap">
             <TabsTrigger value="profile">Meu Perfil</TabsTrigger>
             <TabsTrigger value="photos">Fotos</TabsTrigger>
             <TabsTrigger value="quotes">Orcamentos</TabsTrigger>
             <TabsTrigger value="reviews">Avaliacoes</TabsTrigger>
             <TabsTrigger value="schedule">Agenda</TabsTrigger>
+            <TabsTrigger value="opportunities">Oportunidades</TabsTrigger>
+            <TabsTrigger value="referrals">Indicacoes</TabsTrigger>
             <TabsTrigger value="plan">Meu Plano</TabsTrigger>
           </TabsList>
 
@@ -453,12 +471,19 @@ export default function ProfessionalDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>Fotos dos Trabalhos</span>
-                  <Badge variant={formData.photos?.length >= 3 ? "default" : "destructive"}>
-                    {formData.photos?.length || 0} / minimo 3
+                  <Badge variant={(formData.photos?.length || 0) >= PHOTO_LIMITS.MIN ? "default" : "destructive"}>
+                    {formData.photos?.length || 0} / {PHOTO_LIMITS.MAX}
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {(formData.photos?.length || 0) >= PHOTO_LIMITS.MAX && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-green-800 font-medium">Portfolio completo!</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
                   {formData.photos?.map((photo, index) => (
                     <div key={index} className="relative aspect-square rounded-xl overflow-hidden group">
@@ -476,24 +501,26 @@ export default function ProfessionalDashboard() {
                     </div>
                   ))}
 
-                  <label className="aspect-square rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-colors">
-                    {uploading ? (
-                      <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
-                    ) : (
-                      <>
-                        <ImagePlus className="w-8 h-8 text-slate-400 mb-2" />
-                        <span className="text-sm text-slate-500">Adicionar</span>
-                      </>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                      disabled={uploading}
-                    />
-                  </label>
+                  {(formData.photos?.length || 0) < PHOTO_LIMITS.MAX && (
+                    <label className="aspect-square rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-colors">
+                      {uploading ? (
+                        <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
+                      ) : (
+                        <>
+                          <ImagePlus className="w-8 h-8 text-slate-400 mb-2" />
+                          <span className="text-sm text-slate-500">Adicionar</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                        disabled={uploading}
+                      />
+                    </label>
+                  )}
                 </div>
 
                 <Button
@@ -554,6 +581,163 @@ export default function ProfessionalDashboard() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="opportunities">
+            <JobOpportunityManager
+              professionalId={professional?.id}
+              professional={professional}
+            />
+          </TabsContent>
+
+          <TabsContent value="referrals">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="w-5 h-5 text-purple-600" />
+                  Programa de Indicacoes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
+                        <Gift className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-purple-600 font-medium">Creditos Disponiveis</p>
+                        <p className="text-3xl font-bold text-purple-900">
+                          {professional.referral_credits || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-blue-600 font-medium">Total de Indicacoes</p>
+                        <p className="text-3xl font-bold text-blue-900">
+                          {professional.total_referrals || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Referral Link */}
+                {professional.referral_code && (
+                  <div className="bg-white rounded-xl border-2 border-dashed border-slate-200 p-6">
+                    <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                      <Share2 className="w-4 h-4" />
+                      Seu Link de Indicacao
+                    </h3>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Compartilhe este link e ganhe 1 credito para cada pessoa que se cadastrar!
+                    </p>
+
+                    <div className="flex items-center gap-2 mb-4">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/login?ref=${professional.referral_code}`}
+                        className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
+                        onClick={(e) => e.target.select()}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/login?ref=${professional.referral_code}`);
+                          alert('Link copiado!');
+                        }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button
+                        className="flex-1 bg-green-500 hover:bg-green-600"
+                        onClick={() => {
+                          const text = `Ola! Estou usando o ProObra para divulgar meus servicos. Cadastre-se tambem usando meu link: ${window.location.origin}/login?ref=${professional.referral_code}`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                        }}
+                      >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Compartilhar no WhatsApp
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          const text = `${window.location.origin}/login?ref=${professional.referral_code}`;
+                          navigator.clipboard.writeText(text);
+                          alert('Link copiado!');
+                        }}
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copiar Link
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* How it works */}
+                <div className="bg-slate-50 rounded-xl p-6">
+                  <h3 className="font-semibold text-slate-900 mb-4">Como funciona?</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                        1
+                      </div>
+                      <p className="text-slate-700">
+                        Compartilhe seu link de indicacao com amigos e colegas
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                        2
+                      </div>
+                      <p className="text-slate-700">
+                        Quando eles se cadastrarem usando seu link, voce ganha 1 credito
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                        3
+                      </div>
+                      <p className="text-slate-700">
+                        Use seus creditos para responder orcamentos de graca!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Credits available notice */}
+                {(professional.referral_credits || 0) > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-green-800">
+                          Voce tem {professional.referral_credits} credito{professional.referral_credits > 1 ? 's' : ''} disponivel{professional.referral_credits > 1 ? 'is' : ''}!
+                        </p>
+                        <p className="text-sm text-green-700">
+                          Use-os para responder orcamentos sem pagar a taxa.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="plan">
             <Card>
               <CardHeader>
@@ -593,14 +777,21 @@ export default function ProfessionalDashboard() {
                       <li>Contato direto</li>
                       <li>3 meses de acesso</li>
                     </ul>
-                    <KirvanoCheckoutButton
-                      planKey="profissional_starter"
-                      className="w-full"
+                    <Button
                       variant="outline"
-                      showPrice={false}
+                      className="w-full"
+                      onClick={() => {
+                        setSelectedPlan({
+                          key: 'profissional_starter_3months',
+                          name: 'Plano Iniciante - 3 meses',
+                          price: 93.69
+                        });
+                        setCheckoutOpen(true);
+                      }}
                     >
+                      <CreditCard className="w-4 h-4 mr-2" />
                       Assinar Iniciante
-                    </KirvanoCheckoutButton>
+                    </Button>
                   </div>
 
                   <div className="border-2 border-orange-500 rounded-xl p-6 relative">
@@ -617,13 +808,20 @@ export default function ProfessionalDashboard() {
                       <li>Contato direto</li>
                       <li>Badge verificado</li>
                     </ul>
-                    <KirvanoCheckoutButton
-                      planKey="profissional_mensal"
+                    <Button
                       className="w-full bg-orange-500 hover:bg-orange-600"
-                      showPrice={false}
+                      onClick={() => {
+                        setSelectedPlan({
+                          key: 'profissional_monthly',
+                          name: 'Plano Profissional - Mensal',
+                          price: 69.90
+                        });
+                        setCheckoutOpen(true);
+                      }}
                     >
+                      <CreditCard className="w-4 h-4 mr-2" />
                       Assinar Profissional
-                    </KirvanoCheckoutButton>
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -631,6 +829,24 @@ export default function ProfessionalDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Checkout Modal */}
+      {selectedPlan && (
+        <MercadoPagoCheckout
+          isOpen={checkoutOpen}
+          onClose={() => {
+            setCheckoutOpen(false);
+            setSelectedPlan(null);
+          }}
+          planKey={selectedPlan.key}
+          planName={selectedPlan.name}
+          planPrice={selectedPlan.price}
+          professionalId={professional?.id}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+          }}
+        />
+      )}
     </div>
   );
 }

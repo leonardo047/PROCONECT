@@ -11,9 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/componentes/interface do usuário/dialog";
-import { Check, CreditCard, Loader2, X, Sparkles, ExternalLink } from "lucide-react";
+import { Check, CreditCard, Loader2, X, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
-import { KirvanoCheckoutButton } from "@/componentes/pagamento/KirvanoCheckout";
+import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
 
 export default function ContactPaymentModal({
   isOpen,
@@ -25,6 +25,7 @@ export default function ContactPaymentModal({
   const queryClient = useQueryClient();
   const { user, updateProfile } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [showMPCheckout, setShowMPCheckout] = useState(false);
 
   const revealContactMutation = useMutation({
     mutationFn: async (planType) => {
@@ -146,16 +147,14 @@ export default function ContactPaymentModal({
                   </li>
                 </ul>
 
-                <KirvanoCheckoutButton
-                  planKey="cliente_diario"
+                <Button
+                  onClick={() => setShowMPCheckout(true)}
                   className="w-full bg-orange-500 hover:bg-orange-600"
-                  showPrice={false}
+                  disabled={revealContactMutation.isPending}
                 >
-                  Pagar R$ 3,69 e Liberar Acesso
-                </KirvanoCheckoutButton>
-                <p className="text-xs text-slate-500 mt-2 text-center">
-                  Apos o pagamento, seu acesso sera liberado automaticamente
-                </p>
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Pagar R$ 3,69 e Ver Contato
+                </Button>
               </CardContent>
             </Card>
 
@@ -164,6 +163,21 @@ export default function ContactPaymentModal({
             </p>
           </div>
         )}
+
+        {/* Mercado Pago Checkout */}
+        <MercadoPagoCheckout
+          isOpen={showMPCheckout}
+          onClose={() => setShowMPCheckout(false)}
+          planKey="cliente_diario"
+          planName="Acesso de 1 Dia - Contatos Ilimitados"
+          planPrice={3.69}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['user'] });
+            queryClient.invalidateQueries({ queryKey: ['contact-requests'] });
+            if (onContactRevealed) onContactRevealed();
+            onClose();
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { ProfessionalService } from '@/lib/entities';
 import { Button } from '@/componentes/interface do usuário/button';
 import { Input } from '@/componentes/interface do usuário/input';
 import { Label } from '@/componentes/interface do usuário/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/componentes/interface do usuário/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/componentes/interface do usuário/tabs';
 import { Alert, AlertDescription } from '@/componentes/interface do usuário/alert';
-import { Loader2, Mail, Lock, User, Building2 } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Building2, Gift } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -29,13 +30,42 @@ export default function Login() {
   const [registerName, setRegisterName] = useState('');
   const [userType, setUserType] = useState('cliente');
 
+  // Referral code state
+  const [referralCode, setReferralCode] = useState('');
+  const [referrerName, setReferrerName] = useState('');
+
   const returnUrl = searchParams.get('returnUrl') || '/';
+  const refCode = searchParams.get('ref');
 
   useEffect(() => {
     if (isAuthenticated && !isLoadingAuth) {
       navigate(decodeURIComponent(returnUrl));
     }
   }, [isAuthenticated, isLoadingAuth, navigate, returnUrl]);
+
+  // Capture referral code from URL
+  useEffect(() => {
+    const captureReferralCode = async () => {
+      if (refCode) {
+        try {
+          const referrer = await ProfessionalService.findByReferralCode(refCode);
+          if (referrer) {
+            setReferralCode(refCode);
+            setReferrerName(referrer.name);
+            localStorage.setItem('referral_code', refCode);
+          }
+        } catch (error) {
+          console.error('Invalid referral code:', error);
+        }
+      } else {
+        const storedCode = localStorage.getItem('referral_code');
+        if (storedCode) {
+          setReferralCode(storedCode);
+        }
+      }
+    };
+    captureReferralCode();
+  }, [refCode]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -73,13 +103,15 @@ export default function Login() {
     try {
       await signUp(registerEmail, registerPassword, {
         full_name: registerName,
-        user_type: userType
+        user_type: userType,
+        referred_by_code: referralCode || null
       });
       setSuccess('Cadastro realizado! Verifique seu email para confirmar sua conta.');
       setRegisterEmail('');
       setRegisterPassword('');
       setRegisterConfirmPassword('');
       setRegisterName('');
+      localStorage.removeItem('referral_code');
     } catch (err) {
       setError(err.message || 'Erro ao criar conta. Tente novamente.');
     } finally {
@@ -213,6 +245,17 @@ export default function Login() {
 
             <TabsContent value="register">
               <form onSubmit={handleRegister} className="space-y-4">
+                {referralCode && (
+                  <Alert className="border-purple-500 bg-purple-50">
+                    <Gift className="h-4 w-4 text-purple-600" />
+                    <AlertDescription className="text-purple-700">
+                      {referrerName
+                        ? `Voce foi indicado por ${referrerName}!`
+                        : 'Voce foi indicado! Seu cadastro ajudara quem te indicou.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {error && (
                   <Alert variant="destructive">
                     <AlertDescription>{error}</AlertDescription>

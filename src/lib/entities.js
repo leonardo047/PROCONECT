@@ -209,6 +209,18 @@ export const SavedSearch = createEntityService('saved_searches');
 export const SiteText = createEntityService('site_texts');
 export const AppContent = createEntityService('app_content');
 export const Reminder = createEntityService('reminders');
+export const Referral = createEntityService('referrals');
+export const JobOpportunity = createEntityService('job_opportunities');
+
+// Generate unique 8-character referral code
+export const generateReferralCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
 
 // Extended Professional Service with special methods
 export const ProfessionalService = {
@@ -235,6 +247,69 @@ export const ProfessionalService = {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  },
+
+  // Find by referral code
+  async findByReferralCode(code) {
+    const { data, error } = await supabase
+      .from('professionals')
+      .select('*')
+      .eq('referral_code', code)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  },
+
+  // Award referral credit to a professional
+  async awardReferralCredit(professionalId) {
+    const { data: professional, error: fetchError } = await supabase
+      .from('professionals')
+      .select('referral_credits, total_referrals')
+      .eq('id', professionalId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const { data, error } = await supabase
+      .from('professionals')
+      .update({
+        referral_credits: (professional.referral_credits || 0) + 1,
+        total_referrals: (professional.total_referrals || 0) + 1
+      })
+      .eq('id', professionalId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Use a referral credit
+  async useReferralCredit(professionalId) {
+    const { data: professional, error: fetchError } = await supabase
+      .from('professionals')
+      .select('referral_credits')
+      .eq('id', professionalId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    if ((professional.referral_credits || 0) <= 0) {
+      throw new Error('Sem creditos de indicacao disponiveis');
+    }
+
+    const { data, error } = await supabase
+      .from('professionals')
+      .update({
+        referral_credits: professional.referral_credits - 1
+      })
+      .eq('id', professionalId)
+      .select()
+      .single();
+
+    if (error) throw error;
     return data;
   },
 
@@ -272,6 +347,159 @@ export const ProfessionalService = {
       .eq('featured', true)
       .order('ranking_score', { ascending: false })
       .limit(limit);
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+// Extended Referral Service
+export const ReferralService = {
+  ...Referral,
+
+  // Create a new referral
+  async createReferral(referrerProfessionalId, referredUserId, referredUserType) {
+    const { data, error } = await supabase
+      .from('referrals')
+      .insert({
+        referrer_professional_id: referrerProfessionalId,
+        referred_user_id: referredUserId,
+        referred_user_type: referredUserType,
+        status: 'pending',
+        credit_awarded: false
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Complete a referral and award credit
+  async completeReferral(referralId) {
+    const { data: referral, error: fetchError } = await supabase
+      .from('referrals')
+      .select('*, referrer_professional_id')
+      .eq('id', referralId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    if (referral.credit_awarded) {
+      return referral;
+    }
+
+    // Award credit to referrer
+    await ProfessionalService.awardReferralCredit(referral.referrer_professional_id);
+
+    // Update referral status
+    const { data, error } = await supabase
+      .from('referrals')
+      .update({
+        status: 'completed',
+        credit_awarded: true,
+        credited_at: new Date().toISOString()
+      })
+      .eq('id', referralId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Get referrals by professional
+  async getByProfessional(professionalId) {
+    const { data, error } = await supabase
+      .from('referrals')
+      .select('*')
+      .eq('referrer_professional_id', professionalId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+// Extended Job Opportunity Service
+export const JobOpportunityService = {
+  ...JobOpportunity,
+
+  // Get active opportunities with filters
+  async getActive({ city, state, profession, limit = 20, offset = 0 }) {
+    let query = supabase
+      .from('job_opportunities')
+      .select('*, professionals(name, photos, rating)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    if (city) query = query.ilike('city', `%${city}%`);
+    if (state) query = query.eq('state', state);
+    if (profession) query = query.ilike('profession', `%${profession}%`);
+
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  },
+
+  // Get opportunities by professional
+  async getByProfessional(professionalId) {
+    const { data, error } = await supabase
+      .from('job_opportunities')
+      .select('*')
+      .eq('professional_id', professionalId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Increment view count
+  async incrementViews(opportunityId) {
+    const { data, error } = await supabase.rpc('increment_job_views', {
+      opportunity_id: opportunityId
+    });
+
+    // Fallback if RPC doesn't exist
+    if (error) {
+      const { data: opp } = await supabase
+        .from('job_opportunities')
+        .select('views_count')
+        .eq('id', opportunityId)
+        .single();
+
+      if (opp) {
+        await supabase
+          .from('job_opportunities')
+          .update({ views_count: (opp.views_count || 0) + 1 })
+          .eq('id', opportunityId);
+      }
+    }
+  },
+
+  // Mark as filled
+  async markAsFilled(opportunityId) {
+    const { data, error } = await supabase
+      .from('job_opportunities')
+      .update({ status: 'filled' })
+      .eq('id', opportunityId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Cancel opportunity
+  async cancel(opportunityId) {
+    const { data, error } = await supabase
+      .from('job_opportunities')
+      .update({ status: 'cancelled' })
+      .eq('id', opportunityId)
+      .select()
+      .single();
 
     if (error) throw error;
     return data;
@@ -479,5 +707,10 @@ export default {
   SiteText,
   AppContent,
   Reminder,
+  Referral,
+  ReferralService,
+  generateReferralCode,
+  JobOpportunity,
+  JobOpportunityService,
   User
 };

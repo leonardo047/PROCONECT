@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QuoteRequest, QuoteResponse, Professional, Notification } from "@/lib/entities";
+import { QuoteRequest, QuoteResponse, Professional, Notification, ProfessionalService } from "@/lib/entities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -7,12 +7,16 @@ import { Label } from "@/componentes/interface do usuário/label";
 import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Badge } from "@/componentes/interface do usuário/badge";
-import { DollarSign, Clock, Send, AlertCircle } from "lucide-react";
-import { KirvanoCheckoutButton } from "@/componentes/pagamento/KirvanoCheckout";
+import { DollarSign, Clock, Send, AlertCircle, CreditCard, Gift } from "lucide-react";
+import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
 
 export default function QuoteResponseForm({ quoteRequest, professional, onSuccess }) {
   const [needsPayment, setNeedsPayment] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [useReferralCredit, setUseReferralCredit] = useState(false);
+  const [referralCredits, setReferralCredits] = useState(professional?.referral_credits || 0);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -22,6 +26,9 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
   const checkQuoteLimit = async () => {
     // Check if professional has free quotes available
     const isFree = professional.plan_type === 'free' || professional.plan_type === 'pay_per_quote';
+
+    // Update referral credits from professional data
+    setReferralCredits(professional?.referral_credits || 0);
 
     if (isFree) {
       const freeUsed = professional.free_quotes_used || 0;
@@ -40,6 +47,12 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
 
   const responseQuoteMutation = useMutation({
     mutationFn: async (data) => {
+      // If using referral credit, deduct it first
+      if (data.used_referral_credit) {
+        await ProfessionalService.useReferralCredit(professional.id);
+        setReferralCredits(prev => prev - 1);
+      }
+
       const response = await QuoteResponse.create(data);
 
       // Update quote request
@@ -70,6 +83,7 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['professional-quotes']);
+      queryClient.invalidateQueries(['my-professional']);
       if (onSuccess) onSuccess();
       alert('Orçamento enviado com sucesso!');
     }
@@ -78,8 +92,9 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (needsPayment) {
-      alert('Você atingiu o limite de 3 orçamentos gratuitos. Assine um plano ou pague por este orçamento individual.');
+    // Check if needs payment but not using referral credit
+    if (needsPayment && !useReferralCredit) {
+      alert('Você atingiu o limite de 3 orçamentos gratuitos. Use um credito de indicacao, assine um plano ou pague por este orçamento individual.');
       return;
     }
 
@@ -100,7 +115,8 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
       payment_methods: formData.get('payment_methods').split(',').map(s => s.trim()),
       status: 'pending',
       response_time_minutes: responseTimeMinutes,
-      is_paid_response: needsPayment
+      is_paid_response: needsPayment && !useReferralCredit,
+      used_referral_credit: useReferralCredit
     };
 
     responseQuoteMutation.mutate(data);
@@ -118,8 +134,32 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-orange-800">
-              <p className="font-medium mb-1">Limite de orçamentos gratuitos atingido</p>
-              <p>Você já respondeu 3 orçamentos este mês. Para continuar, assine um plano ou pague R$ 5,00 por este orçamento.</p>
+              <p className="font-medium mb-1">Limite de orcamentos gratuitos atingido</p>
+              <p>Voce ja respondeu 3 orcamentos este mes. Para continuar, use um credito de indicacao, assine um plano ou pague R$ 5,00 por este orcamento.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Referral credit option */}
+        {needsPayment && referralCredits > 0 && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Gift className="w-5 h-5 text-purple-600" />
+                <div>
+                  <p className="font-medium text-purple-900">Usar Credito de Indicacao</p>
+                  <p className="text-sm text-purple-700">Voce tem {referralCredits} credito{referralCredits > 1 ? 's' : ''} disponivel{referralCredits > 1 ? 'is' : ''}</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useReferralCredit}
+                  onChange={(e) => setUseReferralCredit(e.target.checked)}
+                  className="w-5 h-5 text-purple-600 rounded border-purple-300 focus:ring-purple-500"
+                />
+                <span className="text-sm font-medium text-purple-800">Usar 1 credito</span>
+              </label>
             </div>
           </div>
         )}
@@ -189,41 +229,82 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
             <Label className="text-sm">O valor inclui materiais</Label>
           </div>
 
-          {!needsPayment ? (
+          {!needsPayment || useReferralCredit ? (
             <Button
               type="submit"
-              className="w-full bg-green-500 hover:bg-green-600"
+              className={`w-full ${useReferralCredit ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500 hover:bg-green-600'}`}
               disabled={responseQuoteMutation.isLoading}
             >
-              <Send className="w-4 h-4 mr-2" />
-              {responseQuoteMutation.isLoading ? 'Enviando...' : 'Enviar Orçamento'}
+              {useReferralCredit ? (
+                <>
+                  <Gift className="w-4 h-4 mr-2" />
+                  {responseQuoteMutation.isLoading ? 'Enviando...' : 'Enviar com Credito de Indicacao'}
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  {responseQuoteMutation.isLoading ? 'Enviando...' : 'Enviar Orcamento'}
+                </>
+              )}
             </Button>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-slate-600 text-center">
                 Para continuar respondendo orcamentos, assine um plano:
               </p>
-              <KirvanoCheckoutButton
-                planKey="profissional_mensal"
+              <Button
+                type="button"
                 className="w-full bg-orange-500 hover:bg-orange-600"
-                showPrice={true}
+                onClick={() => {
+                  setSelectedPlan({
+                    key: 'profissional_monthly',
+                    name: 'Plano Profissional - Mensal',
+                    price: 69.90
+                  });
+                  setCheckoutOpen(true);
+                }}
               >
-                Assinar Plano Profissional
-              </KirvanoCheckoutButton>
-              <KirvanoCheckoutButton
-                planKey="profissional_orcamento"
-                className="w-full"
+                <CreditCard className="w-4 h-4 mr-2" />
+                Assinar Plano Profissional - R$ 69,90/mes
+              </Button>
+              <Button
+                type="button"
                 variant="outline"
-                showPrice={true}
+                className="w-full"
+                onClick={() => {
+                  setSelectedPlan({
+                    key: 'profissional_per_contact',
+                    name: 'Pagamento por Orcamento',
+                    price: 5.00
+                  });
+                  setCheckoutOpen(true);
+                }}
               >
-                Pagar por Este Orcamento
-              </KirvanoCheckoutButton>
-              <p className="text-xs text-slate-500 text-center">
-                Apos o pagamento, volte aqui para enviar seu orcamento
-              </p>
+                <CreditCard className="w-4 h-4 mr-2" />
+                Pagar por Este Orcamento - R$ 5,00
+              </Button>
             </div>
           )}
         </form>
+
+        {/* Checkout Modal */}
+        {selectedPlan && (
+          <MercadoPagoCheckout
+            isOpen={checkoutOpen}
+            onClose={() => {
+              setCheckoutOpen(false);
+              setSelectedPlan(null);
+            }}
+            planKey={selectedPlan.key}
+            planName={selectedPlan.name}
+            planPrice={selectedPlan.price}
+            professionalId={professional?.id}
+            onSuccess={() => {
+              queryClient.invalidateQueries(['professional-quotes']);
+              setNeedsPayment(false);
+            }}
+          />
+        )}
       </CardContent>
     </Card>
   );

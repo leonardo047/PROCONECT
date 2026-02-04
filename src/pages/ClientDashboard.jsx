@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { ClientSubscription, PlanConfig } from "@/lib/entities";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/componentes/interface do usuário/button";
@@ -11,10 +11,12 @@ import {
   CreditCard, CheckCircle, Clock, Search,
   Loader2, Star, Calendar
 } from "lucide-react";
-import { KirvanoCheckoutButton } from "@/componentes/pagamento/KirvanoCheckout";
+import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
 
 export default function ClientDashboard() {
   const { user, isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
+  const queryClient = useQueryClient();
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   // Redirect if not authenticated
   React.useEffect(() => {
@@ -183,13 +185,13 @@ export default function ClientDashboard() {
                 </li>
               </ul>
 
-              <KirvanoCheckoutButton
-                planKey="cliente_diario"
+              <Button
                 className="w-full bg-orange-500 hover:bg-orange-600 h-12 text-lg font-semibold"
-                showPrice={false}
+                onClick={() => setCheckoutOpen(true)}
               >
+                <CreditCard className="w-5 h-5 mr-2" />
                 Ativar Acesso por 24h
-              </KirvanoCheckoutButton>
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -228,6 +230,18 @@ export default function ClientDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Checkout Modal */}
+      <MercadoPagoCheckout
+        isOpen={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        planKey="cliente_diario"
+        planName="Acesso de 1 Dia - Contatos Ilimitados"
+        planPrice={3.69}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['my-subscription'] });
+        }}
+      />
     </div>
   );
 }

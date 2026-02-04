@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional } from "@/lib/entities";
+import { Professional, ProfessionalService, ReferralService, generateReferralCode } from "@/lib/entities";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/componentes/interface do usuário/button";
@@ -248,8 +248,23 @@ export default function Onboarding() {
       });
 
       if (formData.user_type === 'profissional') {
-        // Create professional profile
-        await Professional.create({
+        // Generate unique referral code
+        let referralCode = generateReferralCode();
+        let codeExists = true;
+        let attempts = 0;
+
+        while (codeExists && attempts < 10) {
+          const existingPro = await ProfessionalService.findByReferralCode(referralCode);
+          if (!existingPro) {
+            codeExists = false;
+          } else {
+            referralCode = generateReferralCode();
+            attempts++;
+          }
+        }
+
+        // Create professional profile with referral code
+        const newProfessional = await Professional.create({
           user_id: user.id,
           name: user.full_name,
           profession: formData.profession || 'outros',
@@ -264,11 +279,48 @@ export default function Onboarding() {
           plan_active: true,
           is_approved: false,
           is_blocked: false,
-          profile_complete: false
+          profile_complete: false,
+          referral_code: referralCode,
+          referral_credits: 0,
+          total_referrals: 0
         });
+
+        // Process referral if this user was referred
+        if (user.referred_by_code) {
+          try {
+            const referrer = await ProfessionalService.findByReferralCode(user.referred_by_code);
+            if (referrer) {
+              const referral = await ReferralService.createReferral(
+                referrer.id,
+                user.id,
+                'profissional'
+              );
+              await ReferralService.completeReferral(referral.id);
+            }
+          } catch (refError) {
+            console.error('Error processing referral:', refError);
+          }
+        }
 
         window.location.href = createPageUrl("ProfessionalDashboard");
       } else {
+        // Process referral for client users
+        if (user.referred_by_code) {
+          try {
+            const referrer = await ProfessionalService.findByReferralCode(user.referred_by_code);
+            if (referrer) {
+              const referral = await ReferralService.createReferral(
+                referrer.id,
+                user.id,
+                'cliente'
+              );
+              await ReferralService.completeReferral(referral.id);
+            }
+          } catch (refError) {
+            console.error('Error processing referral:', refError);
+          }
+        }
+
         window.location.href = createPageUrl("Home");
       }
     } catch (error) {
