@@ -8,7 +8,7 @@ import { Label } from '@/componentes/interface do usuário/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/componentes/interface do usuário/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/componentes/interface do usuário/tabs';
 import { Alert, AlertDescription } from '@/componentes/interface do usuário/alert';
-import { Loader2, Mail, Lock, User, Building2, Gift } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Building2, Gift, Phone } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ export default function Login() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
+  const [registerPhone, setRegisterPhone] = useState('');
   const [userType, setUserType] = useState('cliente');
 
   // Referral code state
@@ -36,6 +37,29 @@ export default function Login() {
 
   const returnUrl = searchParams.get('returnUrl') || '/';
   const refCode = searchParams.get('ref');
+
+  // Format phone number as user types
+  const formatPhoneInput = (value) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, '');
+
+    // Limit to 11 digits (DDD + 9 digits)
+    const limited = digits.slice(0, 11);
+
+    // Format as (XX) XXXXX-XXXX
+    if (limited.length <= 2) {
+      return limited;
+    } else if (limited.length <= 7) {
+      return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+    } else {
+      return `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
+    }
+  };
+
+  const handlePhoneChange = (e) => {
+    const formatted = formatPhoneInput(e.target.value);
+    setRegisterPhone(formatted);
+  };
 
   useEffect(() => {
     if (isAuthenticated && !isLoadingAuth) {
@@ -100,9 +124,18 @@ export default function Login() {
       return;
     }
 
+    // Validate phone number (must have at least 10 digits)
+    const phoneDigits = registerPhone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      setError('Digite um numero de telefone valido com DDD.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       await signUp(registerEmail, registerPassword, {
         full_name: registerName,
+        phone: phoneDigits, // Send only digits, trigger will format
         user_type: userType,
         referred_by_code: referralCode || null
       });
@@ -111,6 +144,7 @@ export default function Login() {
       setRegisterPassword('');
       setRegisterConfirmPassword('');
       setRegisterName('');
+      setRegisterPhone('');
       localStorage.removeItem('referral_code');
     } catch (err) {
       setError(err.message || 'Erro ao criar conta. Tente novamente.');
@@ -298,6 +332,23 @@ export default function Login() {
                       required
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="register-phone">WhatsApp / Telefone</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="register-phone"
+                      type="tel"
+                      placeholder="(47) 98486-7906"
+                      value={registerPhone}
+                      onChange={handlePhoneChange}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">Digite o DDD + numero com 9 digitos</p>
                 </div>
 
                 <div className="space-y-2">
