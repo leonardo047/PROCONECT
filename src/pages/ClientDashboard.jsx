@@ -11,6 +11,7 @@ import {
   CreditCard, CheckCircle, Clock, Search,
   Loader2, Star, Calendar
 } from "lucide-react";
+import { KirvanoCheckoutButton } from "@/componentes/pagamento/KirvanoCheckout";
 
 export default function ClientDashboard() {
   const { user, isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
@@ -182,10 +183,13 @@ export default function ClientDashboard() {
                 </li>
               </ul>
 
-              <Button className="w-full bg-orange-500 hover:bg-orange-600 h-12 text-lg font-semibold">
-                <CreditCard className="w-5 h-5 mr-2" />
-                Ativar Acesso
-              </Button>
+              <KirvanoCheckoutButton
+                planKey="cliente_diario"
+                className="w-full bg-orange-500 hover:bg-orange-600 h-12 text-lg font-semibold"
+                showPrice={false}
+              >
+                Ativar Acesso por 24h
+              </KirvanoCheckoutButton>
             </CardContent>
           </Card>
         </div>

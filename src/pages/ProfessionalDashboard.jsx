@@ -15,6 +15,7 @@ import {
   User, Camera, Save, Loader2, AlertCircle, CheckCircle,
   Upload, X, CreditCard, Eye, Clock, ImagePlus, Sparkles
 } from "lucide-react";
+import { KirvanoCheckoutButton } from "@/componentes/pagamento/KirvanoCheckout";
 
 const professions = [
   { value: "pintura_residencial", label: "Pintura Residencial e Comercial" },
@@ -583,25 +584,30 @@ export default function ProfessionalDashboard() {
                   <div className="border rounded-xl p-6">
                     <h3 className="font-bold text-lg mb-2">Plano Iniciante</h3>
                     <p className="text-3xl font-bold text-orange-500 mb-2">
-                      R$ {plans.find(p => p.plan_key === 'profissional_iniciante')?.price?.toFixed(2) || '93,69'}
-                      <span className="text-sm font-normal text-slate-600">/mes</span>
+                      R$ 93,69
+                      <span className="text-sm font-normal text-slate-600">/3 meses</span>
                     </p>
                     <ul className="text-sm text-slate-600 space-y-2 mb-4">
                       <li>Ate 10 fotos</li>
                       <li>Perfil na busca</li>
                       <li>Contato direto</li>
+                      <li>3 meses de acesso</li>
                     </ul>
-                    <Button variant="outline" className="w-full">
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Assinar
-                    </Button>
+                    <KirvanoCheckoutButton
+                      planKey="profissional_starter"
+                      className="w-full"
+                      variant="outline"
+                      showPrice={false}
+                    >
+                      Assinar Iniciante
+                    </KirvanoCheckoutButton>
                   </div>
 
                   <div className="border-2 border-orange-500 rounded-xl p-6 relative">
                     <Badge className="absolute -top-3 left-4 bg-orange-500">Mais Popular</Badge>
-                    <h3 className="font-bold text-lg mb-2">Plano Completo</h3>
+                    <h3 className="font-bold text-lg mb-2">Plano Profissional</h3>
                     <p className="text-3xl font-bold text-orange-500 mb-2">
-                      R$ {plans.find(p => p.plan_key === 'profissional_completo')?.price?.toFixed(2) || '69,36'}
+                      R$ 69,90
                       <span className="text-sm font-normal text-slate-600">/mes</span>
                     </p>
                     <ul className="text-sm text-slate-600 space-y-2 mb-4">
@@ -609,11 +615,15 @@ export default function ProfessionalDashboard() {
                       <li>Destaque na busca</li>
                       <li>Video do trabalho</li>
                       <li>Contato direto</li>
+                      <li>Badge verificado</li>
                     </ul>
-                    <Button className="w-full bg-orange-500 hover:bg-orange-600">
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Assinar
-                    </Button>
+                    <KirvanoCheckoutButton
+                      planKey="profissional_mensal"
+                      className="w-full bg-orange-500 hover:bg-orange-600"
+                      showPrice={false}
+                    >
+                      Assinar Profissional
+                    </KirvanoCheckoutButton>
                   </div>
                 </div>
               </CardContent>

@@ -8,6 +8,7 @@ import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { DollarSign, Clock, Send, AlertCircle } from "lucide-react";
+import { KirvanoCheckoutButton } from "@/componentes/pagamento/KirvanoCheckout";
 
 export default function QuoteResponseForm({ quoteRequest, professional, onSuccess }) {
   const [needsPayment, setNeedsPayment] = useState(false);
@@ -198,20 +199,28 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
               {responseQuoteMutation.isLoading ? 'Enviando...' : 'Enviar Orçamento'}
             </Button>
           ) : (
-            <div className="space-y-2">
-              <Button
-                type="button"
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600 text-center">
+                Para continuar respondendo orcamentos, assine um plano:
+              </p>
+              <KirvanoCheckoutButton
+                planKey="profissional_mensal"
                 className="w-full bg-orange-500 hover:bg-orange-600"
-              >
-                Pagar R$ 5,00 e Enviar Orçamento
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
+                showPrice={true}
               >
                 Assinar Plano Profissional
-              </Button>
+              </KirvanoCheckoutButton>
+              <KirvanoCheckoutButton
+                planKey="profissional_orcamento"
+                className="w-full"
+                variant="outline"
+                showPrice={true}
+              >
+                Pagar por Este Orcamento
+              </KirvanoCheckoutButton>
+              <p className="text-xs text-slate-500 text-center">
+                Apos o pagamento, volte aqui para enviar seu orcamento
+              </p>
             </div>
           )}
         </form>
