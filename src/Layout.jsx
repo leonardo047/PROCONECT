@@ -317,13 +317,7 @@ export default function Layout({ children, currentPageName }) {
   const { user, isAuthenticated, isLoadingAuth, logout } = useAuth();
 
   const handleLogout = useCallback(async () => {
-    console.log('Logout clicked');
-    try {
-      await logout(true);
-    } catch (error) {
-      console.error('Logout error:', error);
-      window.location.href = '/';
-    }
+    await logout(true);
   }, [logout]);
 
   const handleLogin = useCallback(() => {

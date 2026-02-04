@@ -197,22 +197,25 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(async (shouldRedirect = true) => {
-    console.log('AuthContext logout called');
-
     // Limpar dados do usuário imediatamente
     clearUserData();
 
-    // Tentar signOut com timeout de 2 segundos
-    const signOutPromise = supabase.auth.signOut();
-    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000));
-
     try {
-      await Promise.race([signOutPromise, timeoutPromise]);
+      // Fazer signOut com scope local para garantir limpeza da sessão
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (error) {
       console.error('SignOut error:', error);
     }
 
-    // Redirecionar independente do resultado
+    // Limpar qualquer storage residual do Supabase
+    try {
+      localStorage.removeItem('sb-lyuuxunevzpdfzliqdyb-auth-token');
+      sessionStorage.clear();
+    } catch (e) {
+      // Ignorar erros de storage
+    }
+
+    // Redirecionar
     if (shouldRedirect) {
       window.location.href = '/';
     }
