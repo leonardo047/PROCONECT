@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { QuoteRequest, QuoteResponse } from "@/lib/entities";
+import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
@@ -23,20 +24,33 @@ export default function ClientQuotes() {
   const { data: myQuotes = [], isLoading } = useQuery({
     queryKey: ['client-quotes', user?.id],
     queryFn: async () => {
+      console.log('Fetching quotes for user:', user?.id);
       try {
-        const result = await QuoteRequest.filter({
-          filters: { client_id: user.id },
-          orderBy: { field: 'created_at', direction: 'desc' },
-          limit: 100
-        });
-        console.log('Quotes loaded:', result);
-        return result;
+        // Verificar sessão
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Session check:', session?.user?.id);
+
+        // Query direta no Supabase
+        const { data, error } = await supabase
+          .from('quote_requests')
+          .select('*')
+          .eq('client_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (error) {
+          console.error('Supabase query error:', error);
+          return [];
+        }
+
+        console.log('Quotes loaded:', data, 'for user:', user?.id);
+        return data || [];
       } catch (error) {
-        console.log('Quotes query error:', error);
+        console.error('Quotes query error:', error);
         return [];
       }
     },
-    enabled: !!user,
+    enabled: !!user?.id,
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
