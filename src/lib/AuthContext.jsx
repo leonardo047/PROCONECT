@@ -198,22 +198,23 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(async (shouldRedirect = true) => {
     console.log('AuthContext logout called');
+
+    // Limpar dados do usuário imediatamente
+    clearUserData();
+
+    // Tentar signOut com timeout de 2 segundos
+    const signOutPromise = supabase.auth.signOut();
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Supabase signOut error:', error);
-      }
-      clearUserData();
-      console.log('User data cleared, redirecting:', shouldRedirect);
-      if (shouldRedirect) {
-        window.location.href = '/';
-      }
+      await Promise.race([signOutPromise, timeoutPromise]);
     } catch (error) {
-      console.error('Logout error:', error);
-      clearUserData();
-      if (shouldRedirect) {
-        window.location.href = '/';
-      }
+      console.error('SignOut error:', error);
+    }
+
+    // Redirecionar independente do resultado
+    if (shouldRedirect) {
+      window.location.href = '/';
     }
   }, [clearUserData]);
 
