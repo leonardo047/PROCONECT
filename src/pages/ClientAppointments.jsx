@@ -19,26 +19,48 @@ export default function ClientAppointments() {
     queryKey: ['my-appointments', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      return await Appointment.filter(
-        { client_id: user.id },
-        { order: '-created_date', limit: 100 }
-      );
+      try {
+        return await Appointment.filter(
+          { client_id: user.id },
+          { order: '-created_date', limit: 100 }
+        );
+      } catch (error) {
+        console.log('Appointments query error:', error);
+        return [];
+      }
     },
-    enabled: !!user
+    enabled: !!user,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: professionals = [] } = useQuery({
     queryKey: ['professionals', appointments.map(a => a.professional_id)],
     queryFn: async () => {
       if (appointments.length === 0) return [];
-      const profIds = [...new Set(appointments.map(a => a.professional_id))];
-      const allProfs = await Professional.list();
-      return allProfs.filter(p => profIds.includes(p.id));
+      try {
+        const profIds = [...new Set(appointments.map(a => a.professional_id))];
+        const allProfs = await Professional.list();
+        return allProfs.filter(p => profIds.includes(p.id));
+      } catch (error) {
+        console.log('Professionals query error:', error);
+        return [];
+      }
     },
-    enabled: appointments.length > 0
+    enabled: appointments.length > 0,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 
-  if (!user || isLoading || isLoadingAuth) {
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />

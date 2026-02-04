@@ -22,23 +22,40 @@ export default function ClientQuotes() {
 
   const { data: myQuotes = [], isLoading } = useQuery({
     queryKey: ['client-quotes', user?.id],
-    queryFn: () => QuoteRequest.filter({
-      filters: { client_id: user.id },
-      orderBy: { field: 'created_date', direction: 'desc' },
-      limit: 100
-    }),
+    queryFn: async () => {
+      try {
+        return await QuoteRequest.filter({
+          filters: { client_id: user.id },
+          orderBy: { field: 'created_date', direction: 'desc' },
+          limit: 100
+        });
+      } catch (error) {
+        console.log('Quotes query error:', error);
+        return [];
+      }
+    },
     enabled: !!user,
+    retry: false,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: responses = [] } = useQuery({
     queryKey: ['quote-responses', selectedQuote?.id],
-    queryFn: () => QuoteResponse.filter({
-      filters: { quote_request_id: selectedQuote.id },
-      orderBy: { field: 'created_date', direction: 'desc' },
-      limit: 50
-    }),
-    enabled: !!selectedQuote
+    queryFn: async () => {
+      try {
+        return await QuoteResponse.filter({
+          filters: { quote_request_id: selectedQuote.id },
+          orderBy: { field: 'created_date', direction: 'desc' },
+          limit: 50
+        });
+      } catch (error) {
+        console.log('Responses query error:', error);
+        return [];
+      }
+    },
+    enabled: !!selectedQuote,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 
   const openQuotes = useMemo(() =>

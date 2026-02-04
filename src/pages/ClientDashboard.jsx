@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { ClientSubscription, PlanConfig } from "@/lib/entities";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,28 +18,43 @@ export default function ClientDashboard() {
   const queryClient = useQueryClient();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  // Redirect if not authenticated
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isLoadingAuth && !isAuthenticated) {
       navigateToLogin();
     }
   }, [isLoadingAuth, isAuthenticated, navigateToLogin]);
 
-  const { data: subscription, isLoading: loadingSub } = useQuery({
+  const { data: subscription = null, isLoading: loadingSub } = useQuery({
     queryKey: ['my-subscription', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const results = await ClientSubscription.filter({
-        filters: { user_id: user.id, is_active: true }
-      });
-      return results[0] || null;
+      try {
+        const results = await ClientSubscription.filter({
+          filters: { user_id: user.id, is_active: true }
+        });
+        return results[0] || null;
+      } catch (error) {
+        console.log('Subscription query error:', error);
+        return null;
+      }
     },
-    enabled: !!user
+    enabled: !!user,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: plans = [] } = useQuery({
     queryKey: ['plans'],
-    queryFn: () => PlanConfig.list()
+    queryFn: async () => {
+      try {
+        return await PlanConfig.list();
+      } catch (error) {
+        console.log('Plans query error:', error);
+        return [];
+      }
+    },
+    retry: false,
+    staleTime: 10 * 60 * 1000,
   });
 
   const isSubscriptionValid = () => {
@@ -49,7 +64,8 @@ export default function ClientDashboard() {
     return false;
   };
 
-  if (isLoadingAuth || !user || loadingSub) {
+  // Só mostrar loading se estiver carregando auth
+  if (isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
@@ -57,8 +73,14 @@ export default function ClientDashboard() {
     );
   }
 
-  const clientDailyPlan = plans.find(p => p.plan_key === 'cliente_diario');
-  const clientLifetimePlan = plans.find(p => p.plan_key === 'cliente_vitalicio');
+  // Se não tem usuário, redireciona (já tratado no useEffect)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 py-8">
@@ -89,7 +111,7 @@ export default function ClientDashboard() {
                   </p>
                 </div>
               </div>
-              <Badge className="bg-green-500">Gratis</Badge>
+              <Badge className="bg-green-500">Grátis</Badge>
             </div>
           </CardContent>
         </Card>
@@ -111,7 +133,7 @@ export default function ClientDashboard() {
                 <div>
                   <p className="text-sm text-slate-600">Plano Pago Ativo</p>
                   <p className="text-xl font-bold text-slate-900">
-                    {isSubscriptionValid() ? 'Acesso Ilimitado' : 'Nenhum'}
+                    {loadingSub ? 'Carregando...' : (isSubscriptionValid() ? 'Acesso Ilimitado' : 'Nenhum')}
                   </p>
                   {subscription?.plan_type === 'diario' && subscription?.expires_at && (
                     <p className="text-sm text-slate-500 mt-1">
@@ -135,7 +157,7 @@ export default function ClientDashboard() {
             <ul className="space-y-2 text-slate-700">
               <li className="flex items-start gap-2">
                 <span className="font-bold text-green-600 mt-1">1.</span>
-                <span>Voce tem <strong>3 contatos gratuitos</strong> para testar</span>
+                <span>Você tem <strong>3 contatos gratuitos</strong> para testar</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-orange-600 mt-1">2.</span>
@@ -150,7 +172,7 @@ export default function ClientDashboard() {
         </Card>
 
         {/* Plans */}
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Planos Disponiveis</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-4">Planos Disponíveis</h2>
         <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
           {/* Daily Plan */}
           <Card className="border-2 border-orange-300 hover:border-orange-500 transition-colors">
@@ -177,11 +199,11 @@ export default function ClientDashboard() {
                 </li>
                 <li className="flex items-center gap-2 text-slate-700">
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                  Sem compromisso ou renovacao automatica
+                  Sem compromisso ou renovação automática
                 </li>
                 <li className="flex items-center gap-2 text-slate-700">
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                  Acesso imediato apos pagamento
+                  Acesso imediato após pagamento
                 </li>
               </ul>
 
@@ -199,7 +221,7 @@ export default function ClientDashboard() {
         {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Acoes Rapidas</CardTitle>
+            <CardTitle>Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
