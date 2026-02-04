@@ -14,7 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interfac
 import {
   User, Camera, Save, Loader2, AlertCircle, CheckCircle,
   Upload, X, CreditCard, Eye, Clock, ImagePlus, Sparkles,
-  Gift, Users, Share2, Copy, MessageCircle, Briefcase
+  Gift, Users, Share2, Copy, MessageCircle, Briefcase,
+  FileText, Calendar
 } from "lucide-react";
 import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
 import JobOpportunityManager from "@/componentes/profissional/JobOpportunityManager";
@@ -113,7 +114,8 @@ export default function ProfessionalDashboard() {
         whatsapp: professional.whatsapp || '',
         instagram: professional.instagram || '',
         photos: professional.photos || [],
-        video_url: professional.video_url || ''
+        video_url: professional.video_url || '',
+        availability_status: professional.availability_status || 'available_today'
       });
     }
   }, [professional]);
@@ -348,10 +350,9 @@ export default function ProfessionalDashboard() {
           </div>
         )}
 
-        <Tabs defaultValue="profile" className="space-y-6">
+        <Tabs defaultValue="account" className="space-y-6">
           <TabsList className="bg-white shadow-sm border flex-wrap">
-            <TabsTrigger value="profile">Meu Perfil</TabsTrigger>
-            <TabsTrigger value="photos">Fotos</TabsTrigger>
+            <TabsTrigger value="account">Minha Conta</TabsTrigger>
             <TabsTrigger value="quotes">Orcamentos</TabsTrigger>
             <TabsTrigger value="reviews">Avaliacoes</TabsTrigger>
             <TabsTrigger value="schedule">Agenda</TabsTrigger>
@@ -360,10 +361,14 @@ export default function ProfessionalDashboard() {
             <TabsTrigger value="plan">Meu Plano</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="profile">
+          <TabsContent value="account" className="space-y-6">
+            {/* Dados do Perfil */}
             <Card>
               <CardHeader>
-                <CardTitle>Informacoes do Perfil</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Dados do Perfil
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -449,34 +454,115 @@ export default function ProfessionalDashboard() {
                     className="mt-1 min-h-[120px]"
                   />
                 </div>
-
-                <Button
-                  onClick={handleSave}
-                  disabled={saveMutation.isPending}
-                  className="bg-orange-500 hover:bg-orange-600"
-                >
-                  {saveMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  Salvar Alteracoes
-                </Button>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="photos">
+            {/* Status de Disponibilidade */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Status de Disponibilidade
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Informe aos clientes sua disponibilidade atual. Isso ajuda a gerenciar expectativas.
+                </p>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => saveMutation.mutate({ ...formData, availability_status: 'available_today' })}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      professional.availability_status === 'available_today'
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-slate-200 hover:border-green-300'
+                    }`}
+                  >
+                    <CheckCircle className={`w-6 h-6 mx-auto mb-2 ${
+                      professional.availability_status === 'available_today' ? 'text-green-500' : 'text-slate-400'
+                    }`} />
+                    <p className="text-sm font-medium">Disponivel Hoje</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => saveMutation.mutate({ ...formData, availability_status: 'quotes_only' })}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      professional.availability_status === 'quotes_only'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <FileText className={`w-6 h-6 mx-auto mb-2 ${
+                      professional.availability_status === 'quotes_only' ? 'text-blue-500' : 'text-slate-400'
+                    }`} />
+                    <p className="text-sm font-medium">Somente Orcamento</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => saveMutation.mutate({ ...formData, availability_status: 'busy' })}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      professional.availability_status === 'busy'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-slate-200 hover:border-orange-300'
+                    }`}
+                  >
+                    <Briefcase className={`w-6 h-6 mx-auto mb-2 ${
+                      professional.availability_status === 'busy' ? 'text-orange-500' : 'text-slate-400'
+                    }`} />
+                    <p className="text-sm font-medium">Ocupado</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => saveMutation.mutate({ ...formData, availability_status: 'returning_soon' })}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      professional.availability_status === 'returning_soon'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-slate-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <Calendar className={`w-6 h-6 mx-auto mb-2 ${
+                      professional.availability_status === 'returning_soon' ? 'text-purple-500' : 'text-slate-400'
+                    }`} />
+                    <p className="text-sm font-medium">Retorno em Breve</p>
+                  </button>
+                </div>
+
+                <div className="bg-slate-50 rounded-lg p-3 mt-4">
+                  <p className="text-sm text-slate-600">
+                    <strong>Status atual:</strong>{' '}
+                    {professional.availability_status === 'available_today' && 'Disponivel Hoje'}
+                    {professional.availability_status === 'quotes_only' && 'Somente Orcamento'}
+                    {professional.availability_status === 'busy' && 'Ocupado'}
+                    {professional.availability_status === 'returning_soon' && 'Retorno em Breve'}
+                    {!professional.availability_status && 'Nao definido'}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Portfolio de Fotos */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>Fotos dos Trabalhos</span>
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-5 h-5" />
+                    Portfolio de Trabalhos
+                  </div>
                   <Badge variant={(formData.photos?.length || 0) >= PHOTO_LIMITS.MIN ? "default" : "destructive"}>
                     {formData.photos?.length || 0} / {PHOTO_LIMITS.MAX}
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <p className="text-sm text-slate-600 mb-4">
+                  Adicione fotos dos seus trabalhos realizados. Minimo de {PHOTO_LIMITS.MIN} fotos para completar o perfil.
+                </p>
+
                 {(formData.photos?.length || 0) >= PHOTO_LIMITS.MAX && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-green-600" />
@@ -484,7 +570,7 @@ export default function ProfessionalDashboard() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
                   {formData.photos?.map((photo, index) => (
                     <div key={index} className="relative aspect-square rounded-xl overflow-hidden group">
                       <img
@@ -522,21 +608,23 @@ export default function ProfessionalDashboard() {
                     </label>
                   )}
                 </div>
-
-                <Button
-                  onClick={handleSave}
-                  disabled={saveMutation.isPending}
-                  className="bg-orange-500 hover:bg-orange-600"
-                >
-                  {saveMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  Salvar Fotos
-                </Button>
               </CardContent>
             </Card>
+
+            {/* Botao Salvar */}
+            <Button
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              size="lg"
+              className="w-full bg-orange-500 hover:bg-orange-600"
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Salvar Todas as Alteracoes
+            </Button>
           </TabsContent>
 
           <TabsContent value="quotes">
