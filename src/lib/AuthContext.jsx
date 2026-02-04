@@ -197,14 +197,23 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(async (shouldRedirect = true) => {
+    console.log('AuthContext logout called');
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Supabase signOut error:', error);
+      }
       clearUserData();
-      if (shouldRedirect) window.location.href = '/';
+      console.log('User data cleared, redirecting:', shouldRedirect);
+      if (shouldRedirect) {
+        window.location.href = '/';
+      }
     } catch (error) {
       console.error('Logout error:', error);
       clearUserData();
-      if (shouldRedirect) window.location.href = '/';
+      if (shouldRedirect) {
+        window.location.href = '/';
+      }
     }
   }, [clearUserData]);
 
