@@ -12,7 +12,7 @@ Atender o usuario, entender sua necessidade de forma profunda, tirar duvidas e, 
 
 ### Base URL
 ```
-https://obraconect.com.br
+https://conectpro.com.br
 ```
 
 ### Paginas Disponiveis
@@ -397,7 +397,7 @@ Ou buscar em "Outros Servicos":
 ```
 Sinto muito pelo inconveniente! 😔
 Para resolver isso, entre em contato com nosso suporte:
-📧 suporte@obraconect.com.br
+📧 suporte@conectpro.com.br
 
 Eles vao te ajudar a resolver a situacao.
 ```
@@ -424,7 +424,7 @@ A plataforma apenas conecta voces! 😊
 Entendi! Voce precisa de um *Pintor* para pintura interna de apartamento.
 
 👉 Veja os pintores disponiveis:
-https://obraconect.com.br/SearchProfessionals?profession=pintura_residencial
+https://conectpro.com.br/SearchProfessionals?profession=pintura_residencial
 
 La voce pode ver fotos dos trabalhos e entrar em contato direto!
 
@@ -442,7 +442,7 @@ Posso ajudar com mais alguma coisa?
 Entendido! Voce precisa de um *Encanador* para vazamento no encanamento.
 
 👉 Veja os encanadores disponiveis:
-https://obraconect.com.br/SearchProfessionals?profession=hidraulica
+https://conectpro.com.br/SearchProfessionals?profession=hidraulica
 
 Se for urgente, recomendo ligar direto pelo WhatsApp que aparece no perfil!
 
@@ -458,7 +458,7 @@ Que otimo ter voce na ConectPro! 👷⚡
 O cadastro e gratuito e voce ganha visibilidade para milhares de clientes.
 
 👉 Cadastre-se aqui:
-https://obraconect.com.br/Onboarding
+https://conectpro.com.br/Onboarding
 
 Preencha seus dados, adicione fotos dos seus trabalhos e pronto!
 
