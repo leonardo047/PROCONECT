@@ -1,0 +1,131 @@
+import React, { memo } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/lib/AuthContext';
+
+/**
+ * Componente de proteção de rotas autenticadas
+ *
+ * Uso:
+ * <ProtectedRoute element={<MinhaPage />} />
+ * <ProtectedRoute element={<AdminPage />} requiredRole="admin" />
+ */
+
+// Rotas que NÃO precisam de autenticação (públicas)
+export const PUBLIC_ROUTES = [
+  '/',
+  '/login',
+  '/Home',
+  '/SearchProfessionals',
+  '/PublicProfile',
+  '/OtherServices',
+  '/ProfessionalCard', // Cartão digital público para compartilhar
+  '/forgot-password',
+  '/reset-password',
+  '/termos',
+  '/privacidade'
+];
+
+// Rotas que exigem role de admin
+export const ADMIN_ROUTES = [
+  '/AdminDashboard'
+];
+
+// Rotas que exigem usuário profissional
+export const PROFESSIONAL_ROUTES = [
+  '/ProfessionalDashboard',
+  '/ProfessionalProfile',
+  '/ProfessionalSchedule',
+  '/ProfessionalReviews',
+  '/ProfessionalQuotes',
+  '/JobOpportunities',
+  '/Portfolio'
+];
+
+// Rotas que exigem usuário cliente
+export const CLIENT_ROUTES = [
+  '/ClientDashboard',
+  '/ClientAppointments',
+  '/ClientQuotes',
+  '/RequestQuote'
+];
+
+// Loading spinner simples
+const RouteLoader = memo(() => (
+  <div className="fixed inset-0 flex items-center justify-center bg-slate-50">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+      <span className="text-sm text-slate-500">Verificando acesso...</span>
+    </div>
+  </div>
+));
+
+/**
+ * Componente principal de proteção de rota
+ */
+const ProtectedRoute = memo(({
+  element,
+  requiredRole = null,
+  requiredUserType = null,
+  fallbackPath = '/login'
+}) => {
+  const { user, isAuthenticated, isLoadingAuth } = useAuth();
+  const location = useLocation();
+
+  // Ainda carregando auth - mostrar loader
+  if (isLoadingAuth) {
+    return <RouteLoader />;
+  }
+
+  // Não autenticado - redirecionar para login com returnUrl
+  if (!isAuthenticated || !user) {
+    const returnUrl = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?returnUrl=${returnUrl}`} replace />;
+  }
+
+  // Verificar role específica (ex: admin)
+  if (requiredRole && user.role !== requiredRole) {
+    // Usuário não tem a role necessária
+    return <Navigate to="/" replace />;
+  }
+
+  // Verificar tipo de usuário (ex: profissional, cliente)
+  if (requiredUserType && user.user_type !== requiredUserType) {
+    // Redirecionar para dashboard apropriado
+    if (user.user_type === 'profissional') {
+      return <Navigate to="/ProfessionalDashboard" replace />;
+    } else {
+      return <Navigate to="/ClientDashboard" replace />;
+    }
+  }
+
+  // Tudo ok - renderizar o elemento
+  return element;
+});
+
+/**
+ * Helper para determinar se uma rota precisa de proteção
+ */
+export const isPublicRoute = (path) => {
+  return PUBLIC_ROUTES.some(route =>
+    path === route || path.startsWith(route + '?')
+  );
+};
+
+/**
+ * Helper para determinar a role necessária para uma rota
+ */
+export const getRequiredRole = (path) => {
+  if (ADMIN_ROUTES.includes(path)) return 'admin';
+  return null;
+};
+
+/**
+ * Helper para determinar o userType necessário para uma rota
+ */
+export const getRequiredUserType = (path) => {
+  if (PROFESSIONAL_ROUTES.includes(path)) return 'profissional';
+  if (CLIENT_ROUTES.includes(path)) return 'cliente';
+  return null;
+};
+
+export default ProtectedRoute;
