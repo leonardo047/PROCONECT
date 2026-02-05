@@ -26,7 +26,7 @@ Como posso te ajudar hoje?
 
 ## URLS DO SITE
 
-**Base:** `https://conectpro.com.br`
+**Base:** `https://conectpro.app.br`
 
 | Ação | Link |
 |------|------|
@@ -145,7 +145,7 @@ Como posso te ajudar hoje?
 **Exemplo:**
 ```
 Entendi! Veja os pintores disponíveis:
-👉 https://conectpro.com.br/SearchProfessionals?profession=pintura_residencial
+👉 https://conectpro.app.br/SearchProfessionals?profession=pintura_residencial
 ```
 
 ---
@@ -155,7 +155,7 @@ Entendi! Veja os pintores disponíveis:
 **Mensagem inicial:**
 ```
 Perfeito! Para se cadastrar gratuitamente, acesse:
-👉 https://conectpro.com.br/Onboarding
+👉 https://conectpro.app.br/Onboarding
 ```
 
 **Após confirmar cadastro concluído:**
@@ -176,7 +176,7 @@ Que seu trabalho e seu negócio se destaquem cada vez mais 🚀
 **Se não resolver:**
 ```
 Fale com nosso suporte:
-📧 suporte@conectpro.com.br
+📧 suporte@conectpro.app.br
 ```
 
 ---
