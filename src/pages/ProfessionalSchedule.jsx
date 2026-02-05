@@ -23,35 +23,37 @@ const daysOfWeek = [
 
 export default function ProfessionalSchedule() {
   const queryClient = useQueryClient();
-  const { user, navigateToLogin, isLoadingAuth } = useAuth();
-  const [professional, setProfessional] = useState(null);
-  const [loadingProfessional, setLoadingProfessional] = useState(true);
+  const { user, navigateToLogin, isLoadingAuth, isAuthenticated } = useAuth();
   const [editingDay, setEditingDay] = useState(null);
+  const [redirecting, setRedirecting] = useState(false);
   const [timeConfig, setTimeConfig] = useState({
     start_time: '08:00',
     end_time: '18:00',
     is_available: true
   });
 
-  useEffect(() => {
-    if (!isLoadingAuth && !user) {
-      navigateToLogin();
-    } else if (user) {
-      loadProfessional();
-    }
-  }, [user, isLoadingAuth, navigateToLogin]);
-
-  const loadProfessional = async () => {
-    try {
-      const profResults = await Professional.filter({ user_id: user.id });
-      if (profResults[0]) {
-        setProfessional(profResults[0]);
+  // Usar React Query para carregar professional
+  const { data: professional = null, isLoading: loadingProfessional, isError: errorProfessional } = useQuery({
+    queryKey: ['my-professional', user?.id],
+    queryFn: async () => {
+      try {
+        const profResults = await Professional.filter({ filters: { user_id: user.id } });
+        return profResults[0] || null;
+      } catch (error) {
+        return null;
       }
-    } catch (error) {
-      console.error('Error loading professional:', error);
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (!isLoadingAuth && !isAuthenticated && !redirecting) {
+      setRedirecting(true);
+      setTimeout(() => navigateToLogin(), 100);
     }
-    setLoadingProfessional(false);
-  };
+  }, [isLoadingAuth, isAuthenticated, navigateToLogin, redirecting]);
 
   const { data: appointments = [], isLoading: loadingAppointments } = useQuery({
     queryKey: ['professional-appointments', professional?.id],
@@ -115,7 +117,18 @@ export default function ProfessionalSchedule() {
   const acceptedAppointments = appointments.filter(a => a.status === 'accepted');
   const otherAppointments = appointments.filter(a => !['pending', 'accepted'].includes(a.status));
 
-  if (!user || loadingAppointments || loadingAvailability || isLoadingAuth || loadingProfessional) {
+  // Mostrar loading enquanto verifica autenticação ou está redirecionando
+  // Mostrar loading APENAS enquanto verifica autenticação inicial
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Se não está autenticado, redirecionar (o useEffect cuida disso)
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />

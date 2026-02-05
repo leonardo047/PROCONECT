@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { JobOpportunity, JobOpportunityService } from "@/lib/entities";
+import React, { useState, useMemo } from 'react';
+import { JobOpportunity, JobOpportunityService, Category } from "@/lib/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -15,22 +15,6 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-const professions = [
-  { value: "pintor", label: "Pintor" },
-  { value: "pedreiro", label: "Pedreiro" },
-  { value: "eletricista", label: "Eletricista" },
-  { value: "encanador", label: "Encanador" },
-  { value: "ajudante_geral", label: "Ajudante Geral" },
-  { value: "servente", label: "Servente" },
-  { value: "carpinteiro", label: "Carpinteiro" },
-  { value: "marceneiro", label: "Marceneiro" },
-  { value: "gesseiro", label: "Gesseiro" },
-  { value: "azulejista", label: "Azulejista" },
-  { value: "serralheiro", label: "Serralheiro" },
-  { value: "soldador", label: "Soldador" },
-  { value: "outros", label: "Outros" }
-];
 
 const states = [
   { value: "AC", label: "Acre" }, { value: "AL", label: "Alagoas" },
@@ -69,6 +53,76 @@ export default function JobOpportunityManager({ professionalId, professional }) 
     queryFn: () => JobOpportunityService.getByProfessional(professionalId),
     enabled: !!professionalId
   });
+
+  // Buscar categorias (profissões) do banco
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['job-manager-categories'],
+    queryFn: () => Category.filter({
+      filters: { is_active: true },
+      orderBy: { field: 'order', direction: 'asc' },
+      limit: 500
+    }),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  // Transformar categorias em opções para o select
+  const professions = useMemo(() => {
+    if (!categories.length) return [];
+
+    const options = [];
+
+    // Agrupar por category_group
+    const groups = {};
+    categories.forEach(cat => {
+      const group = cat.category_group || 'Outros';
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(cat);
+    });
+
+    // Ordenar grupos - construção primeiro
+    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+      const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
+      const aIsHome = homeGroups.some(g => a.includes(g));
+      const bIsHome = homeGroups.some(g => b.includes(g));
+      if (aIsHome && !bIsHome) return -1;
+      if (!aIsHome && bIsHome) return 1;
+      return a.localeCompare(b);
+    });
+
+    // Adicionar cada grupo com header
+    sortedGroupNames.forEach(groupName => {
+      // Adicionar header do grupo (disabled)
+      const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
+      const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
+      options.push({
+        value: `header_${groupName}`,
+        label: `${emoji} ${cleanName.toUpperCase()}`,
+        disabled: true
+      });
+
+      // Adicionar categorias do grupo
+      groups[groupName].forEach(cat => {
+        options.push({
+          value: cat.slug,
+          label: cat.name
+        });
+      });
+    });
+
+    return options;
+  }, [categories]);
+
+  // Criar um mapa para buscar label por value (para exibição na lista)
+  const professionMap = useMemo(() => {
+    const map = {};
+    categories.forEach(cat => {
+      map[cat.slug] = cat.name;
+    });
+    return map;
+  }, [categories]);
 
   const createMutation = useMutation({
     mutationFn: (data) => JobOpportunity.create({
@@ -206,13 +260,28 @@ export default function JobOpportunityManager({ professionalId, professional }) 
                     <Select
                       value={formData.profession}
                       onValueChange={(value) => setFormData({ ...formData, profession: value })}
+                      disabled={loadingCategories}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
+                        {loadingCategories ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Carregando...
+                          </div>
+                        ) : (
+                          <SelectValue placeholder="Selecione" />
+                        )}
                       </SelectTrigger>
                       <SelectContent>
                         {professions.map(p => (
-                          <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                          <SelectItem
+                            key={p.value}
+                            value={p.value}
+                            disabled={p.disabled}
+                            className={p.disabled ? 'font-bold text-slate-500 bg-slate-100' : ''}
+                          >
+                            {p.label}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -384,7 +453,7 @@ export default function JobOpportunityManager({ professionalId, professional }) 
                     <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-slate-600">
                       <div className="flex items-center gap-1">
                         <Briefcase className="w-4 h-4" />
-                        <span>{professions.find(p => p.value === opp.profession)?.label || opp.profession}</span>
+                        <span>{professionMap[opp.profession] || opp.profession}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <MapPin className="w-4 h-4" />

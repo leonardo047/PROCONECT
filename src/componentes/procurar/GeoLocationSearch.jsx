@@ -38,7 +38,6 @@ export default function GeoLocationSearch({ onLocationChange, maxRadius = 50 }) 
         setLoading(false);
       },
       (error) => {
-        console.error('Erro ao obter localização:', error);
         alert('Não foi possível obter sua localização. Verifique as permissões.');
         setLoading(false);
       }
@@ -85,10 +84,9 @@ export default function GeoLocationSearch({ onLocationChange, maxRadius = 50 }) 
         alert('Não foi possível encontrar as coordenadas deste CEP');
       }
     } catch (error) {
-      console.error('Erro ao buscar CEP:', error);
       alert('Erro ao buscar localização. Tente novamente.');
     }
-    
+
     setLoading(false);
   };
 

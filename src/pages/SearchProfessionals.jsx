@@ -191,7 +191,7 @@ export default function SearchProfessionals() {
       return all.filter(prof => {
         if (!prof.is_approved || prof.is_blocked || !prof.profile_complete) return false;
         if (prof.plan_type !== 'free' && prof.plan_active) return true;
-        if (prof.plan_type === 'free' && (prof.free_contacts_used || 0) < 3) return true;
+        if (prof.plan_type === 'free' && (prof.free_quotes_used || 0) < 3) return true;
         return false;
       });
     },

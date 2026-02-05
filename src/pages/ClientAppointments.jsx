@@ -7,13 +7,15 @@ import { Loader2, Calendar } from "lucide-react";
 import AppointmentCard from "@/componentes/agendamentos/AppointmentCard";
 
 export default function ClientAppointments() {
-  const { user, navigateToLogin, isLoadingAuth } = useAuth();
+  const { user, navigateToLogin, isLoadingAuth, isAuthenticated } = useAuth();
+  const [redirecting, setRedirecting] = React.useState(false);
 
   useEffect(() => {
-    if (!isLoadingAuth && !user) {
-      navigateToLogin();
+    if (!isLoadingAuth && !isAuthenticated && !redirecting) {
+      setRedirecting(true);
+      setTimeout(() => navigateToLogin(), 100);
     }
-  }, [user, isLoadingAuth, navigateToLogin]);
+  }, [isLoadingAuth, isAuthenticated, navigateToLogin, redirecting]);
 
   const { data: appointments = [], isLoading } = useQuery({
     queryKey: ['my-appointments', user?.id],
@@ -25,7 +27,6 @@ export default function ClientAppointments() {
           { order: '-created_date', limit: 100 }
         );
       } catch (error) {
-        console.log('Appointments query error:', error);
         return [];
       }
     },
@@ -43,7 +44,6 @@ export default function ClientAppointments() {
         const allProfs = await Professional.list();
         return allProfs.filter(p => profIds.includes(p.id));
       } catch (error) {
-        console.log('Professionals query error:', error);
         return [];
       }
     },
@@ -52,6 +52,7 @@ export default function ClientAppointments() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Mostrar loading APENAS enquanto verifica autenticação inicial
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -60,7 +61,8 @@ export default function ClientAppointments() {
     );
   }
 
-  if (!user) {
+  // Se não está autenticado, redirecionar (o useEffect cuida disso)
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />

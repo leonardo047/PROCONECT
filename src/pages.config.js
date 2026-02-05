@@ -24,6 +24,9 @@ const RequestQuote = lazy(() => import('./pages/RequestQuote.jsx'));
 const ClientQuotes = lazy(() => import('./pages/ClientQuotes.jsx'));
 const ProfessionalQuotes = lazy(() => import('./pages/ProfessionalQuotes.jsx'));
 const JobOpportunities = lazy(() => import('./pages/JobOpportunities.jsx'));
+const JobMarketplace = lazy(() => import('./pages/JobMarketplace.jsx'));
+const Portfolio = lazy(() => import('./pages/Portfolio.jsx'));
+const Conversations = lazy(() => import('./pages/Conversations.jsx'));
 const Login = lazy(() => import('./pages/Login.jsx'));
 
 export const PAGES = {
@@ -44,6 +47,9 @@ export const PAGES = {
     "ClientQuotes": ClientQuotes,
     "ProfessionalQuotes": ProfessionalQuotes,
     "JobOpportunities": JobOpportunities,
+    "JobMarketplace": JobMarketplace,
+    "Portfolio": Portfolio,
+    "Conversations": Conversations,
 }
 
 export const pagesConfig = {

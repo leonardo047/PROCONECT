@@ -77,7 +77,9 @@ export default function QuoteCard({ quote, onView, userType = 'client' }) {
             </span>
           </div>
           <span className="text-xs">
-            {format(new Date(quote.created_date), "dd/MM/yyyy", { locale: ptBR })}
+            {(quote.created_date || quote.created_at)
+              ? format(new Date(quote.created_date || quote.created_at), "dd/MM/yyyy", { locale: ptBR })
+              : 'Data não informada'}
           </span>
         </div>
 

@@ -55,7 +55,6 @@ export default function LocationSearch({ onLocationSet, currentRadius, onRadiusC
 
     try {
       // LLM integration not available - using fallback message
-      console.warn('LLM integration not available for address geocoding. Please use current location instead.');
       setError('Busca por endereço temporariamente indisponível. Use sua localização atual.');
     } catch (err) {
       setError('Erro ao buscar o endereço. Tente novamente.');

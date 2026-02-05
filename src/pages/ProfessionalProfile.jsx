@@ -107,7 +107,7 @@ export default function ProfessionalProfile() {
 
       setCanViewContact(false);
     } catch (error) {
-      console.error('Error checking contact access:', error);
+      // Ignorar erro
     }
     setLoadingAccess(false);
   };
@@ -160,7 +160,8 @@ export default function ProfessionalProfile() {
     );
   }
 
-  const mainPhoto = professional.photos?.[0] || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=400&fit=crop";
+  // Usar avatar_url como foto principal se disponível, senão a primeira foto do array
+  const mainPhoto = professional.avatar_url || professional.photos?.[0] || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=400&fit=crop";
 
   return (
     <div className="min-h-screen bg-slate-50">

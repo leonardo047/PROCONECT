@@ -77,7 +77,7 @@ export default function QuoteRequestForm() {
       }
       setPhotos([...photos, ...uploadedUrls]);
     } catch (error) {
-      console.error('Upload error:', error);
+      // Ignorar erro
     }
     setUploading(false);
   };

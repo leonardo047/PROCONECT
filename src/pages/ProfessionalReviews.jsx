@@ -30,7 +30,7 @@ export default function ProfessionalReviews() {
             setProfessional(profResults[0]);
           }
         } catch (e) {
-          console.error('Error loading professional:', e);
+          // Ignorar erro
         }
       }
     };

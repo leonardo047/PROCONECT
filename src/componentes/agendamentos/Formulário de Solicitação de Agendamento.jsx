@@ -32,23 +32,43 @@ export default function AppointmentRequestForm({ professionalId, professionalNam
       const appointment = await Appointment.create(appointmentData);
 
       // Create notification for professional
-      const professionals = await Professional.filter({ id: professionalId });
-      if (professionals[0]) {
-        await Notification.create({
-          user_id: professionals[0].user_id,
-          type: 'appointment',
-          title: 'Nova Solicitação de Orçamento!',
-          message: `${user.full_name} solicitou um orçamento para ${format(new Date(selectedDate), "dd/MM/yyyy", { locale: ptBR })}`,
-          link: `/ProfessionalSchedule`,
-          priority: 'high'
-        });
+      try {
+        const professional = await Professional.get(professionalId);
+        if (professional?.user_id) {
+          await Notification.create({
+            user_id: professional.user_id,
+            type: 'appointment',
+            title: 'Nova Solicitação de Orçamento!',
+            message: `${appointmentData.client_name} solicitou um orçamento para ${format(new Date(appointmentData.preferred_date), "dd/MM/yyyy", { locale: ptBR })}`,
+            link: `/ProfessionalSchedule`,
+            priority: 'high'
+          });
+        }
+      } catch (notifError) {
+        // Notificação falhou, mas appointment foi criado
+        console.warn('Erro ao criar notificação:', notifError);
       }
 
       return appointment;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      // Limpar formulário
+      setSelectedDate(null);
+      setFormData({
+        client_name: '',
+        client_phone: '',
+        description: '',
+        preferred_time: 'manha',
+        address: '',
+        property_type: 'casa'
+      });
+      alert('Solicitação enviada com sucesso! O profissional entrará em contato.');
       if (onSuccess) onSuccess();
+    },
+    onError: (error) => {
+      console.error('Erro ao enviar solicitação:', error);
+      alert('Erro ao enviar solicitação. Por favor, tente novamente.');
     }
   });
 
@@ -82,7 +102,7 @@ export default function AppointmentRequestForm({ professionalId, professionalNam
       client_id: user.id,
       client_name: formData.client_name || user.full_name || 'Cliente',
       client_phone: formData.client_phone,
-      service_type: serviceType,
+      service_type: serviceType || 'Serviço não especificado',
       description: formData.description,
       preferred_date: selectedDate.toISOString().split('T')[0],
       preferred_time: formData.preferred_time,

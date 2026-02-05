@@ -30,10 +30,7 @@ export default function NavigationTracker() {
             pageName = matchedKey || null;
         }
 
-        if (isAuthenticated && pageName) {
-            // Log navigation for analytics (optional)
-            console.log('Page visited:', pageName);
-        }
+        // Navigation tracked internally if needed
     }, [location, isAuthenticated, Pages, mainPageKey]);
 
     return null;

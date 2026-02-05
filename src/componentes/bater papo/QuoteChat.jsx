@@ -1,68 +1,79 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Message, Notification } from "@/lib/entities";
+import { QuoteMessage, QuoteMessageService, Notification } from "@/lib/entities";
 import { uploadFile } from "@/lib/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
-import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { ScrollArea } from "@/componentes/interface do usuário/scroll-area";
-import { Send, Paperclip, Loader2, X, MessageCircle } from "lucide-react";
+import { Send, Paperclip, Loader2, MessageCircle, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
+export default function QuoteChat({
+  quoteResponseId,
+  quoteRequest,
+  quoteResponse,
+  currentUser,
+  otherUser
+}) {
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const scrollRef = useRef(null);
   const queryClient = useQueryClient();
 
+  // Buscar mensagens
   const { data: messages = [], isLoading } = useQuery({
-    queryKey: ['messages', appointmentId],
+    queryKey: ['quote-messages', quoteResponseId],
     queryFn: async () => {
-      const results = await Message.filter(
-        { appointment_id: appointmentId },
-        'created_date',
-        100
-      );
-      return results;
+      return await QuoteMessageService.getByQuoteResponse(quoteResponseId);
     },
-    refetchInterval: 3000, // Atualiza a cada 3 segundos
-    enabled: !!appointmentId
+    refetchInterval: 3000,
+    enabled: !!quoteResponseId
   });
 
+  // Mutation para enviar mensagem
   const sendMutation = useMutation({
     mutationFn: async (data) => {
-      const newMessage = await Message.create(data);
+      const newMessage = await QuoteMessage.create(data);
 
-      // Criar notificação para o outro usuário
-      await Notification.create({
-        user_id: otherUser.id,
-        type: 'message',
-        title: 'Nova Mensagem',
-        message: `${currentUser.full_name} enviou uma mensagem`,
-        link: `/ClientAppointments?id=${appointmentId}`,
-        priority: 'high'
-      });
+      // Criar notificacao para o outro usuario (nao critico)
+      try {
+        await Notification.create({
+          user_id: otherUser.id,
+          type: 'quote_message',
+          title: 'Nova Mensagem no Orcamento',
+          message: `${currentUser.full_name || currentUser.name} enviou uma mensagem sobre "${quoteRequest?.title}"`,
+          link: currentUser.user_type === 'profissional'
+            ? `/ClientQuotes?response=${quoteResponseId}`
+            : `/ProfessionalQuotes?response=${quoteResponseId}`,
+          priority: 'high'
+        });
+      } catch (err) {
+        // Ignorar erro de notificação
+      }
 
       return newMessage;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', appointmentId] });
-      setMessage('');
+      queryClient.invalidateQueries({ queryKey: ['quote-messages', quoteResponseId] });
     }
   });
 
   const handleSend = () => {
-    if (!message.trim()) return;
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage || sendMutation.isPending) return;
+
+    // Limpar input imediatamente
+    setMessage('');
 
     const senderType = currentUser.user_type === 'profissional' ? 'professional' : 'client';
 
     sendMutation.mutate({
-      appointment_id: appointmentId,
+      quote_response_id: quoteResponseId,
       sender_id: currentUser.id,
-      sender_name: currentUser.full_name,
+      sender_name: currentUser.full_name || currentUser.name,
       sender_type: senderType,
-      message: message.trim()
+      message: trimmedMessage
     });
   };
 
@@ -77,9 +88,9 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
       const senderType = currentUser.user_type === 'profissional' ? 'professional' : 'client';
 
       await sendMutation.mutateAsync({
-        appointment_id: appointmentId,
+        quote_response_id: quoteResponseId,
         sender_id: currentUser.id,
-        sender_name: currentUser.full_name,
+        sender_name: currentUser.full_name || currentUser.name,
         sender_type: senderType,
         message: 'Arquivo anexado',
         attachment_url: file_url
@@ -90,6 +101,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
     setUploading(false);
   };
 
+  // Scroll para a ultima mensagem
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -98,33 +110,48 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
 
   // Marcar mensagens como lidas
   useEffect(() => {
-    const unreadMessages = messages.filter(
-      m => m.sender_id !== currentUser.id && !m.is_read
-    );
+    const markAsRead = async () => {
+      const unreadMessages = messages.filter(
+        m => m.sender_id !== currentUser.id && !m.is_read
+      );
 
-    unreadMessages.forEach(async (msg) => {
-      await Message.update(msg.id, { is_read: true });
-    });
-  }, [messages, currentUser.id]);
+      if (unreadMessages.length > 0) {
+        await QuoteMessageService.markAsRead(quoteResponseId, currentUser.id);
+        queryClient.invalidateQueries({ queryKey: ['quote-messages', quoteResponseId] });
+      }
+    };
+
+    markAsRead();
+  }, [messages, currentUser.id, quoteResponseId, queryClient]);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-green-500" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-[600px] bg-white rounded-xl border shadow-lg">
+    <div className="flex flex-col h-[500px] bg-white rounded-xl border shadow-lg">
       {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-4 rounded-t-xl">
+      <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-t-xl">
         <div className="flex items-center gap-3">
           <MessageCircle className="w-6 h-6 text-white" />
-          <div>
-            <h3 className="font-semibold text-white">{otherUser.full_name || otherUser.name}</h3>
-            <p className="text-xs text-orange-100">Chat do Agendamento</p>
+          <div className="flex-1">
+            <h3 className="font-semibold text-white">{otherUser?.full_name || otherUser?.name || 'Usuario'}</h3>
+            <p className="text-xs text-green-100">Chat sobre: {quoteRequest?.title}</p>
           </div>
+          {quoteResponse?.estimated_price && (
+            <div className="bg-white/20 rounded-lg px-3 py-1">
+              <div className="flex items-center gap-1 text-white">
+                <DollarSign className="w-4 h-4" />
+                <span className="font-semibold">
+                  R$ {quoteResponse.estimated_price.toLocaleString('pt-BR')}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -135,7 +162,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
             <div className="text-center text-slate-400 py-8">
               <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>Nenhuma mensagem ainda</p>
-              <p className="text-sm">Inicie a conversa!</p>
+              <p className="text-sm">Inicie a conversa sobre este orcamento!</p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -149,7 +176,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
                     <div
                       className={`rounded-2xl px-4 py-2 ${
                         isMe
-                          ? 'bg-orange-500 text-white'
+                          ? 'bg-green-500 text-white'
                           : 'bg-slate-100 text-slate-900'
                       }`}
                     >
@@ -165,7 +192,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
                           target="_blank"
                           rel="noopener noreferrer"
                           className={`text-xs underline mt-2 block ${
-                            isMe ? 'text-orange-100' : 'text-orange-600'
+                            isMe ? 'text-green-100' : 'text-green-600'
                           }`}
                         >
                           Ver anexo
@@ -177,7 +204,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
                         isMe ? 'text-right' : 'text-left'
                       }`}
                     >
-                      {format(new Date(msg.created_date), 'dd/MM HH:mm', { locale: ptBR })}
+                      {format(new Date(msg.created_at), 'dd/MM HH:mm', { locale: ptBR })}
                     </p>
                   </div>
                 </div>
@@ -217,8 +244,8 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
             placeholder="Digite sua mensagem..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !sendMutation.isPending) {
                 e.preventDefault();
                 handleSend();
               }
@@ -229,7 +256,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
           <Button
             onClick={handleSend}
             disabled={!message.trim() || sendMutation.isPending}
-            className="bg-orange-500 hover:bg-orange-600 flex-shrink-0"
+            className="bg-green-500 hover:bg-green-600 flex-shrink-0"
           >
             {sendMutation.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />

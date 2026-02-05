@@ -1,52 +1,68 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, QuoteRequest, QuoteResponse } from "@/lib/entities";
+import { Professional, QuoteRequest, QuoteResponse, Profile } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Button } from "@/componentes/interface do usuário/button";
-import { Search, TrendingUp, Clock, CheckCircle, Loader2, ChevronDown } from "lucide-react";
+import { Search, TrendingUp, Clock, CheckCircle, Loader2, ChevronDown, MessageSquare } from "lucide-react";
 import QuoteCard from "@/componentes/citações/QuoteCard";
 import QuoteResponseForm from "@/componentes/profissional/QuoteResponseForm";
-import { Dialog, DialogContent } from "@/componentes/interface do usuário/dialog";
+import QuoteChat from "@/componentes/bater papo/QuoteChat";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/componentes/interface do usuário/dialog";
 
 const ITEMS_PER_PAGE = 9;
 
 export default function ProfessionalQuotes() {
-  const { user, isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
-  const [professional, setProfessional] = useState(null);
+  const { user, isLoadingAuth, isAuthenticated, navigateToLogin, professional: authProfessional } = useAuth();
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [visibleAvailable, setVisibleAvailable] = useState(ITEMS_PER_PAGE);
   const [visibleResponded, setVisibleResponded] = useState(ITEMS_PER_PAGE);
+  const [redirecting, setRedirecting] = useState(false);
+  const [chatResponse, setChatResponse] = useState(null);
+  const [chatClient, setChatClient] = useState(null);
+  const [chatQuoteRequest, setChatQuoteRequest] = useState(null);
 
   useEffect(() => {
-    if (!isLoadingAuth && !isAuthenticated) {
-      navigateToLogin();
+    if (!isLoadingAuth && !isAuthenticated && !redirecting) {
+      setRedirecting(true);
+      const timer = setTimeout(() => {
+        navigateToLogin();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [isLoadingAuth, isAuthenticated, navigateToLogin]);
+  }, [isLoadingAuth, isAuthenticated, navigateToLogin, redirecting]);
 
-  useEffect(() => {
-    const loadProfessional = async () => {
-      if (user) {
-        try {
-          const profs = await Professional.filter({
-            filters: { user_id: user.id },
-            limit: 1
-          });
-          if (profs[0]) setProfessional(profs[0]);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    };
-    loadProfessional();
-  }, [user]);
-
-  const { data: availableQuotes = [], isLoading: loadingAvailable } = useQuery({
-    queryKey: ['available-quotes', professional?.id],
+  // Usar React Query para carregar professional, com fallback para o authProfessional
+  const { data: queriedProfessional, isLoading: loadingProfessional, isError: errorProfessional } = useQuery({
+    queryKey: ['my-professional', user?.id],
     queryFn: async () => {
       try {
+        const profs = await Professional.filter({
+          filters: { user_id: user.id },
+          limit: 1
+        });
+        return profs[0] || null;
+      } catch (error) {
+        return null;
+      }
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const professional = queriedProfessional ?? authProfessional ?? null;
+
+  const { data: availableQuotes = [], isLoading: loadingAvailable } = useQuery({
+    queryKey: ['available-quotes', professional?.id, professional?.profession, professional?.city],
+    queryFn: async () => {
+      try {
+        // Garantir que temos os dados necessários
+        if (!professional?.profession || !professional?.city) {
+          return [];
+        }
         const quotes = await QuoteRequest.filter({
           filters: {
             profession: professional.profession,
@@ -58,11 +74,10 @@ export default function ProfessionalQuotes() {
         });
         return quotes;
       } catch (error) {
-        console.log('Available quotes error:', error);
         return [];
       }
     },
-    enabled: !!professional,
+    enabled: !!professional?.id && !!professional?.profession && !!professional?.city,
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
@@ -78,7 +93,6 @@ export default function ProfessionalQuotes() {
         });
         return responses;
       } catch (error) {
-        console.log('My responses error:', error);
         return [];
       }
     },
@@ -97,7 +111,48 @@ export default function ProfessionalQuotes() {
     [myResponses, visibleResponded]
   );
 
-  if (isLoadingAuth || !user) {
+  // Abrir chat com cliente
+  const openChat = async (response) => {
+    try {
+      // Buscar dados do quote_request para obter client_id
+      const quoteRequests = await QuoteRequest.filter({
+        filters: { id: response.quote_request_id },
+        limit: 1
+      });
+      const quoteRequest = quoteRequests[0];
+
+      if (quoteRequest) {
+        setChatQuoteRequest(quoteRequest);
+        // Buscar dados do cliente
+        const clientProfile = await Profile.get(quoteRequest.client_id);
+        setChatClient({
+          id: quoteRequest.client_id,
+          name: quoteRequest.client_name || clientProfile?.full_name || 'Cliente',
+          full_name: quoteRequest.client_name || clientProfile?.full_name || 'Cliente'
+        });
+      } else {
+        setChatQuoteRequest({ title: 'Orcamento', id: response.quote_request_id });
+        setChatClient({ id: null, name: 'Cliente', full_name: 'Cliente' });
+      }
+      setChatResponse(response);
+    } catch (error) {
+      setChatQuoteRequest({ title: 'Orcamento', id: response.quote_request_id });
+      setChatClient({ id: null, name: 'Cliente', full_name: 'Cliente' });
+      setChatResponse(response);
+    }
+  };
+
+  // Mostrar loading APENAS enquanto verifica autenticação inicial
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Se não está autenticado, redirecionar (o useEffect cuida disso)
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
@@ -241,16 +296,26 @@ export default function ProfessionalQuotes() {
                     <Card key={response.id}>
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-bold text-lg">Orçamento enviado</h3>
+                          <div className="flex-1">
+                            <h3 className="font-bold text-lg">Orcamento enviado</h3>
                             <p className="text-2xl font-bold text-green-600 mt-2">
                               R$ {response.estimated_price?.toFixed(2)}
                             </p>
-                            <p className="text-sm text-slate-600 mt-2">{response.message}</p>
+                            <p className="text-sm text-slate-600 mt-2 line-clamp-2">{response.message}</p>
                           </div>
-                          <Badge className={response.status === 'hired' ? 'bg-purple-500' : 'bg-blue-500'}>
-                            {response.status === 'hired' ? 'Contratado!' : 'Aguardando'}
-                          </Badge>
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge className={response.status === 'hired' ? 'bg-purple-500' : 'bg-blue-500'}>
+                              {response.status === 'hired' ? 'Contratado!' : 'Aguardando'}
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openChat(response)}
+                            >
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Conversar
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -290,11 +355,38 @@ export default function ProfessionalQuotes() {
         {/* Dialog for responding to quote */}
         <Dialog open={!!selectedQuote} onOpenChange={() => setSelectedQuote(null)}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Responder Orcamento</DialogTitle>
+              <DialogDescription>Envie sua proposta</DialogDescription>
+            </DialogHeader>
             {selectedQuote && professional && (
               <QuoteResponseForm
                 quoteRequest={selectedQuote}
                 professional={professional}
                 onSuccess={() => setSelectedQuote(null)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog for chat with client */}
+        <Dialog open={!!chatResponse} onOpenChange={() => { setChatResponse(null); setChatClient(null); setChatQuoteRequest(null); }}>
+          <DialogContent className="max-w-2xl p-0">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Chat com {chatClient?.name}</DialogTitle>
+              <DialogDescription>Converse sobre o orcamento</DialogDescription>
+            </DialogHeader>
+            {chatResponse && chatClient && professional && (
+              <QuoteChat
+                quoteResponseId={chatResponse.id}
+                quoteRequest={chatQuoteRequest}
+                quoteResponse={chatResponse}
+                currentUser={{
+                  ...user,
+                  name: professional.name,
+                  full_name: professional.name
+                }}
+                otherUser={chatClient}
               />
             )}
           </DialogContent>

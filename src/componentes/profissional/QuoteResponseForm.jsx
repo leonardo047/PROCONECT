@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QuoteRequest, QuoteResponse, Professional, Notification, ProfessionalService } from "@/lib/entities";
+import { QuoteRequest, QuoteResponse, Notification, ProfessionalService } from "@/lib/entities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -7,38 +7,61 @@ import { Label } from "@/componentes/interface do usuário/label";
 import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Badge } from "@/componentes/interface do usuário/badge";
-import { DollarSign, Clock, Send, AlertCircle, CreditCard, Gift } from "lucide-react";
+import { DollarSign, Clock, Send, AlertCircle, CreditCard, Gift, Loader2 } from "lucide-react";
 import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
 
 export default function QuoteResponseForm({ quoteRequest, professional, onSuccess }) {
+  const [canRespond, setCanRespond] = useState(false);
   const [needsPayment, setNeedsPayment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [useReferralCredit, setUseReferralCredit] = useState(false);
-  const [referralCredits, setReferralCredits] = useState(professional?.referral_credits || 0);
+  const [referralCredits, setReferralCredits] = useState(0);
+  const [quotesLeft, setQuotesLeft] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    checkQuoteLimit();
-  }, []);
+    checkQuotePermission();
+  }, [professional?.id]);
 
-  const checkQuoteLimit = async () => {
-    // Check if professional has free quotes available
-    const isFree = professional.plan_type === 'free' || professional.plan_type === 'pay_per_quote';
+  const checkQuotePermission = async () => {
+    if (!professional?.id) {
+      setLoading(false);
+      return;
+    }
 
-    // Update referral credits from professional data
-    setReferralCredits(professional?.referral_credits || 0);
+    try {
+      // Chamar função do backend para verificar permissões
+      const result = await ProfessionalService.canRespondQuote(professional.id);
 
-    if (isFree) {
+      setCanRespond(result.can_respond);
+      setQuotesLeft(result.quotes_left || 0);
+      setReferralCredits(result.referral_credits || 0);
+      setStatusMessage(result.reason || '');
+
+      // Se não pode responder e não é pay_per_quote, precisa de pagamento
+      if (!result.can_respond && result.plan_type !== 'pay_per_quote') {
+        setNeedsPayment(true);
+      } else if (result.plan_type === 'pay_per_quote') {
+        // Pay per quote sempre precisa pagar
+        setNeedsPayment(true);
+      } else if (result.quotes_left === 0 && result.referral_credits > 0) {
+        // Sem créditos gratuitos mas tem de indicação
+        setNeedsPayment(true);
+      }
+    } catch (error) {
+      // Fallback para verificação local em caso de erro
+      const isFree = professional.plan_type === 'free' || professional.plan_type === 'pay_per_quote';
       const freeUsed = professional.free_quotes_used || 0;
+      setReferralCredits(professional?.referral_credits || 0);
 
-      if (freeUsed >= 3) {
-        // Check if it's construction category - requires payment
-        const constructionCategories = ['construcao', 'reforma', 'manutencao'];
-        if (constructionCategories.includes(quoteRequest.category)) {
-          setNeedsPayment(true);
-        }
+      if (isFree && freeUsed >= 3) {
+        setNeedsPayment(true);
+        setCanRespond(professional?.referral_credits > 0);
+      } else {
+        setCanRespond(true);
       }
     }
 
@@ -47,29 +70,16 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
 
   const responseQuoteMutation = useMutation({
     mutationFn: async (data) => {
-      // If using referral credit, deduct it first
-      if (data.used_referral_credit) {
-        await ProfessionalService.useReferralCredit(professional.id);
-        setReferralCredits(prev => prev - 1);
-      }
-
+      // Criar resposta - o trigger do backend consome o crédito automaticamente
       const response = await QuoteResponse.create(data);
 
-      // Update quote request
+      // Atualizar contador de respostas do pedido
       await QuoteRequest.update(quoteRequest.id, {
         responses_count: (quoteRequest.responses_count || 0) + 1,
         status: 'quotes_received'
       });
 
-      // Update professional counters
-      const freeUsed = professional.free_quotes_used || 0;
-      await Professional.update(professional.id, {
-        free_quotes_used: freeUsed + 1,
-        total_quotes_responded: (professional.total_quotes_responded || 0) + 1,
-        last_active_date: new Date().toISOString()
-      });
-
-      // Notify client
+      // Notificar cliente
       await Notification.create({
         user_id: quoteRequest.client_id,
         type: 'quote_response',
@@ -86,6 +96,14 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
       queryClient.invalidateQueries(['my-professional']);
       if (onSuccess) onSuccess();
       alert('Orçamento enviado com sucesso!');
+    },
+    onError: (error) => {
+      // Verificar se é erro de créditos insuficientes
+      if (error.message?.includes('policy') || error.message?.includes('credit')) {
+        alert('Você não tem créditos suficientes para responder este orçamento. Por favor, assine um plano ou use créditos de indicação.');
+      } else {
+        alert('Erro ao enviar orçamento. Tente novamente.');
+      }
     }
   });
 
@@ -123,19 +141,36 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
   };
 
   if (loading) {
-    return <div>Carregando...</div>;
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-orange-500 mr-2" />
+          <span>Verificando disponibilidade...</span>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Enviar Orçamento</CardTitle>
+        {/* Status de créditos */}
+        {!needsPayment && quotesLeft > 0 && quotesLeft < 999999 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+            <Badge variant="outline" className="bg-blue-100 text-blue-800">
+              {quotesLeft} crédito{quotesLeft > 1 ? 's' : ''} restante{quotesLeft > 1 ? 's' : ''}
+            </Badge>
+            <span className="text-sm text-blue-700">{statusMessage}</span>
+          </div>
+        )}
+
         {needsPayment && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-orange-800">
-              <p className="font-medium mb-1">Limite de orcamentos gratuitos atingido</p>
-              <p>Voce ja respondeu 3 orcamentos este mes. Para continuar, use um credito de indicacao, assine um plano ou pague R$ 5,00 por este orcamento.</p>
+              <p className="font-medium mb-1">Limite de orçamentos gratuitos atingido</p>
+              <p>{statusMessage || 'Você já respondeu 3 orçamentos. Para continuar, use um crédito de indicação, assine um plano ou pague R$ 5,00 por este orçamento.'}</p>
             </div>
           </div>
         )}

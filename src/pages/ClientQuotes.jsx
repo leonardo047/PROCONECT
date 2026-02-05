@@ -1,25 +1,36 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { QuoteRequest, QuoteResponse } from "@/lib/entities";
+import { QuoteRequest, QuoteResponse, ProfessionalService } from "@/lib/entities";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import { Badge } from "@/componentes/interface do usuário/badge";
-import { Plus, Search, MessageSquare, CheckCircle, Loader2, ChevronDown } from "lucide-react";
+import { Plus, Search, MessageSquare, CheckCircle, Loader2, ChevronDown, X } from "lucide-react";
 import QuoteRequestForm from "@/componentes/profissional/QuoteRequestForm";
 import QuoteCard from "@/componentes/citações/QuoteCard";
-import { Dialog, DialogContent } from "@/componentes/interface do usuário/dialog";
+import QuoteChat from "@/componentes/bater papo/QuoteChat";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/componentes/interface do usuário/dialog";
 
 const ITEMS_PER_PAGE = 9;
 
 export default function ClientQuotes() {
-  const { user, isLoadingAuth } = useAuth();
+  const { user, isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
+  const [redirecting, setRedirecting] = useState(false);
+
+  useEffect(() => {
+    if (!isLoadingAuth && !isAuthenticated && !redirecting) {
+      setRedirecting(true);
+      setTimeout(() => navigateToLogin(), 100);
+    }
+  }, [isLoadingAuth, isAuthenticated, navigateToLogin, redirecting]);
   const [showForm, setShowForm] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [visibleOpen, setVisibleOpen] = useState(ITEMS_PER_PAGE);
   const [visibleClosed, setVisibleClosed] = useState(ITEMS_PER_PAGE);
+  const [chatResponse, setChatResponse] = useState(null);
+  const [chatProfessional, setChatProfessional] = useState(null);
 
   const { data: myQuotes = [], isLoading } = useQuery({
     queryKey: ['client-quotes', user?.id],
@@ -56,7 +67,6 @@ export default function ClientQuotes() {
           limit: 50
         });
       } catch (error) {
-        console.log('Responses query error:', error);
         return [];
       }
     },
@@ -78,6 +88,39 @@ export default function ClientQuotes() {
   const visibleOpenQuotes = openQuotes.slice(0, visibleOpen);
   const visibleClosedQuotes = closedQuotes.slice(0, visibleClosed);
 
+  // Abrir chat com um profissional
+  const openChat = async (response) => {
+    try {
+      // Buscar dados do profissional (precisa do user_id para notificacoes)
+      const professional = await ProfessionalService.get(response.professional_id);
+      setChatProfessional(professional);
+      setChatResponse(response);
+    } catch (error) {
+      // Tentar buscar de outra forma
+      try {
+        const { data } = await supabase
+          .from('professionals')
+          .select('id, user_id, name')
+          .eq('id', response.professional_id)
+          .single();
+
+        setChatProfessional(data || {
+          id: response.professional_id,
+          name: response.professional_name,
+          user_id: null // Melhor null do que ID errado
+        });
+      } catch {
+        setChatProfessional({
+          id: response.professional_id,
+          name: response.professional_name,
+          user_id: null
+        });
+      }
+      setChatResponse(response);
+    }
+  };
+
+  // Mostrar loading APENAS enquanto verifica autenticação inicial
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -86,7 +129,8 @@ export default function ClientQuotes() {
     );
   }
 
-  if (!user) {
+  // Se não está autenticado, redirecionar (o useEffect cuida disso)
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
@@ -195,19 +239,19 @@ export default function ClientQuotes() {
         {/* Dialog for viewing quote responses */}
         <Dialog open={!!selectedQuote} onOpenChange={() => setSelectedQuote(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle>{selectedQuote?.title}</CardTitle>
-                  <p className="text-sm text-slate-600 mt-2">{selectedQuote?.description}</p>
-                </div>
+            <DialogHeader>
+              <DialogTitle>{selectedQuote?.title}</DialogTitle>
+              <DialogDescription>
+                {selectedQuote?.description}
+              </DialogDescription>
+            </DialogHeader>
+            <CardContent>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-lg">Orcamentos Recebidos</h3>
                 <Badge>
-                  {selectedQuote?.responses_count || 0} orçamentos
+                  {selectedQuote?.responses_count || 0} orcamentos
                 </Badge>
               </div>
-            </CardHeader>
-            <CardContent>
-              <h3 className="font-bold text-lg mb-4">Orçamentos Recebidos</h3>
               <div className="space-y-4">
                 {responses.map((response) => (
                   <Card key={response.id}>
@@ -237,7 +281,11 @@ export default function ClientQuotes() {
                           <CheckCircle className="w-4 h-4 mr-2" />
                           Contratar
                         </Button>
-                        <Button variant="outline" className="flex-1">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => openChat(response)}
+                        >
                           <MessageSquare className="w-4 h-4 mr-2" />
                           Conversar
                         </Button>
@@ -247,11 +295,34 @@ export default function ClientQuotes() {
                 ))}
                 {responses.length === 0 && (
                   <div className="text-center py-8 text-slate-500">
-                    Aguardando orçamentos...
+                    Aguardando orcamentos...
                   </div>
                 )}
               </div>
             </CardContent>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog for chat with professional */}
+        <Dialog open={!!chatResponse} onOpenChange={() => { setChatResponse(null); setChatProfessional(null); }}>
+          <DialogContent className="max-w-2xl p-0">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Chat com {chatProfessional?.name}</DialogTitle>
+              <DialogDescription>Converse sobre o orcamento</DialogDescription>
+            </DialogHeader>
+            {chatResponse && chatProfessional && (
+              <QuoteChat
+                quoteResponseId={chatResponse.id}
+                quoteRequest={selectedQuote}
+                quoteResponse={chatResponse}
+                currentUser={user}
+                otherUser={{
+                  id: chatProfessional.user_id || chatProfessional.id,
+                  name: chatProfessional.name || chatResponse.professional_name,
+                  full_name: chatProfessional.name || chatResponse.professional_name
+                }}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>

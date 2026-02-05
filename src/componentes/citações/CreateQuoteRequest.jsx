@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { QuoteRequest, Professional, Notification } from "@/lib/entities";
+import React, { useState, useMemo } from 'react';
+import { QuoteRequest, Professional, Notification, Category } from "@/lib/entities";
 import { useAuth } from "@/lib/AuthContext";
 import { uploadFile } from "@/lib/storage";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";
@@ -31,6 +31,67 @@ export default function CreateQuoteRequest({ onSuccess }) {
   const [uploading, setUploading] = useState(false);
 
   const queryClient = useQueryClient();
+
+  // Buscar categorias (profissões) do banco
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['quote-request-categories'],
+    queryFn: () => Category.filter({
+      filters: { is_active: true },
+      orderBy: { field: 'order', direction: 'asc' },
+      limit: 500
+    }),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  // Transformar categorias em opções para o select com headers de grupo
+  const professions = useMemo(() => {
+    if (!categories.length) return [];
+
+    const options = [];
+
+    // Agrupar por category_group
+    const groups = {};
+    categories.forEach(cat => {
+      const group = cat.category_group || 'Outros';
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(cat);
+    });
+
+    // Ordenar grupos - construção primeiro
+    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+      const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
+      const aIsHome = homeGroups.some(g => a.includes(g));
+      const bIsHome = homeGroups.some(g => b.includes(g));
+      if (aIsHome && !bIsHome) return -1;
+      if (!aIsHome && bIsHome) return 1;
+      return a.localeCompare(b);
+    });
+
+    // Adicionar cada grupo com header
+    sortedGroupNames.forEach(groupName => {
+      // Adicionar header do grupo (disabled)
+      const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
+      const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
+      options.push({
+        value: `header_${groupName}`,
+        label: `${emoji} ${cleanName.toUpperCase()}`,
+        disabled: true
+      });
+
+      // Adicionar categorias do grupo
+      groups[groupName].forEach(cat => {
+        options.push({
+          value: cat.slug,
+          label: cat.name
+        });
+      });
+    });
+
+    return options;
+  }, [categories]);
 
   const createQuoteMutation = useMutation({
     mutationFn: async (data) => {
@@ -91,7 +152,7 @@ export default function CreateQuoteRequest({ onSuccess }) {
       const urls = results.map(r => r.file_url);
       setPhotos([...photos, ...urls]);
     } catch (error) {
-      console.error('Error uploading photos:', error);
+      // Ignorar erro de upload
     } finally {
       setUploading(false);
     }
@@ -118,17 +179,7 @@ export default function CreateQuoteRequest({ onSuccess }) {
     await createQuoteMutation.mutateAsync(quoteData);
   };
 
-  const professions = [
-    { value: 'pedreiro', label: 'Pedreiro' },
-    { value: 'pintor', label: 'Pintor' },
-    { value: 'eletricista_residencial', label: 'Eletricista' },
-    { value: 'encanador', label: 'Encanador' },
-    { value: 'marceneiro', label: 'Marceneiro' },
-    { value: 'gesseiro_drywall', label: 'Gesseiro/Drywall' },
-    { value: 'azulejista', label: 'Azulejista' }
-  ];
-
-  const states = ['SP', 'RJ', 'MG', 'ES', 'BA', 'PR', 'SC', 'RS', 'GO', 'DF'];
+  const states = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
   if (createQuoteMutation.isSuccess) {
     return (
@@ -166,14 +217,27 @@ export default function CreateQuoteRequest({ onSuccess }) {
             <Select
               value={formData.category}
               onValueChange={(value) => setFormData({ ...formData, category: value })}
+              disabled={loadingCategories}
               required
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione..." />
+                {loadingCategories ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Carregando...
+                  </div>
+                ) : (
+                  <SelectValue placeholder="Selecione..." />
+                )}
               </SelectTrigger>
               <SelectContent>
                 {professions.map(prof => (
-                  <SelectItem key={prof.value} value={prof.value}>
+                  <SelectItem
+                    key={prof.value}
+                    value={prof.value}
+                    disabled={prof.disabled}
+                    className={prof.disabled ? 'font-bold text-slate-500 bg-slate-100' : ''}
+                  >
                     {prof.label}
                   </SelectItem>
                 ))}

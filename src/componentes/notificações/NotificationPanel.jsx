@@ -38,7 +38,7 @@ export default function NotificationPanel({ isOpen, onClose, userId }) {
       if (!userId) return [];
       const results = await Notification.filter(
         { user_id: userId },
-        '-created_date',
+        '-created_at',
         50
       );
       return results;
@@ -152,7 +152,7 @@ export default function NotificationPanel({ isOpen, onClose, userId }) {
                             {notification.message}
                           </p>
                           <p className="text-xs text-slate-400 mt-1">
-                            {new Date(notification.created_date).toLocaleDateString('pt-BR', {
+                            {new Date(notification.created_at).toLocaleDateString('pt-BR', {
                               day: '2-digit',
                               month: 'short',
                               hour: '2-digit',

@@ -2,7 +2,8 @@ import React from 'react';
 import { Card } from "@/componentes/interface do usuário/card";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Button } from "@/componentes/interface do usuário/button";
-import { MapPin, Star, Award, Zap, TrendingUp, MessageCircle } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/componentes/interface do usuário/avatar";
+import { MapPin, Star, Award, Zap, TrendingUp, MessageCircle, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import QuickContactButton from "@/componentes/profissional/QuickContactButton";
@@ -61,8 +62,20 @@ const levelBadges = {
 };
 
 export default function ProfessionalCard({ professional, distance }) {
-  const mainPhoto = professional.photos?.[0] || `https://via.placeholder.com/400x300/1e293b/ffffff?text=${encodeURIComponent(professional.profession)}`;
+  // Usar avatar_url como foto principal se disponível, senão a primeira foto do array
+  const mainPhoto = professional.avatar_url || professional.photos?.[0] || `https://via.placeholder.com/400x300/1e293b/ffffff?text=${encodeURIComponent(professional.profession)}`;
+  const avatarUrl = professional.avatar_url;
   const level = professional.level || 1;
+
+  // Gerar iniciais do nome para fallback do avatar
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
   const levelInfo = levelBadges[Math.min(level, 5)];
   const LevelIcon = levelInfo.icon;
   const gradient = professionGradients[professional.profession] || professionGradients.outros;
@@ -71,8 +84,8 @@ export default function ProfessionalCard({ professional, distance }) {
   
   const handleCardClick = () => {
     if (isPaidPlan) {
-      // Profissional pago - vai para cartão digital
-      window.location.href = createPageUrl(`ProfessionalCard?id=${professional.id}`);
+      // Profissional pago - vai para Portfolio completo
+      window.location.href = createPageUrl(`Portfolio?id=${professional.id}`);
     } else {
       // Profissional grátis - vai para perfil normal (com chat interno)
       window.location.href = createPageUrl(`ProfessionalProfile?id=${professional.id}`);
@@ -131,15 +144,24 @@ export default function ProfessionalCard({ professional, distance }) {
           
           {/* Info at Bottom */}
           <div className="absolute bottom-3 left-3 right-3">
-            <h3 className="text-white font-bold text-xl leading-tight mb-2 drop-shadow-lg">
-              {professional.name}
-            </h3>
+            <div className="flex items-center gap-3 mb-2">
+              {/* Avatar pequeno */}
+              <Avatar className="h-10 w-10 border-2 border-white shadow-lg">
+                <AvatarImage src={avatarUrl} alt={professional.name} />
+                <AvatarFallback className="bg-orange-500 text-white text-sm font-bold">
+                  {getInitials(professional.name)}
+                </AvatarFallback>
+              </Avatar>
+              <h3 className="text-white font-bold text-xl leading-tight drop-shadow-lg flex-1">
+                {professional.name}
+              </h3>
+            </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-white/90 text-sm">
                 <MapPin className="w-4 h-4" />
                 <span className="font-medium">{professional.city}, {professional.state}</span>
               </div>
-              
+
               {professional.rating && (
                 <div className="flex items-center gap-1 bg-yellow-400/90 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold">
                   <Star className="w-3 h-3 fill-current" />

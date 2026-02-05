@@ -8,6 +8,11 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/componentes/UserNotRegisteredError';
+import ProtectedRoute, {
+  isPublicRoute,
+  getRequiredRole,
+  getRequiredUserType
+} from '@/componentes/comum/ProtectedRoute';
 
 const { Pages, Layout, mainPage, Login } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -29,14 +34,39 @@ const LayoutWrapper = memo(({ children, currentPageName }) => {
   return <Layout currentPageName={currentPageName}>{children}</Layout>;
 });
 
-// Componente de rota com Suspense
-const LazyRoute = memo(({ Page, currentPageName }) => (
-  <Suspense fallback={<PageLoader />}>
-    <LayoutWrapper currentPageName={currentPageName}>
-      <Page />
-    </LayoutWrapper>
-  </Suspense>
-));
+// Componente de rota com Suspense e proteção
+const LazyRoute = memo(({ Page, currentPageName }) => {
+  const path = `/${currentPageName}`;
+
+  // Se é rota pública, renderizar diretamente
+  if (isPublicRoute(path)) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <LayoutWrapper currentPageName={currentPageName}>
+          <Page />
+        </LayoutWrapper>
+      </Suspense>
+    );
+  }
+
+  // Rota protegida - usar ProtectedRoute
+  const requiredRole = getRequiredRole(path);
+  const requiredUserType = getRequiredUserType(path);
+
+  return (
+    <ProtectedRoute
+      requiredRole={requiredRole}
+      requiredUserType={requiredUserType}
+      element={
+        <Suspense fallback={<PageLoader />}>
+          <LayoutWrapper currentPageName={currentPageName}>
+            <Page />
+          </LayoutWrapper>
+        </Suspense>
+      }
+    />
+  );
+});
 
 const AuthenticatedApp = memo(() => {
   const { isLoadingAuth, authError } = useAuth();

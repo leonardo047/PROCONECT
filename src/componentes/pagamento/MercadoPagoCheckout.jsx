@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -23,6 +23,16 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const MERCADOPAGO_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 
+/**
+ * NOTA DE SEGURANÇA:
+ * - A implementação de pagamento por cartão requer a SDK do MercadoPago.js para tokenização segura
+ * - NUNCA armazenamos dados de cartão (número, CVV) no state do React ou enviamos ao nosso backend
+ * - A tokenização deve ser feita diretamente pelo SDK do MercadoPago no navegador
+ * - Até a implementação completa, a opção de cartão está desabilitada
+ * - Apenas PIX está disponível, que é mais seguro por não manipular dados de cartão
+ */
+const CARD_PAYMENT_ENABLED = false; // Desabilitado até implementação segura com MercadoPago.js SDK
+
 export default function MercadoPagoCheckout({
   isOpen,
   onClose,
@@ -42,24 +52,29 @@ export default function MercadoPagoCheckout({
   const [copied, setCopied] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
 
-  // Card state
-  const [cardForm, setCardForm] = useState({
-    cardNumber: '',
-    cardholderName: '',
-    expirationDate: '',
-    securityCode: '',
-    installments: 1
-  });
+  // NOTA DE SEGURANÇA: Não armazenamos mais dados de cartão no state
+  // A tokenização deve ser feita diretamente pelo SDK do MercadoPago
+  // Mantemos apenas installments que não é dado sensível
+  const [installments, setInstallments] = useState(1);
 
-  // Reset state when modal opens
+  // Função para limpar todos os dados sensíveis
+  const clearSensitiveData = useCallback(() => {
+    setPixData(null);
+    setCopied(false);
+    setInstallments(1);
+    setError(null);
+  }, []);
+
+  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setStep('select');
-      setError(null);
-      setPixData(null);
-      setCopied(false);
+      clearSensitiveData();
+    } else {
+      // Limpar dados sensíveis quando modal fecha por segurança
+      clearSensitiveData();
     }
-  }, [isOpen]);
+  }, [isOpen, clearSensitiveData]);
 
   // Poll for PIX payment status
   useEffect(() => {
@@ -74,7 +89,8 @@ export default function MercadoPagoCheckout({
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session?.access_token}`
+                'Authorization': `Bearer ${session?.access_token}`,
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
               },
               body: JSON.stringify({
                 action: 'check_payment',
@@ -95,7 +111,7 @@ export default function MercadoPagoCheckout({
             }, 2000);
           }
         } catch (err) {
-          console.error('Error checking payment:', err);
+          // Ignorar erro
         }
         setCheckingPayment(false);
       }, 5000); // Check every 5 seconds
@@ -108,6 +124,12 @@ export default function MercadoPagoCheckout({
     setLoading(true);
     setError(null);
 
+    if (!session?.access_token) {
+      setError('Sessão expirada. Faça login novamente.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mercadopago-checkout`,
@@ -115,7 +137,8 @@ export default function MercadoPagoCheckout({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
           },
           body: JSON.stringify({
             action: 'create_pix',
@@ -139,70 +162,62 @@ export default function MercadoPagoCheckout({
       setPixData(data);
       setStep('pix');
     } catch (err) {
-      console.error('PIX Error:', err);
       setError('Erro ao conectar com o servidor');
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * IMPLEMENTAÇÃO SEGURA DE PAGAMENTO COM CARTÃO
+   *
+   * Para implementar pagamento com cartão de forma segura:
+   * 1. Carregar o SDK do MercadoPago.js: https://sdk.mercadopago.com/js/v2
+   * 2. Inicializar com a public key
+   * 3. Usar o método createCardToken() do SDK para tokenizar os dados do cartão
+   * 4. Enviar APENAS o token ao backend (nunca os dados do cartão)
+   * 5. O backend usa o token para criar o pagamento via API do MercadoPago
+   *
+   * Exemplo de implementação:
+   *
+   * const mp = new MercadoPago(MERCADOPAGO_PUBLIC_KEY);
+   * const cardToken = await mp.createCardToken({
+   *   cardNumber: document.getElementById('cardNumber').value, // Pegar direto do DOM
+   *   cardholderName: document.getElementById('cardholderName').value,
+   *   cardExpirationMonth: '12',
+   *   cardExpirationYear: '2025',
+   *   securityCode: document.getElementById('cvv').value,
+   *   identificationType: 'CPF',
+   *   identificationNumber: '12345678909'
+   * });
+   *
+   * // Agora sim, enviar apenas o token
+   * await fetch('/api/payment', {
+   *   body: JSON.stringify({ card_token: cardToken.id })
+   * });
+   */
   const handleCardPayment = async () => {
+    // Pagamento com cartão desabilitado até implementação segura
+    if (!CARD_PAYMENT_ENABLED) {
+      setError('Pagamento com cartão ainda não disponível. Use PIX.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      // In production, you would use MercadoPago.js SDK to tokenize the card
-      // For now, we'll show a placeholder message
       if (!MERCADOPAGO_PUBLIC_KEY) {
         setError('Pagamento com cartão em configuração. Use PIX por enquanto.');
         setLoading(false);
         return;
       }
 
-      // This would be the real implementation with MercadoPago.js
-      // const mp = new window.MercadoPago(MERCADOPAGO_PUBLIC_KEY);
-      // const cardToken = await mp.createCardToken({...});
+      // TODO: Implementar tokenização segura com MercadoPago.js SDK
+      // Por segurança, não processamos dados de cartão até ter implementação completa
+      setError('Implementação de cartão em desenvolvimento. Use PIX.');
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mercadopago-checkout`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`
-          },
-          body: JSON.stringify({
-            action: 'create_card_payment',
-            plan_key: planKey,
-            professional_id: professionalId,
-            card_token: 'CARD_TOKEN_HERE', // Would come from MercadoPago.js
-            installments: cardForm.installments
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (data.code === 'MP_NOT_CONFIGURED') {
-          setError('Sistema de pagamento em configuração. Tente novamente em breve.');
-        } else {
-          setError(data.error || 'Erro ao processar cartão');
-        }
-        return;
-      }
-
-      if (data.status === 'approved') {
-        setStep('success');
-        setTimeout(() => {
-          onSuccess?.();
-          onClose();
-        }, 2000);
-      } else {
-        setError('Pagamento não aprovado. Verifique os dados do cartão.');
-      }
     } catch (err) {
-      console.error('Card Error:', err);
       setError('Erro ao processar pagamento');
     } finally {
       setLoading(false);
@@ -241,16 +256,30 @@ export default function MercadoPagoCheckout({
       </Card>
 
       <Card
-        className="border-2 border-blue-300 hover:border-blue-500 cursor-pointer transition-all"
-        onClick={() => setStep('card')}
+        className={`border-2 transition-all ${
+          CARD_PAYMENT_ENABLED
+            ? 'border-blue-300 hover:border-blue-500 cursor-pointer'
+            : 'border-slate-200 opacity-60 cursor-not-allowed'
+        }`}
+        onClick={() => CARD_PAYMENT_ENABLED && setStep('card')}
       >
         <CardContent className="p-4 flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-            <CreditCard className="w-6 h-6 text-blue-600" />
+          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+            CARD_PAYMENT_ENABLED ? 'bg-blue-100' : 'bg-slate-100'
+          }`}>
+            <CreditCard className={`w-6 h-6 ${
+              CARD_PAYMENT_ENABLED ? 'text-blue-600' : 'text-slate-400'
+            }`} />
           </div>
           <div className="flex-1">
-            <p className="font-semibold text-slate-900">Cartão de Crédito</p>
-            <p className="text-sm text-slate-500">Parcele em até 12x</p>
+            <p className={`font-semibold ${
+              CARD_PAYMENT_ENABLED ? 'text-slate-900' : 'text-slate-500'
+            }`}>Cartão de Crédito</p>
+            <p className="text-sm text-slate-500">
+              {CARD_PAYMENT_ENABLED
+                ? 'Parcele em até 12x'
+                : 'Em breve disponível'}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -324,6 +353,13 @@ export default function MercadoPagoCheckout({
           O pagamento será confirmado automaticamente
         </p>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2 mt-4">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
     </div>
   );
 
@@ -344,88 +380,31 @@ export default function MercadoPagoCheckout({
         <p className="text-slate-600">{planName}</p>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <Label>Número do Cartão</Label>
-          <Input
-            placeholder="0000 0000 0000 0000"
-            value={cardForm.cardNumber}
-            onChange={(e) => setCardForm({...cardForm, cardNumber: e.target.value})}
-          />
-        </div>
-
-        <div>
-          <Label>Nome no Cartão</Label>
-          <Input
-            placeholder="NOME COMO NO CARTÃO"
-            value={cardForm.cardholderName}
-            onChange={(e) => setCardForm({...cardForm, cardholderName: e.target.value})}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Validade</Label>
-            <Input
-              placeholder="MM/AA"
-              value={cardForm.expirationDate}
-              onChange={(e) => setCardForm({...cardForm, expirationDate: e.target.value})}
-            />
-          </div>
-          <div>
-            <Label>CVV</Label>
-            <Input
-              placeholder="123"
-              type="password"
-              maxLength={4}
-              value={cardForm.securityCode}
-              onChange={(e) => setCardForm({...cardForm, securityCode: e.target.value})}
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label>Parcelas</Label>
-          <select
-            className="w-full border rounded-lg p-2"
-            value={cardForm.installments}
-            onChange={(e) => setCardForm({...cardForm, installments: parseInt(e.target.value)})}
-          >
-            <option value={1}>1x de R$ {planPrice?.toFixed(2)} (sem juros)</option>
-            {planPrice >= 20 && (
-              <>
-                <option value={2}>2x de R$ {(planPrice / 2).toFixed(2)} (sem juros)</option>
-                <option value={3}>3x de R$ {(planPrice / 3).toFixed(2)} (sem juros)</option>
-              </>
-            )}
-          </select>
-        </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-800">{error}</p>
-          </div>
-        )}
-
+      {/* Pagamento com cartão em desenvolvimento */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <h3 className="font-semibold text-slate-900 mb-2">
+          Pagamento com Cartão em Desenvolvimento
+        </h3>
+        <p className="text-sm text-slate-600 mb-4">
+          Estamos implementando pagamento seguro com cartão de crédito.
+          Por enquanto, use o PIX que é instantâneo e seguro.
+        </p>
         <Button
-          className="w-full bg-blue-600 hover:bg-blue-700"
-          onClick={handleCardPayment}
-          disabled={loading}
+          className="w-full bg-green-600 hover:bg-green-700"
+          onClick={() => setStep('select')}
         >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processando...
-            </>
-          ) : (
-            <>
-              <CreditCard className="w-4 h-4 mr-2" />
-              Pagar R$ {planPrice?.toFixed(2)}
-            </>
-          )}
+          <QrCode className="w-4 h-4 mr-2" />
+          Voltar e Pagar com PIX
         </Button>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
     </div>
   );
 

@@ -1,6 +1,8 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from './supabase';
 import { User, ProfessionalService } from './entities';
+import { queryClientInstance } from './query-client';
+import { validateReturnUrl } from './security';
 
 const AuthContext = createContext();
 
@@ -8,12 +10,14 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [professional, setProfessional] = useState(null);
+  const [session, setSession] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
 
   const isLoadingRef = useRef(false);
   const mountedRef = useRef(true);
+  const loadRequestIdRef = useRef(0); // Para cancelar requests antigas
 
   const clearUserData = useCallback(() => {
     setUser(null);
@@ -34,120 +38,218 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const loadUserData = useCallback(async (authUser) => {
-    if (isLoadingRef.current) return;
+  const loadUserData = useCallback(async (authUser, forceReload = false) => {
+    // Incrementar o ID da request para cancelar requests antigas
+    const currentRequestId = ++loadRequestIdRef.current;
+
+    // Se já estiver carregando e não for forceReload, ignorar
+    if (isLoadingRef.current && !forceReload) return;
     isLoadingRef.current = true;
 
-    try {
-      // Criar usuário básico imediatamente com dados do auth
-      const basicUser = {
-        id: authUser.id,
-        user_id: authUser.id,
-        email: authUser.email,
-        full_name: authUser.user_metadata?.full_name || '',
-        user_type: 'cliente',
-        role: 'user'
-      };
+    // Helper para verificar se esta request ainda é válida
+    const isValidRequest = () => mountedRef.current && loadRequestIdRef.current === currentRequestId;
 
-      // Liberar o loading rapidamente com dados básicos
+    // Criar usuário básico imediatamente com dados do auth
+    // NOTA: O role será definido pelo banco de dados via tabela profiles
+    // Não usamos mais verificação de email hardcoded por segurança
+    const basicUser = {
+      id: authUser.id,
+      user_id: authUser.id,
+      email: authUser.email,
+      full_name: authUser.user_metadata?.full_name || '',
+      user_type: authUser.user_metadata?.user_type || 'cliente',
+      referred_by_code: authUser.user_metadata?.referred_by_code || null,
+      role: 'user' // Role padrão - será sobrescrito pelo perfil do banco
+    };
+
+    // Liberar o loading rapidamente com dados básicos
+    if (isValidRequest()) {
       setUser(basicUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
+      isLoadingRef.current = false;
+    }
 
-      // Carregar profile do banco em background
-      try {
-        const userProfile = await User.get(authUser.id);
-        if (mountedRef.current && userProfile) {
-          const combinedUser = {
-            ...basicUser,
-            ...userProfile,
-            user_type: userProfile.user_type || 'cliente',
-            role: userProfile.role || 'user'
-          };
-          setUser(combinedUser);
-          setProfile(userProfile);
+    // Carregar profile do banco em background (não bloqueia mais)
+    try {
+      const userProfile = await User.get(authUser.id);
 
-          // Se for profissional, carregar dados do professional em background
-          if (userProfile.user_type === 'profissional') {
-            loadProfessionalInBackground(authUser.id);
-          }
+      if (isValidRequest() && userProfile) {
+        // Role é definido APENAS pelo banco de dados (profiles.role)
+        // Isso garante que a verificação seja feita server-side via RLS
+        const finalRole = userProfile.role || 'user';
+
+        const combinedUser = {
+          ...basicUser,
+          ...userProfile,
+          user_type: userProfile.user_type || basicUser.user_type || 'cliente',
+          role: finalRole
+        };
+        setUser(combinedUser);
+        setProfile(userProfile);
+
+        // Se for profissional, carregar dados do professional em background
+        if (combinedUser.user_type === 'profissional') {
+          loadProfessionalInBackground(authUser.id);
         }
-      } catch (error) {
-        // Profile não existe ainda - ok para novos usuários
+      } else if (isValidRequest() && basicUser.user_type === 'profissional') {
+        // Se o metadata indica profissional mas não tem profile, ainda carregar professional
+        loadProfessionalInBackground(authUser.id);
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
-      if (mountedRef.current) {
-        setAuthError({ type: 'load_error', message: 'Failed to load user data' });
-        setIsLoadingAuth(false);
+      // Profile não existe ainda - ok para novos usuários
+      // Mas se o metadata indica profissional, tentar carregar professional
+      if (isValidRequest() && basicUser.user_type === 'profissional') {
+        loadProfessionalInBackground(authUser.id);
       }
-    } finally {
-      isLoadingRef.current = false;
     }
   }, [loadProfessionalInBackground]);
 
   const checkSession = useCallback(async () => {
-    if (isLoadingRef.current) return;
-
     try {
       setAuthError(null);
+
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (!mountedRef.current) return;
 
       if (error) {
-        console.error('Session error:', error);
         setAuthError({ type: 'session_error', message: error.message });
         setIsLoadingAuth(false);
+        isLoadingRef.current = false;
         return;
       }
 
       if (session?.user) {
         await loadUserData(session.user);
       } else {
+        // Sem sessão - usuário não logado
         setIsLoadingAuth(false);
+        isLoadingRef.current = false;
       }
     } catch (error) {
-      console.error('Error checking session:', error);
       if (mountedRef.current) {
         setAuthError({ type: 'unknown', message: error.message || 'An unexpected error occurred' });
         setIsLoadingAuth(false);
+        isLoadingRef.current = false;
       }
     }
   }, [loadUserData]);
 
   useEffect(() => {
     mountedRef.current = true;
-    checkSession();
+    isLoadingRef.current = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    // Função para inicializar auth com timeout
+    const initAuth = async () => {
+      try {
+        // Verificar localStorage do Supabase
+        const supabaseKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+
+        let storedSession = null;
+        if (supabaseKey) {
+          try {
+            const stored = localStorage.getItem(supabaseKey);
+            if (stored) {
+              storedSession = JSON.parse(stored);
+            }
+          } catch (e) {
+            // Ignorar erro de parse
+          }
+        }
+
+        // Se temos sessão armazenada com user, usar diretamente
+        if (storedSession?.user && storedSession?.access_token) {
+          await loadUserData(storedSession.user);
+          return;
+        }
+
+        // Fallback: tentar getSession com timeout
+        const getSessionWithTimeout = async () => {
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('getSession timeout')), 3000);
+          });
+
+          try {
+            const result = await Promise.race([
+              supabase.auth.getSession(),
+              timeoutPromise
+            ]);
+            return result;
+          } catch (e) {
+            return { data: { session: null }, error: e };
+          }
+        };
+
+        const { data: { session: currentSession }, error } = await getSessionWithTimeout();
+
         if (!mountedRef.current) return;
+
+        setSession(currentSession);
+
+        if (currentSession?.user) {
+          await loadUserData(currentSession.user);
+        } else {
+          setIsLoadingAuth(false);
+          isLoadingRef.current = false;
+        }
+      } catch (error) {
+        if (mountedRef.current) {
+          setIsLoadingAuth(false);
+          isLoadingRef.current = false;
+        }
+      }
+    };
+
+    // Chamar initAuth imediatamente
+    initAuth();
+
+    // Listener para mudanças de auth (login, logout, refresh de token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        if (!mountedRef.current) return;
+
+        // Ignorar INITIAL_SESSION pois já tratamos com getSession acima
         if (event === 'INITIAL_SESSION') return;
 
-        if (event === 'SIGNED_IN' && session?.user) {
-          await loadUserData(session.user);
+        setSession(currentSession);
+
+        if (event === 'SIGNED_IN' && currentSession?.user) {
+          await loadUserData(currentSession.user);
         } else if (event === 'SIGNED_OUT') {
           clearUserData();
+          setSession(null);
           setIsLoadingAuth(false);
-        } else if (event === 'TOKEN_REFRESHED' && session?.user && isAuthenticated) {
-          await loadUserData(session.user);
+          isLoadingRef.current = false;
+        } else if (event === 'TOKEN_REFRESHED' && currentSession?.user) {
+          await loadUserData(currentSession.user, true);
         }
       }
     );
 
-    // Timeout reduzido para 5 segundos
-    const timeout = setTimeout(() => {
-      if (mountedRef.current && isLoadingAuth) {
-        console.warn('Auth loading timeout - forcing stop');
-        setIsLoadingAuth(false);
+    // Recarregar dados quando a aba ficar visível novamente
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && mountedRef.current) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            await loadUserData(session.user, true);
+          } else if (isAuthenticated) {
+            clearUserData();
+          }
+        } catch (error) {
+          // Ignorar erro
+        }
       }
-    }, 5000);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       mountedRef.current = false;
+      isLoadingRef.current = false;
       subscription?.unsubscribe();
-      clearTimeout(timeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -201,6 +303,13 @@ export const AuthProvider = ({ children }) => {
     clearUserData();
     setIsLoadingAuth(false);
 
+    // Limpar cache do React Query para não vazar dados entre sessões
+    try {
+      queryClientInstance.clear();
+    } catch (e) {
+      // Ignorar erros
+    }
+
     // Limpar TODOS os storages ANTES do signOut
     try {
       const allKeys = Object.keys(localStorage);
@@ -239,16 +348,26 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   }, []);
 
-  const redirectToLogin = useCallback((returnUrl = window.location.href) => {
-    window.location.href = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+  const redirectToLogin = useCallback((returnUrl = window.location.pathname + window.location.search) => {
+    // Usar apenas o pathname para evitar open redirect com URLs absolutas
+    const safeReturnUrl = validateReturnUrl(returnUrl);
+    window.location.href = `/login?returnUrl=${encodeURIComponent(safeReturnUrl)}`;
   }, []);
 
   const updateProfile = useCallback(async (updates) => {
-    if (!user?.id) throw new Error('No user logged in');
-    const updatedProfile = await User.update(user.id, updates);
-    setProfile(updatedProfile);
-    setUser(prev => ({ ...prev, ...updatedProfile }));
-    return updatedProfile;
+    if (!user?.id) {
+      throw new Error('No user logged in');
+    }
+
+    try {
+      const updatedProfile = await User.update(user.id, updates);
+
+      setProfile(updatedProfile);
+      setUser(prev => ({ ...prev, ...updatedProfile }));
+      return updatedProfile;
+    } catch (error) {
+      throw error;
+    }
   }, [user?.id]);
 
   const updateAuthUser = useCallback(async (metadata) => {
@@ -295,6 +414,7 @@ export const AuthProvider = ({ children }) => {
     user,
     profile,
     professional,
+    session,
     isAuthenticated,
     isLoadingAuth,
     isLoadingPublicSettings: false,
@@ -315,7 +435,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticatedSync,
     checkAppState: checkSession
   }), [
-    user, profile, professional, isAuthenticated, isLoadingAuth, authError,
+    user, profile, professional, session, isAuthenticated, isLoadingAuth, authError,
     signIn, signUp, signInWithProvider, logout, navigateToLogin, redirectToLogin,
     resetPassword, updatePassword, updateProfile, updateAuthUser, refreshUserData,
     me, isAuthenticatedSync, checkSession
