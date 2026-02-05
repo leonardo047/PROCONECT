@@ -1,17 +1,25 @@
-import React, { memo, useMemo, Suspense, lazy } from 'react';
-import { Link } from "react-router-dom";
+import React, { memo, useMemo, useEffect, Suspense, lazy } from 'react';
+import { Link, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ProfessionalService } from "@/lib/entities";
+import { ProfessionalService, ClientReferralService, Category } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import {
   Search, ArrowRight, Paintbrush, Wrench, Zap,
   Droplets, Sparkles, TreePine, HardHat, Users,
-  Star
+  Star, Loader2
 } from "lucide-react";
 
 // Lazy load do componente de card (pesado por causa das imagens)
 const ProfessionalCard = lazy(() => import("@/componentes/interface do usuário/ProfessionalCard"));
+
+// Mapeamento de nomes de ícones para componentes
+const iconMap = {
+  HardHat, Paintbrush, Wrench, Zap, Droplets, Sparkles, TreePine, Users, Search
+};
+
+// Helper para obter componente de ícone pelo nome
+const getIconComponent = (iconName) => iconMap[iconName] || Wrench;
 
 // Skeleton para cards
 const CardSkeleton = memo(() => (
@@ -22,28 +30,7 @@ const CardSkeleton = memo(() => (
   </div>
 ));
 
-const categories = [
-  { slug: "pedreiro_alvenaria", label: "Pedreiro", icon: HardHat, color: "bg-orange-500", category: "build" },
-  { slug: "pintura_residencial", label: "Pintor", icon: Paintbrush, color: "bg-blue-500", category: "build" },
-  { slug: "gesso_drywall", label: "Gesso/Drywall", icon: HardHat, color: "bg-slate-500", category: "build" },
-  { slug: "azulejista", label: "Azulejista", icon: HardHat, color: "bg-purple-500", category: "build" },
-  { slug: "telhados", label: "Telhadista", icon: HardHat, color: "bg-red-600", category: "build" },
-  { slug: "impermeabilizacao", label: "Impermeabilização", icon: Droplets, color: "bg-blue-800", category: "build" },
-  { slug: "eletricista", label: "Eletricista", icon: Zap, color: "bg-yellow-500", category: "electric" },
-  { slug: "hidraulica", label: "Encanador", icon: Droplets, color: "bg-cyan-500", category: "electric" },
-  { slug: "ar_condicionado", label: "Ar Condicionado", icon: Zap, color: "bg-blue-400", category: "electric" },
-  { slug: "energia_solar", label: "Energia Solar", icon: Zap, color: "bg-yellow-400", category: "electric" },
-  { slug: "limpeza", label: "Limpeza", icon: Sparkles, color: "bg-pink-500", category: "clean" },
-  { slug: "jardinagem", label: "Jardinagem", icon: TreePine, color: "bg-green-500", category: "clean" },
-  { slug: "marido_aluguel", label: "Marido Aluguel", icon: Wrench, color: "bg-teal-600", category: "clean" },
-  { slug: "marceneiro", label: "Marceneiro", icon: Wrench, color: "bg-amber-700", category: "wood" },
-  { slug: "vidraceiro", label: "Vidraçaria", icon: Sparkles, color: "bg-sky-400", category: "wood" },
-  { slug: "serralheiro", label: "Serralheria", icon: Wrench, color: "bg-gray-700", category: "wood" },
-  { slug: "arquiteto", label: "Arquiteto", icon: HardHat, color: "bg-indigo-600", category: "project" },
-  { slug: "engenheiro", label: "Engenheiro", icon: HardHat, color: "bg-indigo-700", category: "project" },
-];
-
-// Categorias populares (apenas os slugs mais buscados)
+// Slugs populares (para filtrar categorias em destaque)
 const popularSlugs = [
   "pintura_residencial", "pedreiro_alvenaria", "eletricista", "hidraulica",
   "gesso_drywall", "azulejista", "ar_condicionado", "limpeza",
@@ -51,19 +38,22 @@ const popularSlugs = [
 ];
 
 // Componente de categoria otimizado
-const CategoryCard = memo(({ cat }) => (
-  <Link
-    to={createPageUrl(`SearchProfessionals?profession=${cat.slug}`)}
-    className="group"
-  >
-    <div className="bg-white hover:bg-orange-50 rounded-xl p-4 text-center transition-all duration-200 hover:shadow-lg border-2 border-slate-200 hover:border-orange-400">
-      <div className={`w-12 h-12 ${cat.color} rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform shadow-md`}>
-        <cat.icon className="w-6 h-6 text-white" />
+const CategoryCard = memo(({ cat }) => {
+  const IconComponent = getIconComponent(cat.icon);
+  return (
+    <Link
+      to={createPageUrl(`SearchProfessionals?profession=${cat.slug}`)}
+      className="group"
+    >
+      <div className="bg-white hover:bg-orange-50 rounded-xl p-4 text-center transition-all duration-200 hover:shadow-lg border-2 border-slate-200 hover:border-orange-400">
+        <div className={`w-12 h-12 ${cat.color} rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform shadow-md`}>
+          <IconComponent className="w-6 h-6 text-white" />
+        </div>
+        <h4 className="font-bold text-xs sm:text-sm text-slate-900 break-words leading-tight">{cat.name}</h4>
       </div>
-      <h4 className="font-bold text-sm text-slate-900">{cat.label}</h4>
-    </div>
-  </Link>
-));
+    </Link>
+  );
+});
 
 // Hero section otimizada (sem framer-motion)
 const HeroSection = memo(() => (
@@ -136,11 +126,27 @@ const HeroSection = memo(() => (
 ));
 
 // Seção de categorias populares
-const PopularCategories = memo(() => {
-  const popularCategories = useMemo(() =>
-    popularSlugs.map(slug => categories.find(c => c.slug === slug)).filter(Boolean),
-    []
-  );
+const PopularCategories = memo(({ categories, isLoading }) => {
+  const popularCategories = useMemo(() => {
+    if (!categories?.length) return [];
+    // Primeiro tenta pegar as que estão marcadas como featured
+    const featured = categories.filter(c => c.is_featured && c.location === 'home');
+    if (featured.length >= 6) return featured.slice(0, 10);
+    // Fallback para slugs populares
+    return popularSlugs.map(slug => categories.find(c => c.slug === slug)).filter(Boolean);
+  }, [categories]);
+
+  if (isLoading) {
+    return (
+      <section className="py-10 bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+        </div>
+      </section>
+    );
+  }
+
+  if (!popularCategories.length) return null;
 
   return (
     <section className="py-10 bg-white border-b border-slate-200">
@@ -149,20 +155,23 @@ const PopularCategories = memo(() => {
           Categorias Populares
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-3">
-          {popularCategories.map(cat => (
-            <Link
-              key={cat.slug}
-              to={createPageUrl(`SearchProfessionals?profession=${cat.slug}`)}
-              className="group"
-            >
-              <div className="bg-white hover:bg-orange-50 rounded-lg p-3 text-center transition-colors border border-slate-200 hover:border-orange-400">
-                <div className={`w-8 h-8 ${cat.color} rounded-lg flex items-center justify-center mx-auto mb-1`}>
-                  <cat.icon className="w-4 h-4 text-white" />
+          {popularCategories.map(cat => {
+            const IconComponent = getIconComponent(cat.icon);
+            return (
+              <Link
+                key={cat.slug}
+                to={createPageUrl(`SearchProfessionals?profession=${cat.slug}`)}
+                className="group"
+              >
+                <div className="bg-white hover:bg-orange-50 rounded-lg p-3 text-center transition-colors border border-slate-200 hover:border-orange-400">
+                  <div className={`w-8 h-8 ${cat.color} rounded-lg flex items-center justify-center mx-auto mb-1`}>
+                    <IconComponent className="w-4 h-4 text-white" />
+                  </div>
+                  <p className="text-xs font-medium text-slate-700">{cat.name}</p>
                 </div>
-                <p className="text-xs font-medium text-slate-700">{cat.label}</p>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -170,35 +179,49 @@ const PopularCategories = memo(() => {
 });
 
 // Seção de todas as categorias
-const AllCategories = memo(() => (
-  <section className="py-12 bg-slate-50">
-    <div className="max-w-7xl mx-auto px-4">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
-          Todos os Serviços
-        </h2>
-        <p className="text-slate-600">
-          Encontre o profissional ideal para sua necessidade
-        </p>
-      </div>
+const AllCategories = memo(({ categories, isLoading }) => {
+  // Filtrar apenas categorias de "home" (construção civil)
+  const homeCategories = useMemo(() =>
+    categories?.filter(c => c.location === 'home' && c.is_active) || [],
+    [categories]
+  );
 
-      <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-3">
-        {categories.map((cat) => (
-          <CategoryCard key={cat.slug} cat={cat} />
-        ))}
-      </div>
+  return (
+    <section className="py-12 bg-slate-50">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
+            Todos os Serviços
+          </h2>
+          <p className="text-slate-600">
+            Encontre o profissional ideal para sua necessidade
+          </p>
+        </div>
 
-      <div className="mt-8 text-center">
-        <Link to={createPageUrl("OtherServices")}>
-          <Button variant="outline" className="font-semibold">
-            <Search className="w-4 h-4 mr-2" />
-            Outros Serviços
-          </Button>
-        </Link>
+        {isLoading ? (
+          <div className="text-center py-8">
+            <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-3">
+            {homeCategories.map((cat) => (
+              <CategoryCard key={cat.slug} cat={cat} />
+            ))}
+          </div>
+        )}
+
+        <div className="mt-8 text-center">
+          <Link to={createPageUrl("OtherServices")}>
+            <Button variant="outline" className="font-semibold">
+              <Search className="w-4 h-4 mr-2" />
+              Outros Serviços
+            </Button>
+          </Link>
+        </div>
       </div>
-    </div>
-  </section>
-));
+    </section>
+  );
+});
 
 // Seção de profissionais em destaque
 const FeaturedProfessionals = memo(({ professionals }) => {
@@ -286,6 +309,46 @@ const ProfessionalCTA = memo(() => (
 ));
 
 export default function Home() {
+  const [searchParams] = useSearchParams();
+  const refCode = searchParams.get('ref');
+
+  // Capturar código de indicação da URL e salvar no localStorage
+  useEffect(() => {
+    const captureReferralCode = async () => {
+      if (refCode) {
+        try {
+          // Valida se o código pertence a um profissional ou cliente
+          const referrerProfessional = await ProfessionalService.findByReferralCode(refCode);
+          if (referrerProfessional) {
+            localStorage.setItem('referral_code', refCode);
+            localStorage.setItem('referrer_name', referrerProfessional.name);
+          } else {
+            const referrerClient = await ClientReferralService.findByReferralCode(refCode);
+            if (referrerClient) {
+              localStorage.setItem('referral_code', refCode);
+              localStorage.setItem('referrer_name', referrerClient.full_name || '');
+            }
+          }
+        } catch (error) {
+          // Mesmo com erro, salva o código para tentar novamente no login
+          localStorage.setItem('referral_code', refCode);
+        }
+      }
+    };
+    captureReferralCode();
+  }, [refCode]);
+
+  // Buscar categorias do banco
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['home-categories'],
+    queryFn: () => Category.filter({
+      orderBy: { field: 'order', direction: 'asc' },
+      limit: 500
+    }),
+    staleTime: 10 * 60 * 1000, // 10 minutos
+    gcTime: 30 * 60 * 1000, // 30 minutos
+  });
+
   const { data: professionals = [] } = useQuery({
     queryKey: ['featured-professionals'],
     queryFn: async () => {
@@ -303,8 +366,8 @@ export default function Home() {
   return (
     <div>
       <HeroSection />
-      <PopularCategories />
-      <AllCategories />
+      <PopularCategories categories={categories} isLoading={loadingCategories} />
+      <AllCategories categories={categories} isLoading={loadingCategories} />
       <FeaturedProfessionals professionals={professionals} />
       <HowItWorks />
       <ProfessionalCTA />
