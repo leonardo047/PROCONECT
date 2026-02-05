@@ -61,11 +61,9 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
     gcTime: 30 * 60 * 1000,
   });
 
-  // Transformar categorias em opções para o select com headers de grupo
-  const professionOptions = useMemo(() => {
-    if (!categories.length) return [{ value: "all", label: "Todas as Profissões" }];
-
-    const options = [{ value: "all", label: "Todas as Profissões" }];
+  // Transformar categorias em grupos para o Command
+  const professionGroups = useMemo(() => {
+    if (!categories.length) return [];
 
     // Agrupar por category_group
     const groups = {};
@@ -88,28 +86,21 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
       return a.localeCompare(b);
     });
 
-    // Adicionar cada grupo com header
-    sortedGroupNames.forEach(groupName => {
-      // Adicionar header do grupo (disabled)
-      const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
-      const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
-      options.push({
-        value: `header_${groupName}`,
-        label: `${emoji} ${cleanName.toUpperCase()}`,
-        disabled: true
-      });
-
-      // Adicionar categorias do grupo
-      groups[groupName].forEach(cat => {
-        options.push({
-          value: cat.slug,
-          label: cat.name
-        });
-      });
-    });
-
-    return options;
+    return sortedGroupNames.map(groupName => ({
+      name: groupName,
+      items: groups[groupName]
+    }));
   }, [categories]);
+
+  // Label da profissão selecionada
+  const selectedProfessionLabel = useMemo(() => {
+    if (!filters.profession || filters.profession === 'all') return "Todas as Profissões";
+    for (const group of professionGroups) {
+      const found = group.items.find(cat => cat.slug === filters.profession);
+      if (found) return found.name;
+    }
+    return "Todas as Profissões";
+  }, [filters.profession, professionGroups]);
 
   const handleDateChange = (date) => {
     setSelectedDate(date);
@@ -137,9 +128,7 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
                   </div>
                 ) : (
                   <span className="truncate">
-                    {filters.profession && filters.profession !== 'all'
-                      ? professionOptions.find(p => p.value === filters.profession)?.label || "Selecione a profissão"
-                      : "Todas as Profissões"}
+                    {selectedProfessionLabel}
                   </span>
                 )}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -147,39 +136,50 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
               <Command>
-                <CommandInput placeholder="Buscar profissão..." />
+                <CommandInput placeholder="Digite para buscar profissão..." />
                 <CommandList>
                   <CommandEmpty>Nenhuma profissão encontrada.</CommandEmpty>
-                  {professionOptions.map(p => {
-                    if (p.disabled) {
-                      return (
-                        <div
-                          key={p.value}
-                          className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-100"
+                  {/* Opção "Todas" */}
+                  <CommandGroup>
+                    <CommandItem
+                      value="Todas as Profissões"
+                      onSelect={() => {
+                        onFilterChange({ ...filters, profession: 'all' });
+                        setOpenCategoryCombobox(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          filters.profession === 'all' ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      Todas as Profissões
+                    </CommandItem>
+                  </CommandGroup>
+                  {/* Grupos de categorias */}
+                  {professionGroups.map(group => (
+                    <CommandGroup key={group.name} heading={group.name}>
+                      {group.items.map(cat => (
+                        <CommandItem
+                          key={cat.slug}
+                          value={cat.name}
+                          onSelect={() => {
+                            onFilterChange({ ...filters, profession: cat.slug });
+                            setOpenCategoryCombobox(false);
+                          }}
                         >
-                          {p.label}
-                        </div>
-                      );
-                    }
-                    return (
-                      <CommandItem
-                        key={p.value}
-                        value={p.label}
-                        onSelect={() => {
-                          onFilterChange({ ...filters, profession: p.value });
-                          setOpenCategoryCombobox(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            filters.profession === p.value ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {p.label}
-                      </CommandItem>
-                    );
-                  })}
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              filters.profession === cat.slug ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {cat.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ))}
                 </CommandList>
               </Command>
             </PopoverContent>
