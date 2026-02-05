@@ -19,6 +19,8 @@ export const PUBLIC_ROUTES = [
   '/PublicProfile',
   '/OtherServices',
   '/ProfessionalCard', // Cartão digital público para compartilhar
+  '/Portfolio', // Visualização pública do portfolio de um profissional
+  '/ProfessionalProfile', // Visualização pública do perfil de um profissional
   '/forgot-password',
   '/reset-password',
   '/termos',
@@ -33,12 +35,10 @@ export const ADMIN_ROUTES = [
 // Rotas que exigem usuário profissional
 export const PROFESSIONAL_ROUTES = [
   '/ProfessionalDashboard',
-  '/ProfessionalProfile',
   '/ProfessionalSchedule',
   '/ProfessionalReviews',
   '/ProfessionalQuotes',
-  '/JobOpportunities',
-  '/Portfolio'
+  '/JobOpportunities'
 ];
 
 // Rotas que exigem usuário cliente
