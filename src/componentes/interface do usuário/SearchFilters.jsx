@@ -48,6 +48,7 @@ const states = [
 export default function SearchFilters({ filters, onFilterChange, hideLocationFields = false }) {
   const [selectedDate, setSelectedDate] = useState(filters.availableDate || null);
   const [openCategoryCombobox, setOpenCategoryCombobox] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Buscar categorias do banco
   const { data: categories = [], isLoading: loadingCategories } = useQuery({
@@ -102,6 +103,23 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
     return "Todas as Profissões";
   }, [filters.profession, professionGroups]);
 
+  // Filtrar categorias baseado no termo de busca
+  const filteredGroups = useMemo(() => {
+    if (!searchTerm.trim()) return professionGroups;
+
+    const term = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    return professionGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(cat => {
+          const catName = cat.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          return catName.includes(term);
+        })
+      }))
+      .filter(group => group.items.length > 0);
+  }, [professionGroups, searchTerm]);
+
   const handleDateChange = (date) => {
     setSelectedDate(date);
     onFilterChange({ ...filters, availableDate: date });
@@ -135,58 +153,84 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-              <Command>
-                <div className="p-2 border-b border-slate-200 bg-slate-50">
-                  <CommandInput
-                    placeholder="🔍 Digite aqui para filtrar..."
-                    className="h-10 border border-orange-300 rounded-lg px-3 bg-white"
+              {/* Campo de busca visível */}
+              <div className="p-3 border-b-2 border-orange-200 bg-orange-50">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                  <Input
+                    type="text"
+                    placeholder="Digite para buscar..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 h-11 border-2 border-orange-300 focus:border-orange-500 rounded-lg bg-white text-base"
+                    autoFocus
                   />
                 </div>
-                <CommandList className="max-h-[50vh]">
-                  <CommandEmpty>Nenhuma profissão encontrada.</CommandEmpty>
-                  {/* Opção "Todas" */}
-                  <CommandGroup>
-                    <CommandItem
-                      value="Todas as Profissões"
-                      onSelect={() => {
-                        onFilterChange({ ...filters, profession: 'all' });
-                        setOpenCategoryCombobox(false);
-                      }}
-                    >
-                      <Check
+              </div>
+
+              {/* Lista de opções */}
+              <div className="max-h-[50vh] overflow-y-auto">
+                {/* Opção "Todas" */}
+                {(!searchTerm.trim() || "todas as profissões".includes(searchTerm.toLowerCase())) && (
+                  <div
+                    className={cn(
+                      "flex items-center px-3 py-3 cursor-pointer hover:bg-orange-50 border-b",
+                      filters.profession === 'all' && "bg-orange-100"
+                    )}
+                    onClick={() => {
+                      onFilterChange({ ...filters, profession: 'all' });
+                      setOpenCategoryCombobox(false);
+                      setSearchTerm('');
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4 text-orange-500",
+                        filters.profession === 'all' ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span className="font-medium">Todas as Profissões</span>
+                  </div>
+                )}
+
+                {/* Mensagem quando não encontra */}
+                {filteredGroups.length === 0 && searchTerm.trim() && (
+                  <div className="px-3 py-6 text-center text-slate-500">
+                    Nenhuma profissão encontrada para "{searchTerm}"
+                  </div>
+                )}
+
+                {/* Grupos de categorias filtrados */}
+                {filteredGroups.map(group => (
+                  <div key={group.name}>
+                    <div className="px-3 py-2 text-xs font-bold text-slate-500 bg-slate-100 uppercase tracking-wide">
+                      {group.name}
+                    </div>
+                    {group.items.map(cat => (
+                      <div
+                        key={cat.slug}
                         className={cn(
-                          "mr-2 h-4 w-4",
-                          filters.profession === 'all' ? "opacity-100" : "opacity-0"
+                          "flex items-center px-3 py-3 cursor-pointer hover:bg-orange-50",
+                          filters.profession === cat.slug && "bg-orange-100"
                         )}
-                      />
-                      Todas as Profissões
-                    </CommandItem>
-                  </CommandGroup>
-                  {/* Grupos de categorias */}
-                  {professionGroups.map(group => (
-                    <CommandGroup key={group.name} heading={group.name}>
-                      {group.items.map(cat => (
-                        <CommandItem
-                          key={cat.slug}
-                          value={cat.name}
-                          onSelect={() => {
-                            onFilterChange({ ...filters, profession: cat.slug });
-                            setOpenCategoryCombobox(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              filters.profession === cat.slug ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {cat.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  ))}
-                </CommandList>
-              </Command>
+                        onClick={() => {
+                          onFilterChange({ ...filters, profession: cat.slug });
+                          setOpenCategoryCombobox(false);
+                          setSearchTerm('');
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4 text-orange-500",
+                            filters.profession === cat.slug ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span>{cat.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </PopoverContent>
           </Popover>
         </div>
