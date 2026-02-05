@@ -2,6 +2,11 @@
 module.exports = {
     darkMode: ["class"],
     content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
+    // Safelist para cores dinâmicas vindas do banco de dados (categorias)
+    safelist: [
+      // Todas as cores de background que podem ser usadas nas categorias
+      { pattern: /^bg-(red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone)-(50|100|200|300|400|500|600|700|800|900|950)$/ },
+    ],
   theme: {
   	extend: {
   		borderRadius: {
