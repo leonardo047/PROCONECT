@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";
@@ -6,111 +6,13 @@ import { Slider } from "@/componentes/interface do usuário/slider";
 import { Calendar } from "@/componentes/interface do usuário/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/componentes/interface do usuário/popover";
 import { Button } from "@/componentes/interface do usuário/button";
-import { Search, MapPin, Briefcase, Calendar as CalendarIcon, Star } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/componentes/interface do usuário/command";
+import { Search, MapPin, Briefcase, Calendar as CalendarIcon, Star, Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-const professions = [
-  { value: "all", label: "Todas as Profissões" },
-  { value: "construcao", label: "🏗️ CONSTRUÇÃO E REFORMA", disabled: true },
-  { value: "pintura_residencial", label: "Pintura Residencial e Comercial" },
-  { value: "pedreiro_alvenaria", label: "Pedreiro / Alvenaria" },
-  { value: "eletricista", label: "Eletricista" },
-  { value: "hidraulica", label: "Encanador / Hidráulica" },
-  { value: "gesso_drywall", label: "Gesso / Drywall" },
-  { value: "telhados", label: "Telhados" },
-  { value: "calheiro", label: "Calheiro / Calhas" },
-  { value: "azulejista", label: "Azulejista / Revestimentos" },
-  { value: "marmorista", label: "Marmorista / Granitos" },
-  { value: "instalador_pisos", label: "Instalador de Pisos" },
-  { value: "impermeabilizacao", label: "Impermeabilização" },
-  { value: "carpinteiro", label: "Carpintaria" },
-  { value: "marceneiro", label: "Marcenaria" },
-  { value: "vidraceiro", label: "Vidraçaria" },
-  { value: "serralheiro", label: "Serralheria" },
-  { value: "arquiteto", label: "Arquitetura e Projetos" },
-  { value: "engenheiro", label: "Engenharia Civil" },
-  { value: "limpeza_servicos", label: "🧹 LIMPEZA E MANUTENÇÃO", disabled: true },
-  { value: "limpeza", label: "Limpeza Residencial / Pós-obra" },
-  { value: "limpeza_fachada", label: "Limpeza de Fachada" },
-  { value: "limpeza_reservatorio", label: "Limpeza de Reservatório" },
-  { value: "polimento_pisos", label: "Polimento de Pisos" },
-  { value: "dedetizacao", label: "Dedetização" },
-  { value: "controle_pragas", label: "Controle de Pragas" },
-  { value: "fumigacao", label: "Fumigação" },
-  { value: "desentupidor", label: "Desentupidor" },
-  { value: "jardinagem", label: "Jardinagem / Roçada" },
-  { value: "piscineiro", label: "Piscineiro / Manutenção de Piscinas" },
-  { value: "instalacoes", label: "⚡ INSTALAÇÕES E TECNOLOGIA", disabled: true },
-  { value: "ar_condicionado", label: "Ar Condicionado / Refrigeração" },
-  { value: "energia_solar", label: "Energia Solar" },
-  { value: "automacao", label: "Automação Residencial" },
-  { value: "seguranca_eletronica", label: "Segurança Eletrônica / CFTV" },
-  { value: "alarmes", label: "Alarmes" },
-  { value: "cameras_seguranca", label: "Câmeras de Segurança" },
-  { value: "cerca_eletrica", label: "Cerca Elétrica" },
-  { value: "portoes_automaticos", label: "Portões Automáticos" },
-  { value: "instalacao_internet", label: "Instalação de Internet" },
-  { value: "antenas_satelite", label: "Antenas e Satélite" },
-  { value: "som_automotivo", label: "Som Automotivo" },
-  { value: "decoracao_design", label: "🎨 DECORAÇÃO E DESIGN", disabled: true },
-  { value: "decorador", label: "Decoração de Interiores" },
-  { value: "instalacao_cortinas", label: "Instalação de Cortinas" },
-  { value: "instalacao_persianas", label: "Instalação de Persianas" },
-  { value: "instalacao_papel_parede", label: "Instalação de Papel de Parede" },
-  { value: "tapeceiro", label: "Tapeceiro / Estofador" },
-  { value: "tapecaria_estofamento", label: "Tapecaria e Estofamento" },
-  { value: "restauracao_moveis", label: "Restauração de Móveis" },
-  { value: "automotivo", label: "🚗 AUTOMOTIVO", disabled: true },
-  { value: "mecanico_auto", label: "Mecânico Automotivo" },
-  { value: "eletricista_auto", label: "Eletricista Automotivo" },
-  { value: "funilaria_pintura", label: "Funilaria e Pintura Auto" },
-  { value: "vidraceiro_auto", label: "Vidraceiro Automotivo" },
-  { value: "lavagem_automotiva", label: "Lavagem Automotiva" },
-  { value: "estetica_automotiva", label: "Estética Automotiva" },
-  { value: "reboque_guincho", label: "Reboque / Guincho" },
-  { value: "borracheiro", label: "Borracheiro" },
-  { value: "alinhamento_balanceamento", label: "Alinhamento e Balanceamento" },
-  { value: "troca_oleo", label: "Troca de Óleo" },
-  { value: "saude_bem_estar", label: "💆 SAÚDE E BEM-ESTAR", disabled: true },
-  { value: "manicure_pedicure", label: "Manicure e Pedicure" },
-  { value: "cabeleireiro", label: "Cabeleireiro" },
-  { value: "barbeiro", label: "Barbearia" },
-  { value: "estetica_facial", label: "Estética Facial" },
-  { value: "depilacao", label: "Depilação" },
-  { value: "massagem", label: "Massagem" },
-  { value: "personal_trainer", label: "Personal Trainer" },
-  { value: "nutricao", label: "Nutrição" },
-  { value: "psicologia", label: "Psicologia" },
-  { value: "pets", label: "🐾 PET E ANIMAIS", disabled: true },
-  { value: "veterinario", label: "Veterinário" },
-  { value: "pet_grooming", label: "Pet Grooming / Banho e Tosa" },
-  { value: "passeador_caes", label: "Passeador de Cães" },
-  { value: "adestramento", label: "Adestramento" },
-  { value: "educacao_eventos", label: "🎓 EDUCAÇÃO E EVENTOS", disabled: true },
-  { value: "aulas_particulares", label: "Aulas Particulares" },
-  { value: "traducao", label: "Tradução" },
-  { value: "informatica_ti", label: "Informática e TI" },
-  { value: "design_grafico", label: "Design Gráfico" },
-  { value: "fotografia", label: "Fotografia" },
-  { value: "video", label: "Vídeo / Filmagem" },
-  { value: "eventos", label: "Organização de Eventos" },
-  { value: "buffet", label: "Buffet / Catering" },
-  { value: "decoracao_festas", label: "Decoração de Festas" },
-  { value: "musicos", label: "Músicos" },
-  { value: "dj", label: "DJ" },
-  { value: "brinquedos_inflaveis", label: "Brinquedos Infláveis" },
-  { value: "outros_servicos", label: "🔧 OUTROS SERVIÇOS", disabled: true },
-  { value: "marido_aluguel", label: "Marido de Aluguel" },
-  { value: "mudancas", label: "Mudanças e Fretes" },
-  { value: "montador_moveis", label: "Montador de Móveis" },
-  { value: "chaveiro", label: "Chaveiro" },
-  { value: "aluguel_equipamentos", label: "Aluguel de Equipamentos" },
-  { value: "empresa_local", label: "Empresa Local (Contato Direto)" },
-  { value: "encontra_objeto", label: "Encontra Objeto Perdido" },
-  { value: "encontra_produto", label: "Encontra Produto Específico" },
-  { value: "outros", label: "Outras Especialidades" }
-];
+import { Category } from "@/lib/entities";
+import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
 const states = [
   { value: "all", label: "Todos os Estados" },
@@ -144,39 +46,152 @@ const states = [
 ];
 
 export default function SearchFilters({ filters, onFilterChange, hideLocationFields = false }) {
-  const [selectedDate, setSelectedDate] = React.useState(filters.availableDate || null);
-  
+  const [selectedDate, setSelectedDate] = useState(filters.availableDate || null);
+  const [openCategoryCombobox, setOpenCategoryCombobox] = useState(false);
+
+  // Buscar categorias do banco
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['search-filter-categories'],
+    queryFn: () => Category.filter({
+      filters: { is_active: true },
+      orderBy: { field: 'order', direction: 'asc' },
+      limit: 500
+    }),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  // Transformar categorias em opções para o select com headers de grupo
+  const professionOptions = useMemo(() => {
+    if (!categories.length) return [{ value: "all", label: "Todas as Profissões" }];
+
+    const options = [{ value: "all", label: "Todas as Profissões" }];
+
+    // Agrupar por category_group
+    const groups = {};
+    categories.forEach(cat => {
+      const group = cat.category_group || 'Outros';
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(cat);
+    });
+
+    // Ordenar grupos - home primeiro, depois other_services
+    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+      // Grupos de construção primeiro
+      const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
+      const aIsHome = homeGroups.some(g => a.includes(g));
+      const bIsHome = homeGroups.some(g => b.includes(g));
+      if (aIsHome && !bIsHome) return -1;
+      if (!aIsHome && bIsHome) return 1;
+      return a.localeCompare(b);
+    });
+
+    // Adicionar cada grupo com header
+    sortedGroupNames.forEach(groupName => {
+      // Adicionar header do grupo (disabled)
+      const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
+      const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
+      options.push({
+        value: `header_${groupName}`,
+        label: `${emoji} ${cleanName.toUpperCase()}`,
+        disabled: true
+      });
+
+      // Adicionar categorias do grupo
+      groups[groupName].forEach(cat => {
+        options.push({
+          value: cat.slug,
+          label: cat.name
+        });
+      });
+    });
+
+    return options;
+  }, [categories]);
+
   const handleDateChange = (date) => {
     setSelectedDate(date);
     onFilterChange({ ...filters, availableDate: date });
   };
-  
+
   return (
     <div className="bg-white rounded-2xl shadow-lg p-4 md:p-6 border-2 border-orange-100 space-y-6">
       <div className={`grid grid-cols-1 ${hideLocationFields ? 'md:grid-cols-1' : 'md:grid-cols-3'} gap-4`}>
         <div className="relative">
-          <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-          <Select 
-            value={filters.profession} 
-            onValueChange={(value) => onFilterChange({ ...filters, profession: value })}
-          >
-            <SelectTrigger className="pl-10 h-12 border-2 border-orange-200 focus:ring-orange-500 focus:border-orange-500">
-              <SelectValue placeholder="Selecione a profissão" />
-            </SelectTrigger>
-            <SelectContent>
-              {professions.map(p => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={openCategoryCombobox} onOpenChange={setOpenCategoryCombobox}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={openCategoryCombobox}
+                disabled={loadingCategories}
+                className="w-full h-12 justify-between pl-10 border-2 border-orange-200 hover:bg-orange-50 focus:ring-orange-500 focus:border-orange-500"
+              >
+                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+                {loadingCategories ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Carregando...
+                  </div>
+                ) : (
+                  <span className="truncate">
+                    {filters.profession && filters.profession !== 'all'
+                      ? professionOptions.find(p => p.value === filters.profession)?.label || "Selecione a profissão"
+                      : "Todas as Profissões"}
+                  </span>
+                )}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Buscar profissão..." />
+                <CommandList>
+                  <CommandEmpty>Nenhuma profissão encontrada.</CommandEmpty>
+                  {professionOptions.map(p => {
+                    if (p.disabled) {
+                      return (
+                        <div
+                          key={p.value}
+                          className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-100"
+                        >
+                          {p.label}
+                        </div>
+                      );
+                    }
+                    return (
+                      <CommandItem
+                        key={p.value}
+                        value={p.label}
+                        onSelect={() => {
+                          onFilterChange({ ...filters, profession: p.value });
+                          setOpenCategoryCombobox(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            filters.profession === p.value ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {p.label}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
-        
+
         {!hideLocationFields && (
           <>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-              <Select 
-                value={filters.state} 
+              <Select
+                value={filters.state}
                 onValueChange={(value) => onFilterChange({ ...filters, state: value })}
               >
                 <SelectTrigger className="pl-10 h-12 border-2 border-orange-200 focus:ring-orange-500 focus:border-orange-500">
@@ -189,10 +204,10 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-              <Input 
+              <Input
                 placeholder="Buscar por cidade..."
                 value={filters.city}
                 onChange={(e) => onFilterChange({ ...filters, city: e.target.value })}
@@ -202,11 +217,11 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
           </>
         )}
       </div>
-      
+
       {/* Advanced Filters */}
       <div className="border-t pt-6">
         <h3 className="font-semibold text-slate-900 mb-4">Filtros Avançados</h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Date Filter */}
           <div>
@@ -229,11 +244,11 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
               </PopoverContent>
             </Popover>
           </div>
-          
+
           {/* Rating Filter */}
           <div>
             <Label className="mb-2 block">Avaliação Mínima:</Label>
-            <Select 
+            <Select
               value={filters.minRating || 'all'}
               onValueChange={(value) => onFilterChange({ ...filters, minRating: value })}
             >
@@ -263,7 +278,7 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
               </SelectContent>
             </Select>
           </div>
-          
+
           {/* Price Filter */}
           <div className="md:col-span-2">
             <Label className="mb-3 block">
