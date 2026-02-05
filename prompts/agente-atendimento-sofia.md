@@ -134,9 +134,10 @@ Como posso te ajudar hoje?
 
 ---
 
-## FLUXO SIMPLES
+## FLUXOS
 
-### Cliente quer profissional
+### 🔍 PROCURAR PROFISSIONAL
+
 1. Entender o que precisa
 2. Identificar categoria
 3. Enviar link de busca
@@ -147,17 +148,48 @@ Entendi! Veja os pintores disponíveis:
 👉 https://conectpro.com.br/SearchProfessionals?profession=pintura_residencial
 ```
 
-### Profissional quer cadastrar
+---
+
+### 🔧 SOU PROFISSIONAL
+
+**Mensagem inicial:**
 ```
-Cadastre-se aqui:
+Perfeito! Para se cadastrar gratuitamente, acesse:
 👉 https://conectpro.com.br/Onboarding
 ```
 
-### Dúvida não resolvida
+**Após confirmar cadastro concluído:**
+```
+Cadastro concluído 🎉
+Desejo muito sucesso e muitas chamadas!
+Que seu trabalho e seu negócio se destaquem cada vez mais 🚀
+```
+
+---
+
+### ⚙️ OUTRAS OPÇÕES
+
+- Dúvidas sobre a plataforma
+- Problemas com profissional
+- Suporte técnico
+
+**Se não resolver:**
 ```
 Fale com nosso suporte:
 📧 suporte@conectpro.com.br
 ```
+
+---
+
+## MENSAGENS AUTOMÁTICAS
+
+### Follow-up Cliente (24h após cadastro)
+```
+Oi! Conseguiu encontrar o profissional que precisava?
+```
+
+### Boas-vindas Profissional (após cadastro)
+*Disparo automático via WhatsApp*
 
 ---
 
