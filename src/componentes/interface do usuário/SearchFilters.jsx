@@ -136,8 +136,13 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
               <Command>
-                <CommandInput placeholder="Digite para buscar profissão..." />
-                <CommandList>
+                <div className="p-2 border-b border-slate-200 bg-slate-50">
+                  <CommandInput
+                    placeholder="🔍 Digite aqui para filtrar..."
+                    className="h-10 border border-orange-300 rounded-lg px-3 bg-white"
+                  />
+                </div>
+                <CommandList className="max-h-[50vh]">
                   <CommandEmpty>Nenhuma profissão encontrada.</CommandEmpty>
                   {/* Opção "Todas" */}
                   <CommandGroup>
