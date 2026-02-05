@@ -27,7 +27,7 @@ export default function ProfessionalCard() {
     if (navigator.share) {
       navigator.share({
         title: professional.name,
-        text: `Confira o perfil de ${professional.name} no ProObra!`,
+        text: `Confira o perfil de ${professional.name} no ConectPro!`,
         url: url
       });
     } else {
@@ -37,7 +37,7 @@ export default function ProfessionalCard() {
   };
 
   const handleWhatsApp = () => {
-    const message = encodeURIComponent(`Olá ${professional.name}! Vi seu cartão digital no ProObra.`);
+    const message = encodeURIComponent(`Olá ${professional.name}! Vi seu cartão digital no ConectPro.`);
     window.open(`https://wa.me/55${professional.whatsapp.replace(/\D/g, '')}?text=${message}`, '_blank');
   };
 
@@ -261,7 +261,7 @@ export default function ProfessionalCard() {
             {/* Rodapé */}
             <div className="mt-8 pt-6 border-t text-center">
               <p className="text-sm text-slate-500">
-                Cartão Digital criado com o <span className="font-bold text-orange-600">ProObra</span>
+                Cartão Digital criado com o <span className="font-bold text-orange-600">ConectPro</span>
               </p>
             </div>
           </CardContent>

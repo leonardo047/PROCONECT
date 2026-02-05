@@ -55,11 +55,11 @@ export default function PublicProfile() {
       try {
         await navigator.share({
           title: professional.name,
-          text: `Confira o perfil de ${professional.name} no ProObra`,
+          text: `Confira o perfil de ${professional.name} no ConectPro`,
           url: url
         });
       } catch (err) {
-        console.error('Error sharing:', err);
+        // Ignorar erro de compartilhamento
       }
     } else {
       await navigator.clipboard.writeText(url);
@@ -255,7 +255,8 @@ export default function PublicProfile() {
             />
             <AppointmentRequestForm
               professionalId={professional.id}
-              professional={professional}
+              professionalName={professional.name}
+              serviceType={professional.profession}
             />
           </div>
         </div>

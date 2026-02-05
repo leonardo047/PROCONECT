@@ -56,7 +56,7 @@ export default function QuickContactButton({ professional }) {
       alert('WhatsApp disponível apenas no plano pago. Use o chat interno.');
       return;
     }
-    const message = encodeURIComponent(`Olá! Vi seu perfil no ProObra e gostaria de solicitar um orçamento.`);
+    const message = encodeURIComponent(`Olá! Vi seu perfil no ConectPro e gostaria de solicitar um orçamento.`);
     window.open(`https://wa.me/55${professional.whatsapp.replace(/\D/g, '')}?text=${message}`, '_blank');
   };
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { ProfessionalService } from '@/lib/entities';
+import { ProfessionalService, ClientReferralService } from '@/lib/entities';
+import { validateReturnUrl } from '@/lib/security';
 import { Button } from '@/componentes/interface do usuário/button';
 import { Input } from '@/componentes/interface do usuário/input';
 import { Label } from '@/componentes/interface do usuário/label';
@@ -9,6 +10,57 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/componentes/interface do usuário/tabs';
 import { Alert, AlertDescription } from '@/componentes/interface do usuário/alert';
 import { Loader2, Mail, Lock, User, Building2, Gift, Phone } from 'lucide-react';
+
+// Função para traduzir erros do Supabase para mensagens amigáveis
+const translateSupabaseError = (error) => {
+  const message = error?.message || error || '';
+
+  // Erros de cadastro
+  if (message.includes('users_phone_key') || message.includes('duplicate key') && message.includes('phone')) {
+    return 'Este número de telefone já está cadastrado. Use outro número ou faça login.';
+  }
+  if (message.includes('User already registered') || message.includes('already been registered')) {
+    return 'Este email já está cadastrado. Faça login ou use outro email.';
+  }
+  if (message.includes('users_email_key') || message.includes('duplicate key') && message.includes('email')) {
+    return 'Este email já está cadastrado. Faça login ou use outro email.';
+  }
+  if (message.includes('Invalid email')) {
+    return 'Email inválido. Verifique e tente novamente.';
+  }
+  if (message.includes('Password should be at least')) {
+    return 'A senha deve ter pelo menos 6 caracteres.';
+  }
+  if (message.includes('Unable to validate email')) {
+    return 'Não foi possível validar o email. Verifique se digitou corretamente.';
+  }
+
+  // Erros de login
+  if (message.includes('Invalid login credentials')) {
+    return 'Email ou senha incorretos. Verifique suas credenciais.';
+  }
+  if (message.includes('Email not confirmed')) {
+    return 'Email não confirmado. Verifique sua caixa de entrada.';
+  }
+  if (message.includes('Too many requests')) {
+    return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+  }
+
+  // Erros gerais
+  if (message.includes('Database error')) {
+    // Tentar extrair mais detalhes
+    if (message.includes('phone')) {
+      return 'Este número de telefone já está cadastrado. Use outro número.';
+    }
+    return 'Erro ao salvar dados. Verifique se todos os campos estão corretos.';
+  }
+  if (message.includes('network') || message.includes('fetch')) {
+    return 'Erro de conexão. Verifique sua internet e tente novamente.';
+  }
+
+  // Se não conseguir traduzir, retorna mensagem genérica
+  return 'Erro ao processar sua solicitação. Tente novamente.';
+};
 
 export default function Login() {
   const navigate = useNavigate();
@@ -35,7 +87,9 @@ export default function Login() {
   const [referralCode, setReferralCode] = useState('');
   const [referrerName, setReferrerName] = useState('');
 
-  const returnUrl = searchParams.get('returnUrl') || '/';
+  // Validar returnUrl para prevenir Open Redirect attacks
+  const rawReturnUrl = searchParams.get('returnUrl');
+  const returnUrl = validateReturnUrl(rawReturnUrl);
   const refCode = searchParams.get('ref');
 
   // Format phone number as user types
@@ -63,28 +117,44 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthenticated && !isLoadingAuth) {
-      navigate(decodeURIComponent(returnUrl));
+      // returnUrl já foi validada e decodificada pelo validateReturnUrl
+      navigate(returnUrl);
     }
   }, [isAuthenticated, isLoadingAuth, navigate, returnUrl]);
 
-  // Capture referral code from URL
+  // Capture referral code from URL ou localStorage (pode ser de profissional ou cliente)
   useEffect(() => {
     const captureReferralCode = async () => {
       if (refCode) {
+        // Código veio da URL - validar e salvar
         try {
-          const referrer = await ProfessionalService.findByReferralCode(refCode);
-          if (referrer) {
+          const referrerProfessional = await ProfessionalService.findByReferralCode(refCode);
+          if (referrerProfessional) {
             setReferralCode(refCode);
-            setReferrerName(referrer.name);
+            setReferrerName(referrerProfessional.name);
             localStorage.setItem('referral_code', refCode);
+            localStorage.setItem('referrer_name', referrerProfessional.name);
+          } else {
+            const referrerClient = await ClientReferralService.findByReferralCode(refCode);
+            if (referrerClient) {
+              setReferralCode(refCode);
+              setReferrerName(referrerClient.full_name || '');
+              localStorage.setItem('referral_code', refCode);
+              localStorage.setItem('referrer_name', referrerClient.full_name || '');
+            }
           }
         } catch (error) {
-          console.error('Invalid referral code:', error);
+          // Ignorar código de referral inválido
         }
       } else {
+        // Verificar se tem código salvo no localStorage (pode ter vindo da Home)
         const storedCode = localStorage.getItem('referral_code');
+        const storedName = localStorage.getItem('referrer_name');
         if (storedCode) {
           setReferralCode(storedCode);
+          if (storedName) {
+            setReferrerName(storedName);
+          }
         }
       }
     };
@@ -98,9 +168,10 @@ export default function Login() {
 
     try {
       await signIn(loginEmail, loginPassword);
-      navigate(decodeURIComponent(returnUrl));
+      // returnUrl já foi validada pelo validateReturnUrl
+      navigate(returnUrl);
     } catch (err) {
-      setError(err.message || 'Erro ao fazer login. Verifique suas credenciais.');
+      setError(translateSupabaseError(err));
     } finally {
       setIsLoading(false);
     }
@@ -146,8 +217,9 @@ export default function Login() {
       setRegisterName('');
       setRegisterPhone('');
       localStorage.removeItem('referral_code');
+      localStorage.removeItem('referrer_name');
     } catch (err) {
-      setError(err.message || 'Erro ao criar conta. Tente novamente.');
+      setError(translateSupabaseError(err));
     } finally {
       setIsLoading(false);
     }
@@ -160,7 +232,7 @@ export default function Login() {
     try {
       await signInWithProvider('google');
     } catch (err) {
-      setError(err.message || 'Erro ao fazer login com Google.');
+      setError(translateSupabaseError(err));
       setIsLoading(false);
     }
   };
@@ -177,7 +249,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-orange-600">ProObra</CardTitle>
+          <CardTitle className="text-2xl font-bold text-orange-600">ConectPro</CardTitle>
           <CardDescription>Acesse sua conta ou cadastre-se</CardDescription>
         </CardHeader>
         <CardContent>

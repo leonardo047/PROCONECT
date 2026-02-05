@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, ProfessionalService, ReferralService, generateReferralCode } from "@/lib/entities";
+import { ProfessionalService, ReferralService, ClientReferralService, generateReferralCode, User as UserEntity, Category } from "@/lib/entities";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/componentes/interface do usuário/button";
@@ -13,98 +13,38 @@ import {
   CheckCircle, Loader2, Building2, MapPin, Award
 } from "lucide-react";
 import { Checkbox } from "@/componentes/interface do usuário/checkbox";
+import { Textarea } from "@/componentes/interface do usuário/textarea";
+import { useQuery } from "@tanstack/react-query";
 
-const professions = [
-  { value: "pintura_residencial", label: "Pintura Residencial e Comercial" },
-  { value: "pedreiro_alvenaria", label: "Pedreiro / Alvenaria" },
-  { value: "eletricista", label: "Eletricista" },
-  { value: "hidraulica", label: "Encanador / Hidráulica" },
-  { value: "limpeza", label: "Limpeza Residencial / Pós-obra" },
-  { value: "jardinagem", label: "Jardinagem / Roçada" },
-  { value: "gesso_drywall", label: "Gesso / Drywall" },
-  { value: "telhados", label: "Telhados" },
-  { value: "calheiro", label: "Calheiro / Calhas" },
-  { value: "marido_aluguel", label: "Marido de Aluguel" },
-  { value: "carpinteiro", label: "Carpintaria" },
-  { value: "marceneiro", label: "Marcenaria" },
-  { value: "vidraceiro", label: "Vidraçaria" },
-  { value: "serralheiro", label: "Serralheria" },
-  { value: "azulejista", label: "Azulejista / Revestimentos" },
-  { value: "ar_condicionado", label: "Ar Condicionado / Refrigeração" },
-  { value: "dedetizacao", label: "Dedetização" },
-  { value: "desentupidor", label: "Desentupidor" },
-  { value: "controle_pragas", label: "Controle de Pragas" },
-  { value: "fumigacao", label: "Fumigação" },
-  { value: "limpeza_reservatorio", label: "Limpeza de Reservatório" },
-  { value: "limpeza_fachada", label: "Limpeza de Fachada" },
-  { value: "polimento_pisos", label: "Polimento de Pisos" },
-  { value: "mudancas", label: "Mudanças e Fretes" },
-  { value: "montador_moveis", label: "Montador de Móveis" },
-  { value: "instalador_pisos", label: "Instalador de Pisos" },
-  { value: "marmorista", label: "Marmorista / Granitos" },
-  { value: "piscineiro", label: "Piscineiro / Manutenção de Piscinas" },
-  { value: "tapeceiro", label: "Tapeceiro / Estofador" },
-  { value: "restauracao_moveis", label: "Restauração de Móveis" },
-  { value: "tapecaria_estofamento", label: "Tapecaria e Estofamento" },
-  { value: "instalacao_cortinas", label: "Instalação de Cortinas" },
-  { value: "instalacao_persianas", label: "Instalação de Persianas" },
-  { value: "instalacao_papel_parede", label: "Instalação de Papel de Parede" },
-  { value: "chaveiro", label: "Chaveiro" },
-  { value: "seguranca_eletronica", label: "Segurança Eletrônica / CFTV" },
-  { value: "alarmes", label: "Alarmes" },
-  { value: "cameras_seguranca", label: "Câmeras de Segurança" },
-  { value: "cerca_eletrica", label: "Cerca Elétrica" },
-  { value: "portoes_automaticos", label: "Portões Automáticos" },
-  { value: "automacao", label: "Automação Residencial" },
-  { value: "energia_solar", label: "Energia Solar" },
-  { value: "impermeabilizacao", label: "Impermeabilização" },
-  { value: "instalacao_internet", label: "Instalação de Internet" },
-  { value: "antenas_satelite", label: "Antenas e Satélite" },
-  { value: "arquiteto", label: "Arquitetura e Projetos" },
-  { value: "engenheiro", label: "Engenharia Civil" },
-  { value: "decorador", label: "Decoração de Interiores" },
-  { value: "mecanico_auto", label: "Mecânico Automotivo" },
-  { value: "eletricista_auto", label: "Eletricista Automotivo" },
-  { value: "funilaria_pintura", label: "Funilaria e Pintura Auto" },
-  { value: "vidraceiro_auto", label: "Vidraceiro Automotivo" },
-  { value: "lavagem_automotiva", label: "Lavagem Automotiva" },
-  { value: "estetica_automotiva", label: "Estética Automotiva" },
-  { value: "som_automotivo", label: "Som Automotivo" },
-  { value: "reboque_guincho", label: "Reboque / Guincho" },
-  { value: "borracheiro", label: "Borracheiro" },
-  { value: "alinhamento_balanceamento", label: "Alinhamento e Balanceamento" },
-  { value: "troca_oleo", label: "Troca de Óleo" },
-  { value: "manicure_pedicure", label: "Manicure e Pedicure" },
-  { value: "cabeleireiro", label: "Cabeleireiro" },
-  { value: "barbeiro", label: "Barbearia" },
-  { value: "estetica_facial", label: "Estética Facial" },
-  { value: "depilacao", label: "Depilação" },
-  { value: "massagem", label: "Massagem" },
-  { value: "personal_trainer", label: "Personal Trainer" },
-  { value: "nutricao", label: "Nutrição" },
-  { value: "psicologia", label: "Psicologia" },
-  { value: "veterinario", label: "Veterinário" },
-  { value: "pet_grooming", label: "Pet Grooming / Banho e Tosa" },
-  { value: "passeador_caes", label: "Passeador de Cães" },
-  { value: "adestramento", label: "Adestramento" },
-  { value: "aulas_particulares", label: "Aulas Particulares" },
-  { value: "traducao", label: "Tradução" },
-  { value: "informatica_ti", label: "Informática e TI" },
-  { value: "design_grafico", label: "Design Gráfico" },
-  { value: "fotografia", label: "Fotografia" },
-  { value: "video", label: "Vídeo / Filmagem" },
-  { value: "eventos", label: "Organização de Eventos" },
-  { value: "buffet", label: "Buffet / Catering" },
-  { value: "decoracao_festas", label: "Decoração de Festas" },
-  { value: "musicos", label: "Músicos" },
-  { value: "dj", label: "DJ" },
-  { value: "brinquedos_inflaveis", label: "Brinquedos Infláveis" },
-  { value: "aluguel_equipamentos", label: "Aluguel de Equipamentos" },
-  { value: "empresa_local", label: "Empresa Local (Contato Direto)" },
-  { value: "encontra_objeto", label: "Encontra Objeto Perdido" },
-  { value: "encontra_produto", label: "Encontra Produto Específico" },
-  { value: "outros", label: "Outras Especialidades" }
-];
+// Função para traduzir erros do Supabase para mensagens amigáveis
+const translateSupabaseError = (error) => {
+  const message = error?.message || error || '';
+
+  // Erros de telefone duplicado
+  if (message.includes('users_phone_key') || message.includes('profiles_phone_key') || (message.includes('duplicate key') && message.includes('phone'))) {
+    return 'Este número de telefone já está cadastrado. Use outro número.';
+  }
+  // Erros de email duplicado
+  if (message.includes('User already registered') || message.includes('already been registered')) {
+    return 'Este email já está cadastrado.';
+  }
+  if (message.includes('users_email_key') || (message.includes('duplicate key') && message.includes('email'))) {
+    return 'Este email já está cadastrado.';
+  }
+  // Erros de banco de dados
+  if (message.includes('Database error')) {
+    if (message.includes('phone')) {
+      return 'Este número de telefone já está cadastrado. Use outro número.';
+    }
+    return 'Erro ao salvar dados. Verifique se todos os campos estão corretos.';
+  }
+  // Erros de rede
+  if (message.includes('network') || message.includes('fetch')) {
+    return 'Erro de conexão. Verifique sua internet e tente novamente.';
+  }
+
+  return message || 'Erro ao processar sua solicitação. Tente novamente.';
+};
 
 const specializations = [
   "Reformas Residenciais",
@@ -176,6 +116,70 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(1);
 
+  const savingRef = useRef(false);
+  const initializedRef = useRef(false);
+
+  // Buscar categorias (profissões) do banco
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['onboarding-categories'],
+    queryFn: () => Category.filter({
+      filters: { is_active: true },
+      orderBy: { field: 'order', direction: 'asc' },
+      limit: 500
+    }),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  // Transformar categorias em opções para o select com headers de grupo
+  const professions = useMemo(() => {
+    if (!categories.length) return [];
+
+    const options = [];
+
+    // Agrupar por category_group
+    const groups = {};
+    categories.forEach(cat => {
+      const group = cat.category_group || 'Outros';
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(cat);
+    });
+
+    // Ordenar grupos - construção primeiro
+    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+      const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
+      const aIsHome = homeGroups.some(g => a.includes(g));
+      const bIsHome = homeGroups.some(g => b.includes(g));
+      if (aIsHome && !bIsHome) return -1;
+      if (!aIsHome && bIsHome) return 1;
+      return a.localeCompare(b);
+    });
+
+    // Adicionar cada grupo com header
+    sortedGroupNames.forEach(groupName => {
+      // Adicionar header do grupo (disabled)
+      const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
+      const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
+      options.push({
+        value: `header_${groupName}`,
+        label: `${emoji} ${cleanName.toUpperCase()}`,
+        disabled: true
+      });
+
+      // Adicionar categorias do grupo
+      groups[groupName].forEach(cat => {
+        options.push({
+          value: cat.slug,
+          label: cat.name
+        });
+      });
+    });
+
+    return options;
+  }, [categories]);
+
   const [formData, setFormData] = useState({
     user_type: '',
     phone: '',
@@ -189,18 +193,23 @@ export default function Onboarding() {
     address: '',
     years_experience: '',
     google_maps_link: '',
-    business_hours: ''
+    business_hours: '',
+    personal_description: ''
   });
 
   useEffect(() => {
+    // Não executar checkUser se estiver salvando
+    if (savingRef.current) {
+      return;
+    }
     checkUser();
   }, [user, isAuthenticated, isLoadingAuth]);
 
   const checkUser = async () => {
     if (isLoadingAuth) return;
+    if (savingRef.current) return;
 
     if (!isAuthenticated) {
-      // Redireciona para login
       navigateToLogin(createPageUrl("Onboarding"));
       return;
     }
@@ -208,7 +217,7 @@ export default function Onboarding() {
     if (!user) return;
 
     // If already onboarded, redirect
-    if (user.onboarding_complete) {
+    if (user.onboarding_complete && !savingRef.current) {
       if (user.user_type === 'profissional') {
         window.location.href = createPageUrl("ProfessionalDashboard");
       } else {
@@ -217,28 +226,39 @@ export default function Onboarding() {
       return;
     }
 
-    // Pre-fill if data exists
-    if (user.user_type) {
-      setFormData({
-        user_type: user.user_type || '',
-        phone: user.phone || '',
-        city: user.city || '',
-        state: user.state || '',
-        cnpj: user.cnpj || '',
-        cpf: user.cpf || '',
-        profession: user.profession || '',
-        specializations: user.specializations || [],
-        address: user.address || '',
-        years_experience: user.years_experience || '',
-        google_maps_link: user.google_maps_link || '',
-        business_hours: user.business_hours || ''
-      });
+    // Pre-fill apenas na primeira vez
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      if (user.user_type) {
+        setFormData({
+          user_type: user.user_type || '',
+          phone: user.phone || '',
+          city: user.city || '',
+          state: user.state || '',
+          cnpj: user.cnpj || '',
+          cpf: user.cpf || '',
+          profession: user.profession || '',
+          specializations: user.specializations || [],
+          address: user.address || '',
+          years_experience: user.years_experience || '',
+          google_maps_link: user.google_maps_link || '',
+          business_hours: user.business_hours || '',
+          personal_description: user.personal_description || ''
+        });
+      }
     }
 
     setLoading(false);
   };
 
   const handleSubmit = async () => {
+    if (!user?.id) {
+      alert('Erro: usuário não identificado. Por favor, faça login novamente.');
+      return;
+    }
+
+    // Marcar como salvando ANTES de qualquer operação async
+    savingRef.current = true;
     setSaving(true);
 
     try {
@@ -252,23 +272,11 @@ export default function Onboarding() {
         onboarding_complete: true
       };
 
-      await updateProfile(profileData);
+      const updatedProfile = await updateProfile(profileData);
 
       if (formData.user_type === 'profissional') {
-        // Generate unique referral code
-        let referralCode = generateReferralCode();
-        let codeExists = true;
-        let attempts = 0;
-
-        while (codeExists && attempts < 10) {
-          const existingPro = await ProfessionalService.findByReferralCode(referralCode);
-          if (!existingPro) {
-            codeExists = false;
-          } else {
-            referralCode = generateReferralCode();
-            attempts++;
-          }
-        }
+        // Generate referral code (8 chars = baixíssima chance de colisão)
+        const referralCode = generateReferralCode();
 
         // Create professional profile with referral code
         // Construir descrição com informações adicionais
@@ -286,7 +294,7 @@ export default function Onboarding() {
           description += description ? ` | Horário: ${formData.business_hours}` : `Horário: ${formData.business_hours}`;
         }
 
-        const newProfessional = await Professional.create({
+        const professionalData = {
           user_id: user.id,
           name: user.full_name,
           profession: formData.profession || 'outros',
@@ -294,57 +302,99 @@ export default function Onboarding() {
           state: formData.state,
           whatsapp: formData.phone,
           description: description,
+          personal_description: formData.personal_description || '',
           photos: [],
           plan_type: 'free',
           plan_active: true,
-          is_approved: false,
+          is_approved: true,
           is_blocked: false,
           profile_complete: false,
           referral_code: referralCode,
           referral_credits: 0,
           total_referrals: 0
-        });
+        };
 
-        // Process referral if this user was referred
+        const newProfessional = await ProfessionalService.createWithAuth(professionalData);
+
+        // Process referral if this user was referred (pode ter sido indicado por profissional OU cliente)
         if (user.referred_by_code) {
           try {
-            const referrer = await ProfessionalService.findByReferralCode(user.referred_by_code);
-            if (referrer) {
+            // Primeiro tenta encontrar um profissional com esse código
+            const referrerProfessional = await ProfessionalService.findByReferralCode(user.referred_by_code);
+            if (referrerProfessional) {
               const referral = await ReferralService.createReferral(
-                referrer.id,
+                referrerProfessional.id,
                 user.id,
                 'profissional'
               );
               await ReferralService.completeReferral(referral.id);
+            } else {
+              // Se não encontrou profissional, tenta encontrar um cliente
+              const referrerClient = await ClientReferralService.findByReferralCode(user.referred_by_code);
+              if (referrerClient) {
+                const referral = await ClientReferralService.createReferral(
+                  referrerClient.id,
+                  user.id,
+                  'profissional'
+                );
+                await ClientReferralService.completeReferral(referral.id);
+              }
             }
           } catch (refError) {
-            console.error('Error processing referral:', refError);
+            // Ignorar erro de referral
           }
         }
 
         window.location.href = createPageUrl("ProfessionalDashboard");
       } else {
-        // Process referral for client users
+        // Generate referral code for client
+        const clientReferralCode = generateReferralCode();
+
+        // Update profile with referral code
+        try {
+          await UserEntity.update(user.id, {
+            referral_code: clientReferralCode,
+            referral_credits: 0,
+            total_referrals: 0
+          });
+        } catch (refCodeError) {
+          // Ignorar erro de referral code
+        }
+
+        // Process referral for client users (pode ter sido indicado por profissional OU cliente)
         if (user.referred_by_code) {
           try {
-            const referrer = await ProfessionalService.findByReferralCode(user.referred_by_code);
-            if (referrer) {
+            // Primeiro tenta encontrar um profissional com esse código
+            const referrerProfessional = await ProfessionalService.findByReferralCode(user.referred_by_code);
+            if (referrerProfessional) {
               const referral = await ReferralService.createReferral(
-                referrer.id,
+                referrerProfessional.id,
                 user.id,
                 'cliente'
               );
               await ReferralService.completeReferral(referral.id);
+            } else {
+              // Se não encontrou profissional, tenta encontrar um cliente
+              const referrerClient = await ClientReferralService.findByReferralCode(user.referred_by_code);
+              if (referrerClient) {
+                const referral = await ClientReferralService.createReferral(
+                  referrerClient.id,
+                  user.id,
+                  'cliente'
+                );
+                await ClientReferralService.completeReferral(referral.id);
+              }
             }
           } catch (refError) {
-            console.error('Error processing referral:', refError);
+            // Ignorar erro de referral
           }
         }
 
         window.location.href = createPageUrl("Home");
       }
     } catch (error) {
-      console.error('Error saving:', error);
+      alert(translateSupabaseError(error));
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -365,7 +415,7 @@ export default function Onboarding() {
           <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Hammer className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Bem-vindo ao ProObra</h1>
+          <h1 className="text-2xl font-bold text-white">Bem-vindo ao ConectPro</h1>
           <p className="text-slate-400 mt-2">Complete seu cadastro para continuar</p>
         </div>
 
@@ -441,7 +491,8 @@ export default function Onboarding() {
               </RadioGroup>
 
               <Button
-                onClick={() => setStep(2)}
+                type="button"
+                onClick={(e) => { e.preventDefault(); setStep(2); }}
                 disabled={!formData.user_type}
                 className="w-full bg-orange-500 hover:bg-orange-600 h-12 text-base"
               >
@@ -511,15 +562,18 @@ export default function Onboarding() {
 
               <div className="flex gap-3">
                 <Button
+                  type="button"
                   variant="outline"
-                  onClick={() => setStep(1)}
+                  onClick={(e) => { e.preventDefault(); setStep(1); }}
                   className="flex-1 h-12"
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Voltar
                 </Button>
                 <Button
-                  onClick={() => {
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
                     if (formData.user_type === 'profissional') {
                       setStep(3);
                     } else {
@@ -560,13 +614,28 @@ export default function Onboarding() {
                   <Select
                     value={formData.profession}
                     onValueChange={(value) => setFormData({ ...formData, profession: value })}
+                    disabled={loadingCategories}
                   >
                     <SelectTrigger className="h-12 mt-1">
-                      <SelectValue placeholder="Selecione sua profissão" />
+                      {loadingCategories ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Carregando...
+                        </div>
+                      ) : (
+                        <SelectValue placeholder="Selecione sua profissão" />
+                      )}
                     </SelectTrigger>
                     <SelectContent>
                       {professions.map(p => (
-                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                        <SelectItem
+                          key={p.value}
+                          value={p.value}
+                          disabled={p.disabled}
+                          className={p.disabled ? 'font-bold text-slate-500 bg-slate-100' : ''}
+                        >
+                          {p.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -634,6 +703,20 @@ export default function Onboarding() {
                 )}
 
                 <div>
+                  <Label>Descrição Pessoal *</Label>
+                  <Textarea
+                    placeholder="Conte sobre você, sua história profissional, diferenciais, como você trabalha e o que te motiva. Essa descrição será exibida no seu perfil para clientes conhecerem melhor você..."
+                    value={formData.personal_description}
+                    onChange={(e) => setFormData({ ...formData, personal_description: e.target.value })}
+                    className="mt-1 min-h-[120px]"
+                    required
+                  />
+                  <p className="text-xs text-orange-600 mt-1 font-medium">
+                    * Campo obrigatório - Uma boa descrição aumenta suas chances de ser contratado
+                  </p>
+                </div>
+
+                <div>
                   <Label className="mb-3 block">Especializações (Selecione todas que se aplicam)</Label>
                   <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3">
                     {specializations.map((spec) => (
@@ -669,17 +752,23 @@ export default function Onboarding() {
 
               <div className="flex gap-3">
                 <Button
+                  type="button"
                   variant="outline"
-                  onClick={() => setStep(2)}
+                  onClick={(e) => { e.preventDefault(); setStep(2); }}
                   className="flex-1 h-12"
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Voltar
                 </Button>
                 <Button
-                  onClick={handleSubmit}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSubmit();
+                  }}
                   disabled={
                     !formData.profession ||
+                    !formData.personal_description?.trim() ||
                     saving ||
                     (formData.profession === 'empresa_local' && !formData.cnpj && !formData.cpf) ||
                     (formData.profession === 'empresa_local' && !formData.google_maps_link) ||

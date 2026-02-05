@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, PlanConfig } from "@/lib/entities";
-import { uploadFile } from "@/lib/storage";
+import { Professional, PlanConfig, ProfessionalService, ProfessionalPlanService, Category } from "@/lib/entities";
+import { uploadFile, replaceFile, deleteFile, BUCKETS } from "@/lib/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -12,49 +12,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interfac
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/componentes/interface do usuário/dialog";
+import {
   User, Camera, Save, Loader2, AlertCircle, CheckCircle,
-  Upload, X, CreditCard, Eye, Clock, ImagePlus, Sparkles,
+  X, CreditCard, Clock, ImagePlus, Sparkles,
   Gift, Users, Share2, Copy, MessageCircle, Briefcase,
-  FileText, Calendar
+  FileText, Calendar, FolderOpen, Lock, Pencil, XCircle
 } from "lucide-react";
 import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
+import CancelSubscriptionDialog from "@/componentes/assinatura/CancelSubscriptionDialog";
 import JobOpportunityManager from "@/componentes/profissional/JobOpportunityManager";
+import PortfolioManager from "@/componentes/profissional/PortfolioManager";
+import AvatarUpload from "@/componentes/comum/AvatarUpload";
 
-const PHOTO_LIMITS = { MIN: 3, MAX: 5 };
-
-const professions = [
-  { value: "pintura_residencial", label: "Pintura Residencial e Comercial" },
-  { value: "pedreiro_alvenaria", label: "Pedreiro / Alvenaria" },
-  { value: "eletricista", label: "Eletrica" },
-  { value: "hidraulica", label: "Hidraulica" },
-  { value: "limpeza", label: "Limpeza Residencial / Pos-obra" },
-  { value: "jardinagem", label: "Jardinagem / Rocada" },
-  { value: "gesso_drywall", label: "Gesso / Drywall" },
-  { value: "telhados", label: "Telhados" },
-  { value: "marido_aluguel", label: "Marido de Aluguel" },
-  { value: "carpinteiro", label: "Carpintaria" },
-  { value: "marceneiro", label: "Marcenaria" },
-  { value: "vidraceiro", label: "Vidracaria" },
-  { value: "serralheiro", label: "Serralheria" },
-  { value: "azulejista", label: "Azulejista / Revestimentos" },
-  { value: "ar_condicionado", label: "Ar Condicionado / Refrigeracao" },
-  { value: "dedetizacao", label: "Dedetizacao / Controle de Pragas" },
-  { value: "mudancas", label: "Mudancas e Fretes" },
-  { value: "montador_moveis", label: "Montador de Moveis" },
-  { value: "instalador_pisos", label: "Instalador de Pisos" },
-  { value: "marmorista", label: "Marmorista / Granitos" },
-  { value: "piscineiro", label: "Piscineiro / Manutencao de Piscinas" },
-  { value: "tapeceiro", label: "Tapeceiro / Estofador" },
-  { value: "chaveiro", label: "Chaveiro" },
-  { value: "seguranca_eletronica", label: "Seguranca Eletronica / CFTV" },
-  { value: "automacao", label: "Automacao Residencial" },
-  { value: "energia_solar", label: "Energia Solar" },
-  { value: "impermeabilizacao", label: "Impermeabilizacao" },
-  { value: "arquiteto", label: "Arquitetura e Projetos" },
-  { value: "engenheiro", label: "Engenharia Civil" },
-  { value: "decorador", label: "Decoracao de Interiores" },
-  { value: "outros", label: "Outras Especialidades" }
-];
+const PHOTO_LIMITS = { MIN: 1, MAX: 1 };
 
 const states = [
   { value: "AC", label: "Acre" }, { value: "AL", label: "Alagoas" },
@@ -75,33 +50,122 @@ const states = [
 
 export default function ProfessionalDashboard() {
   const queryClient = useQueryClient();
-  const { user, isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
+  const { user, isLoadingAuth, isAuthenticated, navigateToLogin, professional: authProfessional } = useAuth();
   const [formData, setFormData] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [portfolioDialogOpen, setPortfolioDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellingPlan, setCancellingPlan] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState(null); // Arquivo de avatar aguardando upload
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!isLoadingAuth && !isAuthenticated) {
-      navigateToLogin();
+    if (!isLoadingAuth && !isAuthenticated && !redirecting) {
+      setRedirecting(true);
+      const timer = setTimeout(() => {
+        navigateToLogin();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [isLoadingAuth, isAuthenticated, navigateToLogin]);
+  }, [isLoadingAuth, isAuthenticated, navigateToLogin, redirecting]);
 
-  const { data: professional, isLoading } = useQuery({
+  // Usar React Query para carregar o professional - mais robusto e com cache
+  const {
+    data: queryProfessional,
+    isLoading: loadingProfessional,
+    isError: queryError,
+    refetch: refetchProfessional
+  } = useQuery({
     queryKey: ['my-professional', user?.id],
     queryFn: async () => {
-      if (!user) return null;
-      const results = await Professional.filter({ filters: { user_id: user.id } });
-      return results[0] || null;
+      if (!user?.id) return null;
+      // Aguardar um pouco para garantir que a sessão está pronta
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return ProfessionalService.findByUserId(user.id);
     },
-    enabled: !!user
+    enabled: !!user?.id && isAuthenticated && !isLoadingAuth,
+    staleTime: 30000, // 30 segundos
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 3000),
+    // Se já temos do AuthContext, usar como initialData
+    initialData: authProfessional || undefined,
   });
+
+  // Combinar professional do AuthContext com o do React Query
+  const professional = authProfessional ?? queryProfessional ?? null;
+
+  // Loading se ainda está carregando auth OU carregando professional
+  const effectiveLoading = isLoadingAuth || (loadingProfessional && !professional);
+
 
   const { data: plans = [] } = useQuery({
     queryKey: ['plans'],
     queryFn: () => PlanConfig.list()
   });
+
+  // Buscar categorias (profissões) do banco
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['dashboard-categories'],
+    queryFn: () => Category.filter({
+      filters: { is_active: true },
+      orderBy: { field: 'order', direction: 'asc' },
+      limit: 500
+    }),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  // Transformar categorias em opções para o select com headers de grupo
+  const professions = useMemo(() => {
+    if (!categories.length) return [];
+
+    const options = [];
+
+    // Agrupar por category_group
+    const groups = {};
+    categories.forEach(cat => {
+      const group = cat.category_group || 'Outros';
+      if (!groups[group]) {
+        groups[group] = [];
+      }
+      groups[group].push(cat);
+    });
+
+    // Ordenar grupos - construção primeiro
+    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+      const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
+      const aIsHome = homeGroups.some(g => a.includes(g));
+      const bIsHome = homeGroups.some(g => b.includes(g));
+      if (aIsHome && !bIsHome) return -1;
+      if (!aIsHome && bIsHome) return 1;
+      return a.localeCompare(b);
+    });
+
+    // Adicionar cada grupo com header
+    sortedGroupNames.forEach(groupName => {
+      // Adicionar header do grupo (disabled)
+      const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
+      const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
+      options.push({
+        value: `header_${groupName}`,
+        label: `${emoji} ${cleanName.toUpperCase()}`,
+        disabled: true
+      });
+
+      // Adicionar categorias do grupo
+      groups[groupName].forEach(cat => {
+        options.push({
+          value: cat.slug,
+          label: cat.name
+        });
+      });
+    });
+
+    return options;
+  }, [categories]);
 
   useEffect(() => {
     if (professional && !formData) {
@@ -111,26 +175,58 @@ export default function ProfessionalDashboard() {
         city: professional.city || '',
         state: professional.state || '',
         description: professional.description || '',
+        personal_description: professional.personal_description || '',
         whatsapp: professional.whatsapp || '',
         instagram: professional.instagram || '',
         photos: professional.photos || [],
         video_url: professional.video_url || '',
-        availability_status: professional.availability_status || 'available_today'
+        availability_status: professional.availability_status || 'available_today',
+        avatar_url: professional.avatar_url || null
+      });
+    } else if (!professional && !effectiveLoading && !formData) {
+      // Se não tem professional ainda, setar valores padrão
+      setFormData({
+        name: user?.full_name || '',
+        profession: 'outros',
+        city: '',
+        state: '',
+        description: '',
+        personal_description: '',
+        whatsapp: '',
+        instagram: '',
+        photos: [],
+        video_url: '',
+        availability_status: 'available_today',
+        avatar_url: null
       });
     }
-  }, [professional]);
+  }, [professional, effectiveLoading, user]);
 
   const saveMutation = useMutation({
     mutationFn: async (data) => {
+      let avatarUrl = data.avatar_url;
+
+      // Se há um arquivo de avatar pendente, fazer upload e deletar o antigo
+      if (pendingAvatarFile) {
+        try {
+          // Usa replaceFile para fazer upload do novo e deletar o antigo automaticamente
+          avatarUrl = await replaceFile(pendingAvatarFile, professional?.avatar_url, BUCKETS.AVATARS);
+        } catch (error) {
+          throw new Error('Erro ao enviar foto de perfil: ' + error.message);
+        }
+      }
+
       const isComplete = data.name && data.profession && data.city &&
-        data.state && data.whatsapp && data.photos?.length >= 3;
+        data.state && data.whatsapp && data.photos?.length >= 1;
 
       await Professional.update(professional.id, {
         ...data,
+        avatar_url: avatarUrl,
         profile_complete: isComplete
       });
     },
     onSuccess: () => {
+      setPendingAvatarFile(null); // Limpar arquivo pendente após sucesso
       queryClient.invalidateQueries({ queryKey: ['my-professional'] });
     }
   });
@@ -143,7 +239,7 @@ export default function ProfessionalDashboard() {
     const remainingSlots = PHOTO_LIMITS.MAX - currentCount;
 
     if (remainingSlots <= 0) {
-      alert(`Limite de ${PHOTO_LIMITS.MAX} fotos atingido. Remova uma foto para adicionar outra.`);
+      alert(`Limite de ${PHOTO_LIMITS.MAX} foto atingido. Remova a foto atual para adicionar outra.`);
       return;
     }
 
@@ -163,22 +259,127 @@ export default function ProfessionalDashboard() {
         photos: [...(formData.photos || []), ...uploadedUrls]
       });
     } catch (error) {
-      console.error('Upload failed:', error);
+      alert(`Erro ao fazer upload da foto: ${error.message || 'Erro desconhecido'}`);
+    } finally {
+      setUploading(false);
     }
-
-    setUploading(false);
   };
 
-  const removePhoto = (index) => {
+  const removePhoto = async (index) => {
+    const photoUrl = formData.photos[index];
     const newPhotos = formData.photos.filter((_, i) => i !== index);
+
+    // Atualizar estado local imediatamente
     setFormData({ ...formData, photos: newPhotos });
+
+    // Deletar a foto do storage
+    if (photoUrl) {
+      try {
+        await deleteFile(photoUrl, BUCKETS.PHOTOS);
+      } catch (error) {
+        // Ignorar erro de deleção
+      }
+    }
+
+    // Salvar no banco de dados automaticamente para manter sincronizado
+    try {
+      await Professional.update(professional.id, { photos: newPhotos });
+      queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+    } catch (error) {
+      // Ignorar erro
+    }
   };
 
   const handleSave = () => {
     saveMutation.mutate(formData);
   };
 
-  if (isLoading || isLoadingAuth || !user || !formData) {
+  const isPlanCancelled = () => {
+    return professional?.plan_cancelled_at !== null && professional?.plan_cancelled_at !== undefined;
+  };
+
+  const handleCancelPlan = async ({ reason, feedback }) => {
+    if (!professional?.id) return;
+
+    setCancellingPlan(true);
+    try {
+      await ProfessionalPlanService.cancelPlan(professional.id, { reason, feedback });
+      // Recarregar professional
+      queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+    } catch (error) {
+      throw error;
+    } finally {
+      setCancellingPlan(false);
+    }
+  };
+
+  const handleReactivatePlan = async () => {
+    if (!professional?.id) return;
+
+    try {
+      await ProfessionalPlanService.reactivatePlan(professional.id);
+      // Recarregar professional
+      queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+    } catch (error) {
+      alert('Erro ao reativar plano. Tente novamente.');
+    }
+  };
+
+  // Mostrar loading enquanto verifica autenticação inicial
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Se não está autenticado, redirecionar (o useEffect cuida disso)
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Se não tem professional e não está carregando, redirecionar para Onboarding
+  if (!professional && !loadingProfessional && !effectiveLoading) {
+    window.location.href = '/Onboarding';
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Se houve erro na query, mostrar mensagem com botão de retry
+  if (queryError && !professional) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Erro ao Carregar Dados</h2>
+            <p className="text-slate-600 mb-6">
+              Ocorreu um erro ao carregar seu perfil profissional. Tente novamente.
+            </p>
+            <Button
+              onClick={() => refetchProfessional()}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              Tentar Novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+
+  if (!formData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
@@ -191,7 +392,7 @@ export default function ProfessionalDashboard() {
   );
 
   const isProfileComplete = formData.name && formData.profession && formData.city &&
-    formData.state && formData.whatsapp && formData.photos?.length >= 3;
+    formData.state && formData.whatsapp && formData.photos?.length >= 1;
 
   return (
     <div className="min-h-screen bg-slate-50 py-8">
@@ -203,7 +404,7 @@ export default function ProfessionalDashboard() {
         </div>
 
         {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -220,28 +421,6 @@ export default function ProfessionalDashboard() {
                   <p className="text-sm text-slate-600">Status do Plano</p>
                   <p className="font-semibold">
                     {professional.plan_active ? 'Ativo' : 'Inativo'}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  professional.is_approved ? 'bg-green-100' : 'bg-yellow-100'
-                }`}>
-                  {professional.is_approved ? (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  ) : (
-                    <Clock className="w-5 h-5 text-yellow-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm text-slate-600">Aprovacao</p>
-                  <p className="font-semibold">
-                    {professional.is_approved ? 'Aprovado' : 'Pendente'}
                   </p>
                 </div>
               </div>
@@ -271,80 +450,306 @@ export default function ProfessionalDashboard() {
           </Card>
         </div>
 
-        {/* Info Box */}
+        {/* Info Box e Link do Perfil - Profissionais Gratis */}
         {professional.plan_type === 'free' && (
-          <div className="bg-green-50 border-2 border-green-300 rounded-xl p-6 mb-8">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-bold text-lg text-green-900 mb-2">Perfil Gratuito Ativo!</p>
-                <p className="text-green-700 mb-3">
-                  Seu perfil esta visivel e clientes podem te encontrar. Voce so paga quando receber contatos!
-                </p>
-                <ul className="text-sm text-green-700 space-y-1.5">
-                  <li>R$ 3,69 por contato (pague so quando necessario)</li>
-                  <li>Ou assine R$ 36,93 por 3 meses (ate 10 contatos/mes)</li>
-                  <li>Sem compromisso ou mensalidade fixa</li>
-                </ul>
+          <>
+            <div className="bg-green-50 border-2 border-green-300 rounded-xl p-6 mb-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-lg text-green-900 mb-2">Perfil Gratuito Ativo!</p>
+                  <p className="text-green-700 mb-3">
+                    Seu perfil esta visivel e clientes podem te encontrar. Voce so paga quando receber contatos!
+                  </p>
+                  <ul className="text-sm text-green-700 space-y-1.5">
+                    <li>R$ 3,69 por contato (pague so quando necessario)</li>
+                    <li>Ou assine R$ 36,93 por 3 meses (ate 10 contatos/mes)</li>
+                    <li>Sem compromisso ou mensalidade fixa</li>
+                  </ul>
+                </div>
               </div>
             </div>
-          </div>
+
+            {/* Seus Links - Para Profissionais Gratis */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-8">
+              <div className="flex items-start gap-3">
+                <Share2 className="w-6 h-6 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-bold text-lg text-blue-900 mb-2">Seus Links</p>
+                  <p className="text-blue-700 mb-4">
+                    Compartilhe seus links e ganhe creditos na plataforma!
+                  </p>
+
+                  {/* Link do Perfil */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-200 mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <User className="w-4 h-4 text-blue-500" />
+                      <p className="text-sm text-slate-700 font-semibold">Link do Perfil</p>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-2">Este e o perfil que clientes veem quando te encontram na busca.</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/ProfessionalProfile?id=${professional.id}`}
+                        className="flex-1 bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm font-mono"
+                        onClick={(e) => e.target.select()}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/ProfessionalProfile?id=${professional.id}`);
+                          alert('Link copiado!');
+                        }}
+                        className="bg-blue-500 hover:bg-blue-600"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => window.open(`/ProfessionalProfile?id=${professional.id}`, '_blank')}
+                      className="text-blue-600 p-0 h-auto mt-2"
+                    >
+                      Ver meu perfil →
+                    </Button>
+                  </div>
+
+                  {/* Link de Indicacao */}
+                  {professional.referral_code && (
+                    <div className="bg-white rounded-lg p-4 border border-green-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Gift className="w-4 h-4 text-green-500" />
+                        <p className="text-sm text-slate-700 font-semibold">Link de Indicacao</p>
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+1 credito por indicacao</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-2">Compartilhe e ganhe 1 credito para cada pessoa que se cadastrar!</p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={`${window.location.origin}/?ref=${professional.referral_code}`}
+                          className="flex-1 bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm font-mono"
+                          onClick={(e) => e.target.select()}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/?ref=${professional.referral_code}`);
+                            alert('Link copiado!');
+                          }}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-green-600 border-green-300 hover:bg-green-50"
+                          onClick={() => {
+                            const text = `Ola! Estou usando o ConectPro para divulgar meus servicos. Cadastre-se tambem usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
+                            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                          }}
+                        >
+                          <MessageCircle className="w-4 h-4 mr-1" />
+                          WhatsApp
+                        </Button>
+                        <div className="text-xs text-slate-500">
+                          Creditos: <span className="font-bold text-green-600">{professional.referral_credits || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
-        {/* Cartao Digital - Apenas para Assinantes */}
+        {/* Seus Links - Apenas para Assinantes */}
         {professional.plan_type !== 'free' && (
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300 rounded-xl p-6 mb-8">
             <div className="flex items-start gap-3">
               <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-6 h-6 text-white" />
+                <Share2 className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">
-                <p className="font-bold text-lg text-purple-900 mb-2">Seu Cartao Digital Exclusivo</p>
+                <p className="font-bold text-lg text-purple-900 mb-2">Seus Links</p>
                 <p className="text-purple-700 mb-4">
-                  Compartilhe seu link personalizado! Clientes verao apenas voce, como um cartao de visita profissional online.
+                  Compartilhe seus links e ganhe creditos na plataforma!
                 </p>
 
-                <div className="bg-white rounded-lg p-4 border border-purple-200">
-                  <p className="text-xs text-slate-600 mb-2 font-semibold">Seu link exclusivo:</p>
+                {/* Link do Portfolio */}
+                <div className="bg-white rounded-lg p-4 border border-purple-200 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    <p className="text-sm text-slate-700 font-semibold">Link do Portfolio</p>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-2">Este e o perfil que clientes veem quando te encontram na busca.</p>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       readOnly
-                      value={`${window.location.origin}/ProfessionalCard?id=${professional.id}`}
+                      value={`${window.location.origin}/Portfolio?id=${professional.id}`}
                       className="flex-1 bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm font-mono"
                       onClick={(e) => e.target.select()}
                     />
                     <Button
                       size="sm"
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/ProfessionalCard?id=${professional.id}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/Portfolio?id=${professional.id}`);
                         alert('Link copiado!');
                       }}
                       className="bg-purple-500 hover:bg-purple-600"
                     >
-                      Copiar
+                      <Copy className="w-4 h-4" />
                     </Button>
                   </div>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => window.open(`/Portfolio?id=${professional.id}`, '_blank')}
+                    className="text-purple-600 p-0 h-auto mt-2"
+                  >
+                    Ver meu portfolio →
+                  </Button>
                 </div>
+
+                {/* Link de Indicacao */}
+                {professional.referral_code && (
+                  <div className="bg-white rounded-lg p-4 border border-green-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Gift className="w-4 h-4 text-green-500" />
+                      <p className="text-sm text-slate-700 font-semibold">Link de Indicacao</p>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+1 credito por indicacao</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-2">Compartilhe e ganhe 1 credito para cada pessoa que se cadastrar!</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/?ref=${professional.referral_code}`}
+                        className="flex-1 bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm font-mono"
+                        onClick={(e) => e.target.select()}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/?ref=${professional.referral_code}`);
+                          alert('Link copiado!');
+                        }}
+                        className="bg-green-500 hover:bg-green-600"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-green-600 border-green-300 hover:bg-green-50"
+                        onClick={() => {
+                          const text = `Ola! Estou usando o ConectPro para divulgar meus servicos. Cadastre-se tambem usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                        }}
+                      >
+                        <MessageCircle className="w-4 h-4 mr-1" />
+                        WhatsApp
+                      </Button>
+                      <div className="text-xs text-slate-500">
+                        Creditos: <span className="font-bold text-green-600">{professional.referral_credits || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Alert if not visible */}
-        {(!professional.is_approved || !isProfileComplete) && (
+        {/* Bloco Portfolio Premium - Unificado no Topo */}
+        <Card className={`mb-8 border-2 ${professional?.plan_type !== 'free' && professional?.plan_active ? 'border-purple-300 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50' : 'border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50'}`}>
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  professional?.plan_type !== 'free' && professional?.plan_active
+                    ? 'bg-gradient-to-br from-purple-500 to-pink-500'
+                    : 'bg-gradient-to-br from-orange-400 to-orange-500'
+                }`}>
+                  <FolderOpen className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-xl font-bold text-slate-900">Meu Portfolio</h3>
+                    {professional?.plan_type === 'free' && (
+                      <Badge className="bg-gradient-to-r from-orange-400 to-orange-500 text-white border-0">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Premium
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-slate-600 mb-2">
+                    {professional?.plan_type !== 'free' && professional?.plan_active
+                      ? 'Gerencie seus projetos e mostre seus melhores trabalhos para clientes'
+                      : 'Mostre seus projetos e aumente em ate 40% sua taxa de conversao na plataforma'}
+                  </p>
+                  {professional?.plan_type === 'free' && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="flex items-center gap-1 text-green-600 font-medium">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>+40% conversao</span>
+                      </div>
+                      <span className="text-slate-400">|</span>
+                      <span className="text-slate-500">Ate 3 projetos com 5 fotos cada</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {professional?.plan_type !== 'free' && professional?.plan_active ? (
+                <Button
+                  onClick={() => {
+                    setPortfolioDialogOpen(true);
+                  }}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Gerenciar Portfolio
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => {
+                    setSelectedPlan({
+                      key: 'portfolio_premium',
+                      name: 'Portfolio Premium',
+                      price: 36.93
+                    });
+                    setCheckoutOpen(true);
+                  }}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Desbloquear Portfolio
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Alert if profile not complete */}
+        {!isProfileComplete && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
               <div>
-                <p className="font-semibold text-amber-800">Seu perfil nao esta visivel na busca</p>
+                <p className="font-semibold text-amber-800">Complete seu perfil para aparecer nas buscas</p>
                 <p className="text-sm text-amber-700 mt-1">
-                  Para aparecer nas buscas, voce precisa:
+                  Adicione uma foto do seu trabalho para que clientes possam te encontrar na plataforma.
                 </p>
-                <ul className="text-sm text-amber-700 mt-2 space-y-1">
-                  {!isProfileComplete && <li>Completar o perfil (minimo 3 fotos)</li>}
-                  {!professional.is_approved && <li>Aguardar aprovacao do admin</li>}
-                </ul>
               </div>
             </div>
           </div>
@@ -371,6 +776,54 @@ export default function ProfessionalDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Avatar */}
+                <div className="flex flex-col md:flex-row gap-6 items-start pb-6 border-b">
+                  <AvatarUpload
+                    currentAvatarUrl={formData.avatar_url}
+                    fallbackName={formData.name}
+                    pendingFile={pendingAvatarFile}
+                    onFileSelect={async (file) => {
+                      if (file === null) {
+                        // Usuário quer remover o avatar
+                        setPendingAvatarFile(null);
+                        setFormData({ ...formData, avatar_url: null });
+
+                        // Se tinha avatar no banco, deletar do storage e salvar
+                        if (professional?.avatar_url) {
+                          try {
+                            await deleteFile(professional.avatar_url, BUCKETS.AVATARS);
+                          } catch (error) {
+                            // Ignorar erro de deleção
+                          }
+
+                          // Salvar no banco
+                          try {
+                            await Professional.update(professional.id, { avatar_url: null });
+                            queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+                          } catch (error) {
+                            // Ignorar erro
+                          }
+                        }
+                      } else {
+                        // Usuário selecionou um novo arquivo
+                        setPendingAvatarFile(file);
+                      }
+                    }}
+                    size="xl"
+                    uploading={saveMutation.isPending}
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-medium text-slate-900 mb-1">Foto de Perfil</h3>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Esta foto aparece nos resultados de busca e no seu perfil público.
+                      Recomendamos uma foto profissional com boa iluminação.
+                    </p>
+                    <div className="text-xs text-muted-foreground">
+                      Formatos: JPG, PNG, GIF, WebP | Tamanho máximo: 5 MB
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Nome / Nome da Empresa *</Label>
@@ -386,13 +839,28 @@ export default function ProfessionalDashboard() {
                     <Select
                       value={formData.profession}
                       onValueChange={(value) => setFormData({ ...formData, profession: value })}
+                      disabled={loadingCategories}
                     >
                       <SelectTrigger className="mt-1">
-                        <SelectValue />
+                        {loadingCategories ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Carregando...
+                          </div>
+                        ) : (
+                          <SelectValue />
+                        )}
                       </SelectTrigger>
                       <SelectContent>
                         {professions.map(p => (
-                          <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                          <SelectItem
+                            key={p.value}
+                            value={p.value}
+                            disabled={p.disabled}
+                            className={p.disabled ? 'font-bold text-slate-500 bg-slate-100' : ''}
+                          >
+                            {p.label}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -446,12 +914,26 @@ export default function ProfessionalDashboard() {
                 </div>
 
                 <div>
+                  <Label className="text-orange-700 font-semibold">Descricao Pessoal *</Label>
+                  <Textarea
+                    value={formData.personal_description}
+                    onChange={(e) => setFormData({ ...formData, personal_description: e.target.value })}
+                    placeholder="Conte sobre voce, sua historia profissional, como voce trabalha e o que te motiva..."
+                    className="mt-1 min-h-[120px] border-orange-200 focus:border-orange-400"
+                    required
+                  />
+                  <p className="text-xs text-orange-600 mt-1 font-medium">
+                    * Campo obrigatório - Esta descricao aparece em destaque no seu Portfolio para clientes conhecerem voce
+                  </p>
+                </div>
+
+                <div>
                   <Label>Descricao do Servico</Label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Descreva seus servicos, experiencia e diferenciais..."
-                    className="mt-1 min-h-[120px]"
+                    placeholder="Descreva seus servicos, especializacoes e diferenciais tecnicos..."
+                    className="mt-1 min-h-[100px]"
                   />
                 </div>
               </CardContent>
@@ -545,37 +1027,58 @@ export default function ProfessionalDashboard() {
               </CardContent>
             </Card>
 
-            {/* Portfolio de Fotos */}
+            {/* Foto do Perfil */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Camera className="w-5 h-5" />
-                    Portfolio de Trabalhos
+                    Foto do Perfil
+                    <Badge variant="outline" className="text-xs font-normal">Obrigatorio</Badge>
                   </div>
                   <Badge variant={(formData.photos?.length || 0) >= PHOTO_LIMITS.MIN ? "default" : "destructive"}>
-                    {formData.photos?.length || 0} / {PHOTO_LIMITS.MAX}
+                    {(formData.photos?.length || 0) >= 1 ? 'Adicionada' : 'Pendente'}
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-slate-600 mb-4">
-                  Adicione fotos dos seus trabalhos realizados. Minimo de {PHOTO_LIMITS.MIN} fotos para completar o perfil.
-                </p>
+                {/* Box explicativo */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800 font-medium mb-2">
+                    Para que serve esta foto?
+                  </p>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-500 mt-0.5">•</span>
+                      <span>Aparece quando clientes buscam profissionais na plataforma</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-500 mt-0.5">•</span>
+                      <span>E exibida no seu cartao de visita digital</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-500 mt-0.5">•</span>
+                      <span>Sera sua foto principal de destaque</span>
+                    </li>
+                  </ul>
+                  <p className="text-xs text-blue-600 mt-3 pt-3 border-t border-blue-200">
+                    <strong>Dica:</strong> Escolha uma foto que represente bem o seu trabalho!
+                  </p>
+                </div>
 
                 {(formData.photos?.length || 0) >= PHOTO_LIMITS.MAX && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-green-600" />
-                    <span className="text-green-800 font-medium">Portfolio completo!</span>
+                    <span className="text-green-800 font-medium">Foto do perfil adicionada!</span>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+                <div className="flex gap-4 mb-4">
                   {formData.photos?.map((photo, index) => (
-                    <div key={index} className="relative aspect-square rounded-xl overflow-hidden group">
+                    <div key={index} className="relative w-40 h-40 rounded-xl overflow-hidden group">
                       <img
                         src={photo}
-                        alt={`Trabalho ${index + 1}`}
+                        alt="Foto do perfil"
                         className="w-full h-full object-cover"
                       />
                       <button
@@ -588,19 +1091,18 @@ export default function ProfessionalDashboard() {
                   ))}
 
                   {(formData.photos?.length || 0) < PHOTO_LIMITS.MAX && (
-                    <label className="aspect-square rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-colors">
+                    <label className="w-40 h-40 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-colors">
                       {uploading ? (
                         <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
                       ) : (
                         <>
                           <ImagePlus className="w-8 h-8 text-slate-400 mb-2" />
-                          <span className="text-sm text-slate-500">Adicionar</span>
+                          <span className="text-sm text-slate-500">Adicionar Foto</span>
                         </>
                       )}
                       <input
                         type="file"
-                        accept="image/*"
-                        multiple
+                        accept="image/jpeg,image/png,image/gif,image/webp"
                         onChange={handlePhotoUpload}
                         className="hidden"
                         disabled={uploading}
@@ -608,13 +1110,43 @@ export default function ProfessionalDashboard() {
                     </label>
                   )}
                 </div>
+
+                <p className="text-xs text-slate-500 mb-4">
+                  Formatos aceitos: JPG, PNG, GIF, WebP. Tamanho maximo: 10 MB por foto.
+                </p>
+
+                {/* Nota sobre Portfolio Premium */}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-start gap-3">
+                  <FolderOpen className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm">
+                    <p className="text-slate-700">
+                      <strong>Quer mostrar projetos detalhados?</strong> Com o <span className="text-purple-600 font-medium">Portfolio Premium</span> voce pode cadastrar ate 3 projetos completos, cada um com descricao, valor cobrado e ate 5 fotos.
+                    </p>
+                    {professional?.plan_type === 'free' && (
+                      <button
+                        onClick={() => {
+                          const tabElement = document.querySelector('[value="plan"]');
+                          if (tabElement) tabElement.click();
+                        }}
+                        className="text-purple-600 hover:text-purple-700 font-medium mt-1 inline-flex items-center gap-1"
+                      >
+                        Ver planos disponiveis →
+                      </button>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
             {/* Botao Salvar */}
+            {!formData.personal_description?.trim() && (
+              <p className="text-sm text-red-500 mb-2 text-center">
+                Preencha a Descricao Pessoal para salvar seu perfil
+              </p>
+            )}
             <Button
               onClick={handleSave}
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || !formData.personal_description?.trim()}
               size="lg"
               className="w-full bg-orange-500 hover:bg-orange-600"
             >
@@ -731,7 +1263,7 @@ export default function ProfessionalDashboard() {
                       <input
                         type="text"
                         readOnly
-                        value={`${window.location.origin}/login?ref=${professional.referral_code}`}
+                        value={`${window.location.origin}/?ref=${professional.referral_code}`}
                         className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono"
                         onClick={(e) => e.target.select()}
                       />
@@ -739,7 +1271,7 @@ export default function ProfessionalDashboard() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          navigator.clipboard.writeText(`${window.location.origin}/login?ref=${professional.referral_code}`);
+                          navigator.clipboard.writeText(`${window.location.origin}/?ref=${professional.referral_code}`);
                           alert('Link copiado!');
                         }}
                       >
@@ -751,7 +1283,7 @@ export default function ProfessionalDashboard() {
                       <Button
                         className="flex-1 bg-green-500 hover:bg-green-600"
                         onClick={() => {
-                          const text = `Ola! Estou usando o ProObra para divulgar meus servicos. Cadastre-se tambem usando meu link: ${window.location.origin}/login?ref=${professional.referral_code}`;
+                          const text = `Ola! Estou usando o ConectPro para divulgar meus servicos. Cadastre-se tambem usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                         }}
                       >
@@ -763,7 +1295,7 @@ export default function ProfessionalDashboard() {
                         variant="outline"
                         className="flex-1"
                         onClick={() => {
-                          const text = `${window.location.origin}/login?ref=${professional.referral_code}`;
+                          const text = `${window.location.origin}/?ref=${professional.referral_code}`;
                           navigator.clipboard.writeText(text);
                           alert('Link copiado!');
                         }}
@@ -832,23 +1364,65 @@ export default function ProfessionalDashboard() {
                 <CardTitle>Meu Plano</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-slate-50 rounded-xl p-6 mb-6">
+                <div className={`rounded-xl p-6 mb-6 ${isPlanCancelled() ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50'}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <p className="text-sm text-slate-600">Plano Atual</p>
                       <p className="text-xl font-bold text-slate-900">
-                        {professional.plan_type === 'completo' ? 'Completo' : 'Iniciante'}
+                        {professional.plan_type === 'free' ? 'Gratuito' :
+                         professional.plan_type === 'completo' ? 'Completo' :
+                         professional.plan_type === 'portfolio_premium' ? 'Portfolio Premium' : 'Iniciante'}
                       </p>
                     </div>
-                    <Badge variant={professional.plan_active ? "default" : "secondary"}>
-                      {professional.plan_active ? 'Ativo' : 'Inativo'}
-                    </Badge>
+                    {isPlanCancelled() ? (
+                      <Badge variant="outline" className="border-amber-500 text-amber-700">
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Cancelamento Agendado
+                      </Badge>
+                    ) : (
+                      <Badge variant={professional.plan_active ? "default" : "secondary"}>
+                        {professional.plan_active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    )}
                   </div>
 
                   {professional.plan_expires_at && (
-                    <p className="text-sm text-slate-600">
-                      Expira em: {new Date(professional.plan_expires_at).toLocaleDateString('pt-BR')}
+                    <p className={`text-sm ${isPlanCancelled() ? 'text-amber-700' : 'text-slate-600'}`}>
+                      {isPlanCancelled() ? 'Acesso ate:' : 'Expira em:'} {new Date(professional.plan_expires_at).toLocaleDateString('pt-BR')}
                     </p>
+                  )}
+
+                  {isPlanCancelled() && (
+                    <p className="text-xs text-amber-600 mt-2">
+                      Voce ainda pode usar o plano ate a data acima. Apos isso, os beneficios serao encerrados.
+                    </p>
+                  )}
+
+                  {/* Botoes de cancelar/reativar */}
+                  {professional.plan_type !== 'free' && professional.plan_active && (
+                    <div className="mt-4 pt-4 border-t border-slate-200">
+                      {isPlanCancelled() ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-green-600 border-green-300 hover:bg-green-50"
+                          onClick={handleReactivatePlan}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Reativar Plano
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-slate-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setCancelDialogOpen(true)}
+                        >
+                          <XCircle className="w-4 h-4 mr-2" />
+                          Cancelar Plano
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -935,6 +1509,34 @@ export default function ProfessionalDashboard() {
           }}
         />
       )}
+
+      {/* Portfolio Dialog */}
+      <Dialog open={portfolioDialogOpen} onOpenChange={setPortfolioDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-purple-500" />
+              Meu Portfolio de Trabalhos
+            </DialogTitle>
+          </DialogHeader>
+          <PortfolioManager
+            professionalId={professional?.id}
+            professional={professional}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Plan Dialog */}
+      <CancelSubscriptionDialog
+        isOpen={cancelDialogOpen}
+        onClose={() => setCancelDialogOpen(false)}
+        onConfirm={handleCancelPlan}
+        subscriptionType="professional"
+        planName={professional?.plan_type === 'completo' ? 'Plano Completo' :
+                  professional?.plan_type === 'portfolio_premium' ? 'Portfolio Premium' : 'Plano Iniciante'}
+        expiresAt={professional?.plan_expires_at}
+        isLoading={cancellingPlan}
+      />
     </div>
   );
 }

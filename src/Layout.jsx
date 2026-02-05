@@ -2,11 +2,11 @@ import React, { useState, useCallback, memo } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useAuth } from "@/lib/AuthContext";
-import { NotificationService } from "@/lib/entities";
+import { NotificationService, QuoteMessageService } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
 import {
   Home, Search, User, Settings, LogOut, Menu, X,
-  Hammer, Shield, ChevronDown, Bell, FileText
+  Hammer, Shield, ChevronDown, Bell, FileText, MessageCircle
 } from "lucide-react";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Badge } from "@/componentes/interface do usuário/badge";
@@ -43,6 +43,17 @@ const Header = memo(function Header({
     staleTime: 30000,
   });
 
+  const { data: unreadMessages = 0 } = useQuery({
+    queryKey: ['unread-messages', user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      return QuoteMessageService.getTotalUnreadCount(user.id);
+    },
+    enabled: !!user,
+    refetchInterval: 30000, // Atualizar a cada 30 segundos
+    staleTime: 15000,
+  });
+
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const toggleMobileMenu = useCallback(() => {
@@ -62,8 +73,9 @@ const Header = memo(function Header({
   }, []);
 
   const isAdmin = user?.role === 'admin';
-  const isProfessional = user?.user_type === 'profissional';
-  const isClient = user?.user_type === 'cliente';
+  // Admin não é tratado como profissional ou cliente - tem seu próprio menu
+  const isProfessional = !isAdmin && user?.user_type === 'profissional';
+  const isClient = !isAdmin && user?.user_type === 'cliente';
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm">
@@ -75,7 +87,7 @@ const Header = memo(function Header({
               <Hammer className="w-5 h-5 text-white" />
             </div>
             <span className="font-bold text-xl text-slate-800 hidden sm:block">
-              ProObra
+              ConectPro
             </span>
           </Link>
 
@@ -93,6 +105,12 @@ const Header = memo(function Header({
             >
               Buscar Profissionais
             </Link>
+            <Link
+              to={createPageUrl("JobMarketplace")}
+              className={`text-sm font-medium transition-colors ${currentPageName === 'JobMarketplace' ? 'text-orange-600' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Oportunidades
+            </Link>
           </nav>
 
           {/* User Menu */}
@@ -101,6 +119,22 @@ const Header = memo(function Header({
               <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse" />
             ) : isAuthenticated && user ? (
               <>
+                {/* Messages */}
+                <Link to={createPageUrl("Conversations")} className="relative">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    {unreadMessages > 0 && (
+                      <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center bg-green-500 text-white text-xs">
+                        {unreadMessages > 9 ? '9+' : unreadMessages}
+                      </Badge>
+                    )}
+                  </Button>
+                </Link>
+
                 {/* Notifications */}
                 <div className="relative">
                   <Button
@@ -153,6 +187,12 @@ const Header = memo(function Header({
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
+                        <Link to={createPageUrl("Conversations")} className="cursor-pointer">
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          Conversas
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
                         <Link to={createPageUrl("ProfessionalQuotes")} className="cursor-pointer">
                           <FileText className="w-4 h-4 mr-2" />
                           Orçamentos
@@ -173,6 +213,12 @@ const Header = memo(function Header({
                         <Link to={createPageUrl("ClientDashboard")} className="cursor-pointer">
                           <User className="w-4 h-4 mr-2" />
                           Minha Conta
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={createPageUrl("Conversations")} className="cursor-pointer">
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          Conversas
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -256,6 +302,28 @@ const Header = memo(function Header({
             >
               Buscar Profissionais
             </Link>
+            <Link
+              to={createPageUrl("JobMarketplace")}
+              onClick={closeMobileMenu}
+              className="block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100"
+            >
+              Oportunidades
+            </Link>
+            {isAuthenticated && (
+              <Link
+                to={createPageUrl("Conversations")}
+                onClick={closeMobileMenu}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100"
+              >
+                <MessageCircle className="w-4 h-4 text-green-500" />
+                Conversas
+                {unreadMessages > 0 && (
+                  <Badge className="bg-green-500 text-white text-xs">
+                    {unreadMessages}
+                  </Badge>
+                )}
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -274,7 +342,7 @@ const Footer = memo(function Footer() {
               <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
                 <Hammer className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-xl">ProObra</span>
+              <span className="font-bold text-xl">ConectPro</span>
             </div>
             <p className="text-slate-400 text-sm">
               Conectando você aos melhores profissionais da construção e serviços.
@@ -289,6 +357,9 @@ const Footer = memo(function Footer() {
               </Link>
               <Link to={createPageUrl("SearchProfessionals")} className="block hover:text-white transition-colors">
                 Buscar Profissionais
+              </Link>
+              <Link to={createPageUrl("JobMarketplace")} className="block hover:text-white transition-colors">
+                Oportunidades
               </Link>
             </div>
           </div>
@@ -305,7 +376,7 @@ const Footer = memo(function Footer() {
         </div>
 
         <div className="border-t border-slate-800 mt-8 pt-8 text-center text-sm text-slate-500">
-          © {new Date().getFullYear()} ProObra. Todos os direitos reservados.
+          © {new Date().getFullYear()} ConectPro. Todos os direitos reservados.
         </div>
       </div>
     </footer>
@@ -328,8 +399,8 @@ export default function Layout({ children, currentPageName }) {
     navigate('/login?tab=register');
   }, [navigate]);
 
-  // Pages that don't need layout
-  const noLayoutPages = ['Onboarding', 'Login'];
+  // Pages that don't need layout (pages with their own complete UI)
+  const noLayoutPages = ['Onboarding', 'Login', 'Portfolio', 'ProfessionalCard'];
   if (noLayoutPages.includes(currentPageName)) {
     return <>{children}</>;
   }
