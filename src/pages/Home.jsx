@@ -1,20 +1,18 @@
-import React, { memo, useMemo, useEffect, Suspense, lazy, useState, useCallback } from 'react';
+import React, { memo, useEffect, Suspense, lazy, useState, useCallback } from 'react';
 import { Link, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ProfessionalService, ClientReferralService, Category } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
-import {
-  Search, ArrowRight, Paintbrush, Wrench, Zap,
-  Droplets, Sparkles, TreePine, HardHat, Users,
-  Star, Loader2, Home as HomeIcon, Hammer, Plug, Droplet,
-  Wind, Scissors, Truck, Building2, Ruler, ShoppingBag,
-  Brush, Palette, Warehouse, LayoutGrid, ChevronRight,
+import { ArrowRight, Paintbrush, Wrench, Zap,
+  Droplets, Sparkles, TreePine, HardHat,
+  Star, Loader2, Home as HomeIcon, Hammer, Scissors, Truck, Building2, ShoppingBag,
+  Brush, Palette, LayoutGrid, ChevronRight,
   Thermometer, Sun, Camera, Waves, Flower2, Bug, Sofa,
   DoorOpen, Frame, Layers, Square, ScrollText, Mountain,
-  Package, Shovel, Container, MapPin, FileText, PenTool,
+  Package, Shovel, Container, FileText, PenTool,
   ClipboardCheck, Compass, Calculator, Settings, Flame,
-  Snowflake, Fan, Car, Bath, Fence, Trees, Share2, Copy, Check
+  Snowflake, Fan, Trees, Share2, Check
 } from "lucide-react";
 
 // Lazy load do componente de card

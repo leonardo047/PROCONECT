@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { QuoteMessageService, QuoteMessage, Notification, DirectConversationService, ProfessionalService } from "@/lib/entities";
-import { supabase } from "@/lib/supabase";
 import { uploadFile } from "@/lib/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import {
   MessageCircle, Loader2, User, Search, Send, Paperclip,
-  ArrowLeft, Check, CheckCheck, Phone, MoreVertical
+  ArrowLeft, Check, CheckCheck, MoreVertical
 } from "lucide-react";
-import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function Conversations() {

@@ -126,9 +126,8 @@ export default function PublicJobForm({ onSuccess, onCancel }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Verificar honeypot (se preenchido, e bot)
+    // Verificar honeypot (se preenchido, é bot)
     if (honeypot) {
-      console.log('Bot detected');
       return;
     }
 

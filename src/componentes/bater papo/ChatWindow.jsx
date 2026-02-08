@@ -9,6 +9,7 @@ import { ScrollArea } from "@/componentes/interface do usuário/scroll-area";
 import { Send, Paperclip, Loader2, X, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { showToast } from "@/utils/showToast";
 
 export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
   const [message, setMessage] = useState('');
@@ -49,6 +50,9 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', appointmentId] });
       setMessage('');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao enviar mensagem', 'Tente novamente.');
     }
   });
 
@@ -85,7 +89,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
         attachment_url: file_url
       });
     } catch (error) {
-      // Ignorar erro
+      showToast.error('Erro ao enviar arquivo', error.message || 'Tente novamente.');
     }
     setUploading(false);
   };

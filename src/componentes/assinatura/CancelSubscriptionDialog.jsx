@@ -12,6 +12,7 @@ import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Label } from "@/componentes/interface do usuário/label";
 import { RadioGroup, RadioGroupItem } from "@/componentes/interface do usuário/radio-group";
 import { AlertTriangle, Loader2, Calendar, CheckCircle } from "lucide-react";
+import { showToast } from "@/utils/showToast";
 
 const CANCELLATION_REASONS = [
   { value: 'too_expensive', label: 'Muito caro' },
@@ -51,7 +52,7 @@ export default function CancelSubscriptionDialog({
       setConfirmed(true);
       setStep(3);
     } catch (error) {
-      alert('Erro ao cancelar assinatura. Tente novamente.');
+      showToast.error('Erro ao cancelar assinatura. Tente novamente.');
     }
   };
 

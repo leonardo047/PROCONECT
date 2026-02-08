@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { Professional, QuoteRequest, QuoteResponse, Profile } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
+import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Button } from "@/componentes/interface do usuário/button";

@@ -13,6 +13,7 @@ import {
   MapPin, Clock, Calendar, User, FileText, ArrowLeft,
   Image, AlertCircle, Infinity, Coins, ShoppingCart
 } from "lucide-react";
+import { showToast } from "@/utils/showToast";
 
 export default function RespondQuoteDialog({ quoteRequest, professional, isOpen, onClose }) {
   const [step, setStep] = useState('details'); // 'details' ou 'form'
@@ -111,9 +112,8 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
       // Usar o crédito (se não tiver infinito, vai debitar)
       try {
         await CreditsService.useCredit(professional.id, response.id);
-      } catch (err) {
-        // Se falhar ao usar crédito, não e critico pois a funcao SQL já valida
-        console.warn('Avisó ao usar crédito:', err.message);
+      } catch {
+        // Se falhar ao usar crédito, não é crítico pois a função SQL já valida
       }
 
       // Tentar atualizar contador (pode falhar por RLS, não e critico)
@@ -151,9 +151,9 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
     },
     onError: (error) => {
       if (error.message?.includes('policy') || error.message?.includes('credit')) {
-        alert('Você não tem créditos suficientes para responder este orçamento.');
+        showToast.error('Sem créditos', 'Você não tem créditos suficientes para responder este orçamento.');
       } else {
-        alert('Erro ao enviar proposta. Tente novamente.');
+        showToast.error('Erro ao enviar proposta', 'Tente novamente.');
       }
     }
   });
@@ -161,7 +161,7 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (needsPayment && !useReferralCredit) {
-      alert('Você precisa de créditos ou pagamento para responder este orçamento.');
+      showToast.warning('Créditos necessários', 'Você precisa de créditos ou pagamento para responder este orçamento.');
       return;
     }
 

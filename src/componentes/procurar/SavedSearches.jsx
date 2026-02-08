@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/componentes/interface do usuário/dialog";
 import { Save, Bookmark, Trash2, Search, Loader2 } from "lucide-react";
+import { showToast } from "@/utils/showToast";
 
 export default function SavedSearches({ currentFilters, onLoadSearch, userId }) {
   const queryClient = useQueryClient();
@@ -53,7 +54,7 @@ export default function SavedSearches({ currentFilters, onLoadSearch, userId }) 
 
   const handleSave = () => {
     if (!searchName.trim()) {
-      alert('Digite um nome para a busca');
+      showToast.warning('Digite um nome para a busca');
       return;
     }
     saveMutation.mutate(searchName);

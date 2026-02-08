@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { ProfessionalService, ReferralService, ClientReferralService, generateReferralCode, User as UserEntity, Category } from "@/lib/entities";
-import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { translateSupabaseError } from "@/utils/translateSupabaseError";
+import { showToast } from "@/utils/showToast";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";
@@ -10,41 +11,11 @@ import { RadioGroup, RadioGroupItem } from "@/componentes/interface do usuário/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import {
   Hammer, User, Briefcase, ArrowRight, ArrowLeft,
-  CheckCircle, Loader2, Building2, MapPin, Award
+  CheckCircle, Loader2
 } from "lucide-react";
 import { Checkbox } from "@/componentes/interface do usuário/checkbox";
 import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { useQuery } from "@tanstack/react-query";
-
-// Função para traduzir erros do Supabase para mensagens amigáveis
-const translateSupabaseError = (error) => {
-  const message = error?.message || error || '';
-
-  // Erros de telefone duplicado
-  if (message.includes('users_phone_key') || message.includes('profiles_phone_key') || (message.includes('duplicate key') && message.includes('phone'))) {
-    return 'Este número de telefone já está cadastrado. Use outro número.';
-  }
-  // Erros de email duplicado
-  if (message.includes('User already registered') || message.includes('already been registered')) {
-    return 'Este email já está cadastrado.';
-  }
-  if (message.includes('users_email_key') || (message.includes('duplicate key') && message.includes('email'))) {
-    return 'Este email já está cadastrado.';
-  }
-  // Erros de banco de dados
-  if (message.includes('Database error')) {
-    if (message.includes('phone')) {
-      return 'Este número de telefone já está cadastrado. Use outro número.';
-    }
-    return 'Erro ao salvar dados. Verifique se todos os campos estão corretos.';
-  }
-  // Erros de rede
-  if (message.includes('network') || message.includes('fetch')) {
-    return 'Erro de conexão. Verifique sua internet e tente novamente.';
-  }
-
-  return message || 'Erro ao processar sua solicitação. Tente novamente.';
-};
 
 const specializations = [
   "Reformas Residenciais",
@@ -253,7 +224,7 @@ export default function Onboarding() {
 
   const handleSubmit = async () => {
     if (!user?.id) {
-      alert('Erro: usuário não identificado. Por favor, faça login novamente.');
+      showToast.error('Erro: usuário não identificado', 'Por favor, faça login novamente.');
       return;
     }
 
@@ -393,7 +364,7 @@ export default function Onboarding() {
         window.location.href = createPageUrl("Home");
       }
     } catch (error) {
-      alert(translateSupabaseError(error));
+      showToast.error('Erro ao salvar', translateSupabaseError(error));
       savingRef.current = false;
       setSaving(false);
     }

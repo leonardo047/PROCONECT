@@ -46,13 +46,11 @@ export default function ClientAppointments() {
           .limit(100);
 
         if (error) {
-          console.error('Erro ao buscar solicitações:', error);
           return [];
         }
 
         return data || [];
-      } catch (error) {
-        console.error('Erro ao buscar solicitações:', error);
+      } catch {
         return [];
       }
     },

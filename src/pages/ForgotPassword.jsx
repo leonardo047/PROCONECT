@@ -30,8 +30,6 @@ export default function ForgotPassword() {
 
       setSuccess(true);
     } catch (err) {
-      console.error('Erro ao enviar email:', err);
-
       if (err.message.includes('rate limit')) {
         setError('Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.');
       } else if (err.message.includes('invalid')) {

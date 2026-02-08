@@ -6,6 +6,7 @@ import { MessageCircle, Send, Loader2 } from "lucide-react";
 import { Notification } from "@/lib/entities";
 import { useAuth } from "@/lib/AuthContext";
 import { useMutation } from "@tanstack/react-query";
+import { showToast } from "@/utils/showToast";
 
 export default function QuickContactButton({ professional }) {
   const { user, isAuthenticated, navigateToLogin } = useAuth();
@@ -45,7 +46,7 @@ export default function QuickContactButton({ professional }) {
       return data;
     },
     onSuccess: () => {
-      alert('Mensagem enviada! O profissional receberá sua solicitação.');
+      showToast.success('Mensagem enviada! O profissional receberá sua solicitação.');
       setShowDialog(false);
       setFormData({ client_name: '', client_phone: '', message: '' });
     }
@@ -53,7 +54,7 @@ export default function QuickContactButton({ professional }) {
 
   const handleWhatsApp = () => {
     if (isFree) {
-      alert('WhatsApp disponível apenas no plano pago. Use o chat interno.');
+      showToast.warning('WhatsApp disponível apenas no plano pago. Use o chat interno.');
       return;
     }
     const message = encodeURIComponent(`Olá! Vi seu perfil no ConectPro e gostaria de solicitar um orçamento.`);
@@ -72,7 +73,7 @@ export default function QuickContactButton({ professional }) {
     e.preventDefault();
 
     if (!formData.client_name || !formData.client_phone || !formData.message) {
-      alert('Preencha todos os campos');
+      showToast.warning('Preencha todos os campos');
       return;
     }
 

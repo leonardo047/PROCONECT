@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/lib/AuthContext";
 import { QuoteRequest, ProfessionalService, Category } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search, Briefcase, Trophy, ChevronDown, Filter, MapPin, Clock, DollarSign, AlertCircle, TrendingUp, Navigation } from "lucide-react";
+import { Search, Briefcase, Trophy, ChevronDown, Filter, MapPin, Clock, DollarSign, AlertCircle, TrendingUp, Navigation } from "lucide-react";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";

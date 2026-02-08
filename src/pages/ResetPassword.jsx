@@ -26,8 +26,8 @@ export default function ResetPassword() {
         if (session) {
           setHasSession(true);
         }
-      } catch (err) {
-        console.error('Erro ao verificar sessao:', err);
+      } catch {
+        // Sessão não encontrada
       } finally {
         setCheckingSession(false);
       }
@@ -41,9 +41,19 @@ export default function ResetPassword() {
     setError('');
     setIsLoading(true);
 
-    // Validacoes
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres.');
+    // Validações - mesmas regras do cadastro
+    if (password.length < 8) {
+      setError('A senha deve ter pelo menos 8 caracteres.');
+      setIsLoading(false);
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError('A senha deve conter pelo menos uma letra maiúscula.');
+      setIsLoading(false);
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('A senha deve conter pelo menos um número.');
       setIsLoading(false);
       return;
     }
@@ -70,8 +80,6 @@ export default function ResetPassword() {
         navigate('/login');
       }, 3000);
     } catch (err) {
-      console.error('Erro ao atualizar senha:', err);
-
       if (err.message.includes('same')) {
         setError('A nova senha não pode ser igual a senha anterior.');
       } else if (err.message.includes('weak')) {
@@ -164,7 +172,7 @@ export default function ResetPassword() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Minimo 6 caracteres"
+                  placeholder="Mín. 8 chars, maiúscula e número"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10"

@@ -21,7 +21,7 @@ import {
   User, Camera, Save, Loader2, AlertCircle, CheckCircle,
   X, CreditCard, Clock, ImagePlus, Sparkles,
   Gift, Users, Share2, Copy, MessageCircle, Briefcase,
-  FileText, Calendar, FolderOpen, Lock, Pencil, XCircle
+  FileText, Calendar, FolderOpen, Pencil, XCircle
 } from "lucide-react";
 import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
 import CancelSubscriptionDialog from "@/componentes/assinatura/CancelSubscriptionDialog";
@@ -30,6 +30,7 @@ import PortfolioManager from "@/componentes/profissional/PortfolioManager";
 import AvatarUpload from "@/componentes/comum/AvatarUpload";
 import CreditStatusCard from "@/componentes/profissional/CreditStatusCard";
 import BuyCreditsModal from "@/componentes/profissional/BuyCreditsModal";
+import { showToast } from "@/utils/showToast";
 
 const PHOTO_LIMITS = { MIN: 1, MAX: 1 };
 
@@ -242,7 +243,7 @@ export default function ProfessionalDashboard() {
     const remainingSlots = PHOTO_LIMITS.MAX - currentCount;
 
     if (remainingSlots <= 0) {
-      alert(`Limite de ${PHOTO_LIMITS.MAX} foto atingido. Remova a foto atual para adicionar outra.`);
+      showToast.warning(`Limite de ${PHOTO_LIMITS.MAX} foto atingido`, 'Remova a foto atual para adicionar outra.');
       return;
     }
 
@@ -262,7 +263,7 @@ export default function ProfessionalDashboard() {
         photos: [...(formData.photos || []), ...uploadedUrls]
       });
     } catch (error) {
-      alert(`Erro ao fazer upload da foto: ${error.message || 'Erro desconhecido'}`);
+      showToast.error('Erro ao fazer upload', error.message || 'Erro desconhecido');
     } finally {
       setUploading(false);
     }
@@ -324,7 +325,7 @@ export default function ProfessionalDashboard() {
       // Recarregar professional
       queryClient.invalidateQueries({ queryKey: ['my-professional'] });
     } catch (error) {
-      alert('Erro ao reativar plano. Tente novamente.');
+      showToast.error('Erro ao reativar plano', 'Tente novamente.');
     }
   };
 
@@ -510,7 +511,7 @@ export default function ProfessionalDashboard() {
                         size="sm"
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}/ProfessionalProfile?id=${professional.id}`);
-                          alert('Link copiado!');
+                          showToast.success('Link copiado!');
                         }}
                         className="bg-blue-500 hover:bg-blue-600"
                       >
@@ -548,7 +549,7 @@ export default function ProfessionalDashboard() {
                           size="sm"
                           onClick={() => {
                             navigator.clipboard.writeText(`${window.location.origin}/?ref=${professional.referral_code}`);
-                            alert('Link copiado!');
+                            showToast.success('Link copiado!');
                           }}
                           className="bg-green-500 hover:bg-green-600"
                         >
@@ -612,7 +613,7 @@ export default function ProfessionalDashboard() {
                       size="sm"
                       onClick={() => {
                         navigator.clipboard.writeText(`${window.location.origin}/Portfolio?id=${professional.id}`);
-                        alert('Link copiado!');
+                        showToast.success('Link copiado!');
                       }}
                       className="bg-purple-500 hover:bg-purple-600"
                     >
@@ -650,7 +651,7 @@ export default function ProfessionalDashboard() {
                         size="sm"
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}/?ref=${professional.referral_code}`);
-                          alert('Link copiado!');
+                          showToast.success('Link copiado!');
                         }}
                         className="bg-green-500 hover:bg-green-600"
                       >
@@ -1283,7 +1284,7 @@ export default function ProfessionalDashboard() {
                         size="sm"
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}/?ref=${professional.referral_code}`);
-                          alert('Link copiado!');
+                          showToast.success('Link copiado!');
                         }}
                       >
                         <Copy className="w-4 h-4" />
@@ -1308,7 +1309,7 @@ export default function ProfessionalDashboard() {
                         onClick={() => {
                           const text = `${window.location.origin}/?ref=${professional.referral_code}`;
                           navigator.clipboard.writeText(text);
-                          alert('Link copiado!');
+                          showToast.success('Link copiado!');
                         }}
                       >
                         <Copy className="w-4 h-4 mr-2" />

@@ -17,6 +17,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import RespondQuoteDialog from "@/componentes/profissional/RespondQuoteDialog";
+import { showToast } from "@/utils/showToast";
 
 const states = [
   { value: "all", label: "Todos" },
@@ -149,7 +150,6 @@ export default function ServiceQuotes() {
 
       const { data, error } = await query;
       if (error) {
-        console.error('Erro ao buscar orçamentos:', error);
         return [];
       }
       return data || [];
@@ -252,7 +252,7 @@ export default function ServiceQuotes() {
     }
 
     if (!professional) {
-      alert('Você precisa ter um perfil profissional para responder orçamentos. Complete seu cadastro primeiro.');
+      showToast.warning('Você precisa ter um perfil profissional para responder orçamentos. Complete seu cadastro primeiro.');
       navigate('/Onboarding');
       return;
     }

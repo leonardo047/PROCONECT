@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { QuoteRequest, QuoteResponse, ProfessionalService } from "@/lib/entities";
+import { QuoteResponse, ProfessionalService } from "@/lib/entities";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
+import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import { Badge } from "@/componentes/interface do usuário/badge";
-import { Plus, Search, MessageSquare, CheckCircle, Loader2, ChevronDown, X } from "lucide-react";
+import { Plus, Search, MessageSquare, CheckCircle, Loader2, ChevronDown } from "lucide-react";
 import QuoteRequestForm from "@/componentes/profissional/QuoteRequestForm";
 import QuoteCard from "@/componentes/citações/QuoteCard";
 import QuoteChat from "@/componentes/bater papo/QuoteChat";

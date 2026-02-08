@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Appointment, Professional, Notification } from "@/lib/entities";
 import { useAuth } from "@/lib/AuthContext";
+import { showToast } from "@/utils/showToast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -44,9 +45,8 @@ export default function AppointmentRequestForm({ professionalId, professionalNam
             priority: 'high'
           });
         }
-      } catch (notifError) {
+      } catch {
         // Notificação falhou, mas appointment foi criado
-        console.warn('Erro ao criar notificação:', notifError);
       }
 
       return appointment;
@@ -63,12 +63,11 @@ export default function AppointmentRequestForm({ professionalId, professionalNam
         address: '',
         property_type: 'casa'
       });
-      alert('Solicitação enviada com sucesso! O profissional entrará em contato.');
+      showToast.success('Solicitação enviada com sucesso! O profissional entrará em contato.');
       if (onSuccess) onSuccess();
     },
-    onError: (error) => {
-      console.error('Erro ao enviar solicitação:', error);
-      alert('Erro ao enviar solicitação. Por favor, tente novamente.');
+    onError: () => {
+      showToast.error('Erro ao enviar solicitação. Por favor, tente novamente.');
     }
   });
 
@@ -76,12 +75,12 @@ export default function AppointmentRequestForm({ professionalId, professionalNam
     e.preventDefault();
 
     if (!selectedDate) {
-      alert('Selecione uma data');
+      showToast.warning('Selecione uma data');
       return;
     }
 
     if (!formData.client_phone || !formData.description || !formData.address || !formData.client_name) {
-      alert('Preencha todos os campos obrigatórios');
+      showToast.warning('Preencha todos os campos obrigatórios');
       return;
     }
 

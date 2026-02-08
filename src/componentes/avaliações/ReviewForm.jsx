@@ -7,6 +7,7 @@ import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import { Star, Loader2, Send } from "lucide-react";
 import { motion } from "framer-motion";
+import { showToast } from "@/utils/showToast";
 
 export default function ReviewForm({ professionalId, onSuccess }) {
   const queryClient = useQueryClient();
@@ -55,17 +56,17 @@ export default function ReviewForm({ professionalId, onSuccess }) {
 
   const handleSubmit = () => {
     if (!user) {
-      alert('Você precisa estar logado para avaliar');
+      showToast.warning('Você precisa estar logado para avaliar');
       return;
     }
 
     if (rating === 0) {
-      alert('Selecione uma nota de 1 a 5 estrelas');
+      showToast.warning('Selecione uma nota de 1 a 5 estrelas');
       return;
     }
 
     if (!comment.trim()) {
-      alert('Escreva um comentário sobre o serviço');
+      showToast.warning('Escreva um comentário sobre o serviço');
       return;
     }
 

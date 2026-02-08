@@ -54,6 +54,21 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: 'dist',
     // Sourcemaps apenas em desenvolvimento para segurança
-    sourcemap: mode === 'development'
+    sourcemap: mode === 'development',
+    // Evitar warnings de chunk grande (AdminDashboard é grande por necessidade)
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Dividir vendors em chunks separados para melhor cache
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-tabs', '@radix-ui/react-select'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-charts': ['recharts'],
+          'vendor-pdf': ['jspdf', 'html2canvas']
+        }
+      }
+    }
   }
 }));

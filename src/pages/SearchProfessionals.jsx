@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, Availability, SavedSearch } from "@/lib/entities";
+import { Professional, SavedSearch } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Search, Sparkles, Trophy, TrendingUp, Save, Bookmark, X, ChevronDown } from "lucide-react";
+import { Search, Sparkles, Trophy, TrendingUp, Save, Bookmark, X, ChevronDown } from "lucide-react";
 import SearchFilters from "@/componentes/interface do usuário/SearchFilters";
 import ProfessionalCard from "@/componentes/interface do usuário/ProfessionalCard";
 import LocationSearch from "@/componentes/procurar/LocationSearch";
@@ -11,6 +11,7 @@ import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/componentes/interface do usuário/dialog";
 import { Badge } from "@/componentes/interface do usuário/badge";
+import { showToast } from "@/utils/showToast";
 
 // Itens por página
 const ITEMS_PER_PAGE = 12;
@@ -146,17 +147,19 @@ export default function SearchProfessionals() {
     if (isAuthenticated && user) {
       SavedSearch.filter({ filters: { user_id: user.id } })
         .then(setSavedSearches)
-        .catch(() => {});
+        .catch((error) => {
+          console.warn('Erro ao carregar buscas salvas:', error);
+        });
     }
   }, [user, isAuthenticated]);
 
   const handleSaveSearch = useCallback(async () => {
     if (!user) {
-      alert('Você precisa estar logado para salvar buscas');
+      showToast.warning('Login necessário', 'Você precisa estar logado para salvar buscas');
       return;
     }
     if (!searchName.trim()) {
-      alert('Digite um nome para a busca');
+      showToast.warning('Nome obrigatório', 'Digite um nome para a busca');
       return;
     }
 
@@ -182,14 +185,24 @@ export default function SearchProfessionals() {
     setSavedSearches(searches);
   }, [user]);
 
-  // Query principal
+  // Query principal - busca profissionais aprovados com paginação server-side
   const { data: allProfessionals = [], isLoading } = useQuery({
     queryKey: ['professionals-base'],
     queryFn: async () => {
-      const all = await Professional.list();
-      // Filtro base: aprovados, não bloqueados, perfil completo
+      // Buscar apenas profissionais aprovados, não bloqueados e com perfil completo
+      // Usar filter com limit para evitar carregar milhares de registros
+      const all = await Professional.filter({
+        filters: {
+          is_approved: true,
+          is_blocked: false,
+          profile_complete: true
+        },
+        orderBy: { field: 'rating', direction: 'desc' },
+        limit: 500 // Limite de segurança para performance
+      });
+
+      // Filtro adicional: apenas quem pode receber orçamentos
       return all.filter(prof => {
-        if (!prof.is_approved || prof.is_blocked || !prof.profile_complete) return false;
         if (prof.plan_type !== 'free' && prof.plan_active) return true;
         if (prof.plan_type === 'free' && (prof.free_quotes_used || 0) < 3) return true;
         return false;

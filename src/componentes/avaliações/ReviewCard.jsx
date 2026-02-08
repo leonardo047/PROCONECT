@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import { Avatar } from "@/componentes/interface do usuário/avatar";
 import { Star, MessageCircle, Send, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { showToast } from "@/utils/showToast";
 
 export default function ReviewCard({ review, isProfessional = false }) {
   const queryClient = useQueryClient();
@@ -39,7 +40,7 @@ export default function ReviewCard({ review, isProfessional = false }) {
 
   const handleRespond = () => {
     if (!response.trim()) {
-      alert('Escreva uma resposta');
+      showToast.warning('Escreva uma resposta');
       return;
     }
     respondMutation.mutate(response);

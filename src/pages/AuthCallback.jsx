@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
@@ -9,7 +9,12 @@ export default function AuthCallback() {
   const [status, setStatus] = useState('processing'); // processing, success, error
   const [message, setMessage] = useState('Verificando sua conta...');
 
+  // Refs para cleanup de timeouts (evitar memory leaks)
+  const timeoutRef = useRef(null);
+
   useEffect(() => {
+    let isMounted = true;
+
     const handleAuthCallback = async () => {
       try {
         // Obter os parametros da URL
@@ -20,8 +25,10 @@ export default function AuthCallback() {
 
         // Se tiver erro na URL, mostrar a mensagem
         if (error) {
-          setStatus('error');
-          setMessage(error_description || 'Erro ao verificar sua conta.');
+          if (isMounted) {
+            setStatus('error');
+            setMessage(error_description || 'Erro ao verificar sua conta.');
+          }
           return;
         }
 
@@ -33,16 +40,17 @@ export default function AuthCallback() {
           });
 
           if (verifyError) {
-            console.error('Erro ao verificar token:', verifyError);
-            setStatus('error');
+            if (isMounted) {
+              setStatus('error');
 
-            // Traduzir mensagens de erro comuns
-            if (verifyError.message.includes('expired')) {
-              setMessage('O link de confirmacao expirou. Por favor, solicite um novo email.');
-            } else if (verifyError.message.includes('invalid')) {
-              setMessage('Link de confirmacao inválido. Por favor, solicite um novo email.');
-            } else {
-              setMessage('Erro ao verificar sua conta. Tente novamente.');
+              // Traduzir mensagens de erro comuns
+              if (verifyError.message.includes('expired')) {
+                setMessage('O link de confirmacao expirou. Por favor, solicite um novo email.');
+              } else if (verifyError.message.includes('invalid')) {
+                setMessage('Link de confirmacao inválido. Por favor, solicite um novo email.');
+              } else {
+                setMessage('Erro ao verificar sua conta. Tente novamente.');
+              }
             }
             return;
           }
@@ -50,25 +58,31 @@ export default function AuthCallback() {
           if (data?.session) {
             // Se for recovery (recuperação de senha), redirecionar para página de reset
             if (type === 'recovery') {
-              setStatus('success');
-              setMessage('Verificacao concluida! Redirecionando para definir nova senha...');
-              setTimeout(() => {
-                navigate('/reset-password');
+              if (isMounted) {
+                setStatus('success');
+                setMessage('Verificacao concluida! Redirecionando para definir nova senha...');
+              }
+              timeoutRef.current = setTimeout(() => {
+                if (isMounted) navigate('/reset-password');
               }, 1500);
               return;
             }
 
-            setStatus('success');
-            setMessage('Email confirmado com sucesso! Redirecionando...');
+            if (isMounted) {
+              setStatus('success');
+              setMessage('Email confirmado com sucesso! Redirecionando...');
+            }
 
             // Aguardar um pouco para mostrar a mensagem de sucesso
-            setTimeout(() => {
-              // Redirecionar baseado no tipo de usuario
-              const userType = data.session.user?.user_metadata?.user_type;
-              if (userType === 'profissional') {
-                navigate('/Onboarding');
-              } else {
-                navigate('/ClientDashboard');
+            timeoutRef.current = setTimeout(() => {
+              if (isMounted) {
+                // Redirecionar baseado no tipo de usuario
+                const userType = data.session.user?.user_metadata?.user_type;
+                if (userType === 'profissional') {
+                  navigate('/Onboarding');
+                } else {
+                  navigate('/ClientDashboard');
+                }
               }
             }, 2000);
             return;
@@ -79,31 +93,46 @@ export default function AuthCallback() {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session) {
-          setStatus('success');
-          setMessage('Você já está autenticado! Redirecionando...');
-          setTimeout(() => {
-            const userType = session.user?.user_metadata?.user_type;
-            if (userType === 'profissional') {
-              navigate('/Onboarding');
-            } else {
-              navigate('/ClientDashboard');
+          if (isMounted) {
+            setStatus('success');
+            setMessage('Você já está autenticado! Redirecionando...');
+          }
+          timeoutRef.current = setTimeout(() => {
+            if (isMounted) {
+              const userType = session.user?.user_metadata?.user_type;
+              if (userType === 'profissional') {
+                navigate('/Onboarding');
+              } else {
+                navigate('/ClientDashboard');
+              }
             }
           }, 1500);
           return;
         }
 
         // Se chegou aqui sem sessao e sem token, algo está errado
-        setStatus('error');
-        setMessage('Link inválido ou expirado. Por favor, faca login novamente.');
+        if (isMounted) {
+          setStatus('error');
+          setMessage('Link inválido ou expirado. Por favor, faca login novamente.');
+        }
 
-      } catch (err) {
-        console.error('Erro no callback de autenticacao:', err);
-        setStatus('error');
-        setMessage('Ocorreu um erro inesperado. Tente novamente.');
+      } catch {
+        if (isMounted) {
+          setStatus('error');
+          setMessage('Ocorreu um erro inesperado. Tente novamente.');
+        }
       }
     };
 
     handleAuthCallback();
+
+    // Cleanup: cancelar timeouts e marcar como desmontado
+    return () => {
+      isMounted = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [navigate, searchParams]);
 
   const handleRetryLogin = () => {

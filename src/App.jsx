@@ -11,6 +11,7 @@ import AuthCallback from '@/pages/AuthCallback';
 import ResetPassword from '@/pages/ResetPassword';
 import ForgotPassword from '@/pages/ForgotPassword';
 import UserNotRegisteredError from '@/componentes/UserNotRegisteredError';
+import ErrorBoundary from '@/componentes/comum/ErrorBoundary';
 import ProtectedRoute, {
   isPublicRoute,
   getRequiredRole,
@@ -143,15 +144,17 @@ const AuthenticatedApp = memo(() => {
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <NavigationTracker />
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router>
+            <NavigationTracker />
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

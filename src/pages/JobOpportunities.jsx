@@ -1,17 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/lib/AuthContext";
 import { JobOpportunityService, JobApplicationService, Category } from "@/lib/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
+import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/componentes/interface do usuário/dialog";
 import {
   Briefcase, MapPin, Clock, DollarSign, Search, MessageCircle,
-  Filter, Users, Loader2, AlertCircle, Lock, Crown, UserPlus, Plus, Navigation
+  Filter, Users, Loader2, Lock, Crown, UserPlus, Plus, Navigation, ChevronDown
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -35,6 +35,8 @@ const states = [
   { value: "TO", label: "Tocantins" }
 ];
 
+const ITEMS_PER_PAGE = 12;
+
 export default function JobOpportunities() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -46,6 +48,9 @@ export default function JobOpportunities() {
     profession: 'all'
   });
 
+  // Estado de paginação
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+
   // Modais
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
@@ -54,6 +59,11 @@ export default function JobOpportunities() {
   const [applicationStatus, setApplicationStatus] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationMessage, setLocationMessage] = useState('');
+
+  // Reset paginação quando filtros mudam
+  useEffect(() => {
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [filters]);
 
   // Função para obter localização atual
   const getCurrentLocation = () => {
@@ -206,6 +216,17 @@ export default function JobOpportunities() {
     return map;
   }, [categories]);
 
+  // Oportunidades visíveis (paginadas)
+  const visibleOpportunities = useMemo(() => {
+    return opportunities.slice(0, visibleCount);
+  }, [opportunities, visibleCount]);
+
+  const hasMore = visibleCount < opportunities.length;
+
+  const loadMore = () => {
+    setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+  };
+
   const getUrgencyBadge = (urgency) => {
     switch (urgency) {
       case 'urgent':
@@ -254,8 +275,7 @@ export default function JobOpportunities() {
       const phone = opp.contact_whatsapp?.replace(/\D/g, '');
       const message = `Ola! Vi sua oportunidade "${opp.title}" no ConectPro e tenho interesse.`;
       window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
-    } catch (error) {
-      console.error('Erro ao registrar candidatura:', error);
+    } catch {
       // Mesmo com erro, abre o WhatsApp
       const phone = opp.contact_whatsapp?.replace(/\D/g, '');
       const message = `Ola! Vi sua oportunidade "${opp.title}" no ConectPro e tenho interesse.`;
@@ -455,7 +475,12 @@ export default function JobOpportunities() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {opportunities.map((opp) => (
+            {/* Contador de resultados */}
+            <div className="text-sm text-slate-600 mb-4">
+              Mostrando {visibleOpportunities.length} de {opportunities.length} oportunidades
+            </div>
+
+            {visibleOpportunities.map((opp) => (
               <Card key={opp.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between gap-4">
@@ -514,6 +539,20 @@ export default function JobOpportunities() {
                 </CardContent>
               </Card>
             ))}
+
+            {/* Botão Carregar Mais */}
+            {hasMore && (
+              <div className="mt-6 text-center">
+                <Button
+                  onClick={loadMore}
+                  variant="outline"
+                  className="px-8"
+                >
+                  <ChevronDown className="w-4 h-4 mr-2" />
+                  Carregar Mais ({opportunities.length - visibleCount} restantes)
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

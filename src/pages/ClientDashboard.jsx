@@ -18,6 +18,7 @@ import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
 import CancelSubscriptionDialog from "@/componentes/assinatura/CancelSubscriptionDialog";
 import AvatarUpload from "@/componentes/comum/AvatarUpload";
 import { replaceFile, deleteFile, BUCKETS } from "@/lib/storage";
+import { showToast } from "@/utils/showToast";
 
 export default function ClientDashboard() {
   const { user, isLoadingAuth, isAuthenticated, navigateToLogin, refreshUserData } = useAuth();
@@ -144,8 +145,7 @@ export default function ClientDashboard() {
       try {
         const status = await CreditsService.getClientStatus(user.id);
         setCreditStatus(status);
-      } catch (error) {
-        console.error('Erro ao carregar status de créditos:', error);
+      } catch {
         setCreditStatus(null);
       } finally {
         setLoadingCreditStatus(false);
@@ -212,7 +212,7 @@ export default function ClientDashboard() {
       }
       setTimeout(() => setProfileSuccess(false), 3000);
     } catch (error) {
-      alert('Erro ao salvar perfil. Tente novamente.');
+      showToast.error('Erro ao salvar perfil', 'Tente novamente.');
     } finally {
       setSavingProfile(false);
     }
@@ -258,7 +258,7 @@ export default function ClientDashboard() {
       });
       setSubscription(results[0] || null);
     } catch (error) {
-      alert('Erro ao reativar assinatura. Tente novamente.');
+      showToast.error('Erro ao reativar assinatura', 'Tente novamente.');
     }
   };
 
@@ -601,7 +601,7 @@ export default function ClientDashboard() {
                         size="sm"
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}/?ref=${localReferralCode || user?.referral_code}`);
-                          alert('Link copiado!');
+                          showToast.success('Link copiado!');
                         }}
                         className="bg-green-500 hover:bg-green-600"
                       >

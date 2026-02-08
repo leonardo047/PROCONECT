@@ -19,6 +19,7 @@ import ServiceAreaMap from "@/componentes/profissional/ServiceAreaMap";
 import FloatingWhatsAppButton from "@/componentes/interface do usuário/FloatingWhatsAppButton";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
+import { showToast } from "@/utils/showToast";
 
 const professionLabels = {
   pintura_residencial: "Pintura Residencial e Comercial",
@@ -160,7 +161,7 @@ export default function Portfolio() {
     }
 
     if (user?.user_type === 'profissional') {
-      alert('Apenas clientes podem iniciar conversas com profissionais.');
+      showToast.warning('Apenas clientes podem iniciar conversas com profissionais.');
       return;
     }
 

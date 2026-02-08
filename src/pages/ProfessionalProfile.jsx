@@ -8,7 +8,7 @@ import { Button } from "@/componentes/interface do usuário/button";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import {
-  MapPin, Phone, Instagram, ArrowLeft, Loader2,
+  MapPin, Instagram, ArrowLeft, Loader2,
   Lock, Camera, Video, CheckCircle, Star, MessageSquare
 } from "lucide-react";
 import WhatsAppButton from "@/componentes/interface do usuário/WhatsAppButton";
@@ -17,6 +17,7 @@ import ReviewForm from "@/componentes/avaliações/ReviewForm";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
 import ContactPaymentModal from "@/componentes/profissional/ContactPaymentModal";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
+import { showToast } from "@/utils/showToast";
 
 const professionLabels = {
   pintura_residencial: "Pintura Residencial e Comercial",
@@ -375,7 +376,7 @@ export default function ProfessionalProfile() {
                   <ReviewForm
                     professionalId={professionalId}
                     onSuccess={() => {
-                      alert('Avaliação enviada com sucesso!');
+                      showToast.success('Avaliação enviada com sucesso!');
                     }}
                   />
                 </TabsContent>
@@ -386,7 +387,7 @@ export default function ProfessionalProfile() {
                     professionalName={professional.name}
                     serviceType={professionLabels[professional.profession]}
                     onSuccess={() => {
-                      alert('Solicitação enviada com sucesso! O profissional entrará em contato.');
+                      showToast.success('Solicitação enviada com sucesso! O profissional entrará em contato.');
                     }}
                   />
                 </TabsContent>

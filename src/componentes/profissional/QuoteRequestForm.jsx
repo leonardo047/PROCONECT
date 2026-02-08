@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import { Upload, MapPin, DollarSign, Clock, Send } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { showToast } from "@/utils/showToast";
 
 export default function QuoteRequestForm() {
   const { user, isAuthenticated, navigateToLogin } = useAuth();
@@ -30,7 +31,7 @@ export default function QuoteRequestForm() {
         await matchProfessionals(newQuote);
       }
 
-      alert('Pedido de orçamento criado com sucesso!');
+      showToast.success('Pedido de orçamento criado com sucesso!');
       window.location.href = '/ClientQuotes';
     }
   });

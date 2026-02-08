@@ -4,7 +4,6 @@ import { Professional, Review } from "@/lib/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Button } from "@/componentes/interface do usuário/button";
-import { Badge } from "@/componentes/interface do usuário/badge";
 import { Star, MessageSquare, Loader2, Trophy, TrendingUp } from "lucide-react";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
 

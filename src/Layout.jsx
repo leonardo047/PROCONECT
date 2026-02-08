@@ -4,8 +4,7 @@ import { createPageUrl } from "@/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { NotificationService, QuoteMessageService } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Home, Search, User, Settings, LogOut, Menu, X,
+import { Search, User, LogOut, Menu, X,
   Hammer, Shield, ChevronDown, Bell, FileText, MessageCircle
 } from "lucide-react";
 import { Button } from "@/componentes/interface do usuário/button";
@@ -430,7 +429,7 @@ const Footer = memo(function Footer() {
             <h4 className="font-semibold mb-4">Contato</h4>
             <div className="space-y-3 text-sm text-slate-400">
               <a
-                href="https://wa.me/5500000000000"
+                href="https://wa.me/5511999999999"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-white transition-colors"
@@ -439,7 +438,7 @@ const Footer = memo(function Footer() {
                 <span>WhatsApp Atendimento<br /><span className="text-xs">(Assistente Virtual)</span></span>
               </a>
               <a
-                href="https://wa.me/5500000000000"
+                href="https://wa.me/5511999999999"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-white transition-colors"

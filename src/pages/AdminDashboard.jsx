@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, Category, PlanConfig, Payment, Referral, Profile, Expense, ClientSubscription, CreditsService, CreditTransaction } from "@/lib/entities";
+import { Professional, Category, PlanConfig, Payment, Referral, Profile, Expense, ClientSubscription, CreditsService } from "@/lib/entities";
 import { jsPDF } from 'jspdf';
+import { showToast } from "@/utils/showToast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -13,15 +14,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentes/interface do usuário/table";
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
-  Shield, Users, Briefcase, Settings, TrendingUp, TrendingDown,
-  DollarSign, Eye, EyeOff, Plus, Edit, Trash,
-  GripVertical, Save, CheckCircle, XCircle, Loader2,
-  BarChart3, Award, Target, Zap, AlertCircle, AlertTriangle,
-  History, Send, Copy, ArrowUp, ArrowDown, Home, Package,
+  Shield, Users, Briefcase, TrendingUp, TrendingDown,
+  DollarSign, Eye, Plus, Edit, Trash, Save, CheckCircle, XCircle, Loader2,
+  BarChart3, Award, AlertTriangle,
+  History, Send, Package,
   ChevronLeft, ChevronRight, Gift, CreditCard, Search,
-  Download, Calendar, Filter, UserPlus, Clock, PieChart,
+  Download, Filter, UserPlus, Clock,
   FileText, RefreshCw, Receipt, Wallet, MinusCircle, Percent,
   Infinity, Coins
 } from "lucide-react";
@@ -112,7 +111,7 @@ export default function AdminDashboard() {
         setIsCheckingAdmin(false);
       } else if (user && user.role !== 'admin') {
         // Não e admin, redirecionar
-        alert('Acessó negado. Apenas administradores podem acessar está pagina.');
+        showToast.error('Acesso negado. Apenas administradores podem acessar esta página.');
         window.location.href = '/';
       }
       // Se user e null, aguardar
@@ -263,10 +262,10 @@ export default function AdminDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-profiles']);
-      alert('Créditos adicionados com sucesso!');
+      showToast.success('Créditos adicionados com sucesso!');
     },
     onError: (error) => {
-      alert('Erro ao adicionar créditos: ' + error.message);
+      showToast.error('Erro ao adicionar créditos: ' + error.message);
     }
   });
 
@@ -335,16 +334,16 @@ export default function AdminDashboard() {
       if (editingCategory?.id) {
         // Update existing category
         await updateCategoryMutation.mutateAsync({ id: editingCategory.id, data });
-        alert('Categoria atualizada com sucesso!');
+        showToast.success('Categoria atualizada com sucesso!');
       } else {
         // Create new category
         await createCategoryMutation.mutateAsync({ ...data, order: categories.length });
-        alert('Categoria criada com sucesso!');
+        showToast.success('Categoria criada com sucesso!');
       }
       setShowCategoryDialog(false);
       setEditingCategory(null);
     } catch (error) {
-      alert('Erro ao salvar categoria: ' + (error.message || JSON.stringify(error)));
+      showToast.error('Erro ao salvar categoria: ' + (error.message || JSON.stringify(error)));
     } finally {
       setSavingCategory(false);
     }
@@ -925,7 +924,7 @@ export default function AdminDashboard() {
         await createExpenseMutation.mutateAsync(data);
       }
     } catch (error) {
-      alert('Erro ao salvar despesa: ' + (error.message || JSON.stringify(error)));
+      showToast.error('Erro ao salvar despesa: ' + (error.message || JSON.stringify(error)));
     } finally {
       setSavingExpense(false);
     }
@@ -3265,7 +3264,7 @@ export default function AdminDashboard() {
                                             queryClient.invalidateQueries(['admin-professionals']);
                                             queryClient.invalidateQueries(['admin-credit-transactions']);
                                           } catch (err) {
-                                            alert('Erro ao revogar: ' + err.message);
+                                            showToast.error('Erro ao revogar: ' + err.message);
                                           }
                                           setSavingCredits(false);
                                         }}
@@ -3407,7 +3406,7 @@ export default function AdminDashboard() {
                                             queryClient.invalidateQueries(['admin-profiles']);
                                             queryClient.invalidateQueries(['admin-client-credit-transactions']);
                                           } catch (err) {
-                                            alert('Erro ao revogar: ' + err.message);
+                                            showToast.error('Erro ao revogar: ' + err.message);
                                           }
                                           setSavingClientCredits(false);
                                         }}
@@ -3660,7 +3659,7 @@ export default function AdminDashboard() {
                     queryClient.invalidateQueries(['admin-credit-transactions']);
                     setShowGrantUnlimitedDialog(false);
                   } catch (err) {
-                    alert('Erro: ' + err.message);
+                    showToast.error('Erro: ' + err.message);
                   }
                   setSavingCredits(false);
                 }}
@@ -3735,7 +3734,7 @@ export default function AdminDashboard() {
                     queryClient.invalidateQueries(['admin-credit-transactions']);
                     setShowAddCreditsDialog(false);
                   } catch (err) {
-                    alert('Erro: ' + err.message);
+                    showToast.error('Erro: ' + err.message);
                   }
                   setSavingCredits(false);
                 }}
@@ -3809,7 +3808,7 @@ export default function AdminDashboard() {
                     queryClient.invalidateQueries(['admin-client-credit-transactions']);
                     setShowClientGrantUnlimitedDialog(false);
                   } catch (err) {
-                    alert('Erro: ' + err.message);
+                    showToast.error('Erro: ' + err.message);
                   }
                   setSavingClientCredits(false);
                 }}
@@ -3884,7 +3883,7 @@ export default function AdminDashboard() {
                     queryClient.invalidateQueries(['admin-client-credit-transactions']);
                     setShowClientAddCreditsDialog(false);
                   } catch (err) {
-                    alert('Erro: ' + err.message);
+                    showToast.error('Erro: ' + err.message);
                   }
                   setSavingClientCredits(false);
                 }}
@@ -4363,7 +4362,7 @@ export default function AdminDashboard() {
                     className="bg-orange-500 hover:bg-orange-600"
                     onClick={() => {
                       if (!selectedReferrer?.id) {
-                        alert('Erro: ID do usuario não encontrado');
+                        showToast.error('Erro: ID do usuário não encontrado');
                         return;
                       }
 

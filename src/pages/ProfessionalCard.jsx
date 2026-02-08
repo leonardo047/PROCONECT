@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { Professional } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, MapPin, Star, Phone, Mail, Instagram, Globe, Calendar, Award, Share2, MessageCircle } from "lucide-react";
+import { Loader2, MapPin, Star, Phone, Instagram, Calendar, Award, Share2, MessageCircle } from "lucide-react";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Card, CardContent } from "@/componentes/interface do usuário/card";
+import { showToast } from "@/utils/showToast";
 
 export default function ProfessionalCard() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -32,7 +33,7 @@ export default function ProfessionalCard() {
       });
     } else {
       navigator.clipboard.writeText(url);
-      alert('Link copiado!');
+      showToast.success('Link copiado!');
     }
   };
 

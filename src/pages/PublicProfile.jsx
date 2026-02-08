@@ -3,10 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Professional, Review } from "@/lib/entities";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Card, CardContent } from "@/componentes/interface do usuário/card";
-import { Badge } from "@/componentes/interface do usuário/badge";
 import {
-  MapPin, Star, Phone, Instagram, Clock, Share2,
-  ExternalLink, Briefcase, Award, CheckCircle
+  MapPin, Star, Phone, Instagram, Share2,
+  ExternalLink, Briefcase, CheckCircle
 } from "lucide-react";
 import PublicAvailabilityView from "@/componentes/profissional/PublicAvailabilityView";
 import AvailabilityStatusBadge from "@/componentes/profissional/AvailabilityStatusBadge";

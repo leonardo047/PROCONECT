@@ -30,6 +30,7 @@ import {
   Loader2, Plus, Trash2, ImagePlus, X, Pencil,
   FolderOpen, Camera, AlertCircle, CheckCircle, Lock, Share2, Copy, DollarSign
 } from 'lucide-react';
+import { showToast } from "@/utils/showToast";
 
 const MAX_ITEMS = 3;
 const MAX_PHOTOS_PER_ITEM = 5;
@@ -165,7 +166,7 @@ export default function PortfolioManager({ professionalId, professional }) {
 
     const remainingSlots = MAX_PHOTOS_PER_ITEM - (formData.photos?.length || 0);
     if (remainingSlots <= 0) {
-      alert(`Limite de ${MAX_PHOTOS_PER_ITEM} fotos atingido.`);
+      showToast.warning(`Limite de ${MAX_PHOTOS_PER_ITEM} fotos atingido.`);
       return;
     }
 
@@ -183,7 +184,7 @@ export default function PortfolioManager({ professionalId, professional }) {
         photos: [...(formData.photos || []), ...uploadedUrls]
       });
     } catch (error) {
-      alert(`Erro ao fazer upload: ${error.message || 'Erro desconhecido'}`);
+      showToast.error(`Erro ao fazer upload: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setUploading(false);
     }
@@ -197,7 +198,7 @@ export default function PortfolioManager({ professionalId, professional }) {
     const currentPhotoCount = item?.portfolio_photos?.length || 0;
 
     if (currentPhotoCount >= MAX_PHOTOS_PER_ITEM) {
-      alert(`Limite de ${MAX_PHOTOS_PER_ITEM} fotos atingido para este trabalho.`);
+      showToast.warning(`Limite de ${MAX_PHOTOS_PER_ITEM} fotos atingido para este trabalho.`);
       return;
     }
 
@@ -207,7 +208,7 @@ export default function PortfolioManager({ professionalId, professional }) {
       const fileUrl = await uploadFile(files[0], BUCKETS.PORTFOLIO);
       await addPhotoMutation.mutateAsync({ itemId, photoUrl: fileUrl });
     } catch (error) {
-      alert(`Erro ao fazer upload: ${error.message || 'Erro desconhecido'}`);
+      showToast.error(`Erro ao fazer upload: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setUploading(false);
     }
@@ -230,11 +231,11 @@ export default function PortfolioManager({ professionalId, professional }) {
 
   const handleCreate = () => {
     if (!formData.title.trim()) {
-      alert('O titulo do trabalho é obrigatório.');
+      showToast.warning('O titulo do trabalho é obrigatório.');
       return;
     }
     if (formData.photos.length === 0) {
-      alert('Adicione pelo menos uma foto do trabalho.');
+      showToast.warning('Adicione pelo menos uma foto do trabalho.');
       return;
     }
     const dataToSubmit = {
@@ -258,7 +259,7 @@ export default function PortfolioManager({ professionalId, professional }) {
 
   const handleUpdate = () => {
     if (!formData.title.trim()) {
-      alert('O titulo do trabalho é obrigatório.');
+      showToast.warning('O titulo do trabalho é obrigatório.');
       return;
     }
     updateMutation.mutate({
@@ -275,7 +276,7 @@ export default function PortfolioManager({ professionalId, professional }) {
   const copyPortfolioLink = () => {
     const link = `${window.location.origin}/Portfolio?id=${professionalId}`;
     navigator.clipboard.writeText(link);
-    alert('Link copiado!');
+    showToast.success('Link copiado!');
   };
 
   // Se professional ainda está carregando, mostrar loading

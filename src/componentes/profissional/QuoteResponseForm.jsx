@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interfac
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { DollarSign, Clock, Send, AlertCircle, CreditCard, Gift, Loader2 } from "lucide-react";
 import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
+import { showToast } from "@/utils/showToast";
 
 export default function QuoteResponseForm({ quoteRequest, professional, onSuccess }) {
   const [canRespond, setCanRespond] = useState(false);
@@ -95,14 +96,14 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
       queryClient.invalidateQueries(['professional-quotes']);
       queryClient.invalidateQueries(['my-professional']);
       if (onSuccess) onSuccess();
-      alert('Orçamento enviado com sucesso!');
+      showToast.success('Orçamento enviado com sucesso!');
     },
     onError: (error) => {
       // Verificar se e erro de créditos insuficientes
       if (error.message?.includes('policy') || error.message?.includes('credit')) {
-        alert('Você não tem créditos suficientes para responder este orçamento. Por favor, assine um plano ou use créditos de indicação.');
+        showToast.error('Você não tem créditos suficientes para responder este orçamento. Por favor, assine um plano ou use créditos de indicação.');
       } else {
-        alert('Erro ao enviar orçamento. Tente novamente.');
+        showToast.error('Erro ao enviar orçamento. Tente novamente.');
       }
     }
   });
@@ -112,7 +113,7 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
 
     // Check if needs payment but not using referral credit
     if (needsPayment && !useReferralCredit) {
-      alert('Você atingiu o limite de 3 orçamentos gratuitos. Use um crédito de indicação, assine um plano ou pague por este orçamento individual.');
+      showToast.warning('Você atingiu o limite de 3 orçamentos gratuitos. Use um crédito de indicação, assine um plano ou pague por este orçamento individual.');
       return;
     }
 

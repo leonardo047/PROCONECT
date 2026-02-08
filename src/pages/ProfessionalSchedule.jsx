@@ -4,11 +4,9 @@ import { Professional, Appointment, Availability, User } from "@/lib/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Button } from "@/componentes/interface do usuário/button";
-import { Badge } from "@/componentes/interface do usuário/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import { Label } from "@/componentes/interface do usuário/label";
-import { Calendar, Clock, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Calendar, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import AppointmentCard from "@/componentes/agendamentos/AppointmentCard";
 
 const daysOfWeek = [

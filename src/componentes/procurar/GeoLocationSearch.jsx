@@ -9,6 +9,7 @@ import {
   TrendingUp, Zap
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { showToast } from "@/utils/showToast";
 
 export default function GeoLocationSearch({ onLocationChange, maxRadius = 50 }) {
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,7 @@ export default function GeoLocationSearch({ onLocationChange, maxRadius = 50 }) 
     setLoading(true);
     
     if (!navigator.geolocation) {
-      alert('Geolocalização não suportada pelo seu navegador');
+      showToast.error('Geolocalização não suportada pelo seu navegador');
       setLoading(false);
       return;
     }
@@ -38,7 +39,7 @@ export default function GeoLocationSearch({ onLocationChange, maxRadius = 50 }) 
         setLoading(false);
       },
       (error) => {
-        alert('Não foi possível obter sua localização. Verifique as permissões.');
+        showToast.error('Não foi possível obter sua localização. Verifique as permissões.');
         setLoading(false);
       }
     );
@@ -46,7 +47,7 @@ export default function GeoLocationSearch({ onLocationChange, maxRadius = 50 }) 
 
   const searchByCep = async () => {
     if (!cep || cep.length < 8) {
-      alert('Digite um CEP válido');
+      showToast.warning('Digite um CEP válido');
       return;
     }
 
@@ -59,7 +60,7 @@ export default function GeoLocationSearch({ onLocationChange, maxRadius = 50 }) 
       const cepData = await cepResponse.json();
       
       if (cepData.erro) {
-        alert('CEP não encontrado');
+        showToast.warning('CEP não encontrado');
         setLoading(false);
         return;
       }
@@ -81,10 +82,10 @@ export default function GeoLocationSearch({ onLocationChange, maxRadius = 50 }) 
         setCurrentLocation(location);
         onLocationChange(location);
       } else {
-        alert('Não foi possível encontrar as coordenadas deste CEP');
+        showToast.warning('Não foi possível encontrar as coordenadas deste CEP');
       }
     } catch (error) {
-      alert('Erro ao buscar localização. Tente novamente.');
+      showToast.error('Erro ao buscar localização. Tente novamente.');
     }
 
     setLoading(false);
