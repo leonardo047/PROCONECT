@@ -13,10 +13,36 @@ import { Loader2, Mail, Lock, User, Building2, Gift, Phone } from 'lucide-react'
 
 // Função para traduzir erros do Supabase para mensagens amigáveis
 const translateSupabaseError = (error) => {
+  // Capturar todas as informações possíveis do erro
   const message = error?.message || error || '';
   const errorCode = error?.code || error?.error_code || '';
+  const errorDetails = error?.details || error?.hint || error?.cause?.message || '';
 
-  // Erros de cadastro - Email duplicado
+  // Combinar todas as informações para busca
+  const fullErrorText = `${message} ${errorCode} ${errorDetails} ${JSON.stringify(error)}`.toLowerCase();
+
+  // Log para debug
+  console.log('Erro recebido:', { message, errorCode, errorDetails, fullError: error });
+
+  // PRIORIDADE 1: Erros de constraint de banco de dados (mais específicos)
+  // Telefone duplicado - verificar primeiro pois é o erro mais comum
+  if (fullErrorText.includes('users_phone_key') ||
+      fullErrorText.includes('phone_key') ||
+      (fullErrorText.includes('duplicate') && fullErrorText.includes('phone')) ||
+      (fullErrorText.includes('unique') && fullErrorText.includes('phone')) ||
+      (fullErrorText.includes('already') && fullErrorText.includes('phone'))) {
+    return 'Este número de telefone já está cadastrado em outra conta. Por favor, use um número diferente ou faça login com o email associado a esse telefone.';
+  }
+
+  // Email duplicado
+  if (fullErrorText.includes('users_email_key') ||
+      fullErrorText.includes('email_key') ||
+      (fullErrorText.includes('duplicate') && fullErrorText.includes('email')) ||
+      (fullErrorText.includes('unique') && fullErrorText.includes('email'))) {
+    return 'Este email já está cadastrado. Faça login ou use a opção "Esqueceu a senha?" para recuperar sua conta.';
+  }
+
+  // PRIORIDADE 2: Erros de cadastro do Supabase Auth
   if (message.includes('User already registered') ||
       message.includes('already been registered') ||
       message.includes('email already exists') ||
@@ -24,23 +50,9 @@ const translateSupabaseError = (error) => {
     return 'Este email já está cadastrado. Faça login ou use a opção "Esqueceu a senha?" para recuperar sua conta.';
   }
 
-  // Erros de cadastro - Email duplicado (banco de dados)
-  if (message.includes('users_email_key') ||
-      (message.includes('duplicate key') && message.includes('email')) ||
-      (message.includes('unique constraint') && message.includes('email'))) {
-    return 'Este email já está cadastrado. Faça login ou use a opção "Esqueceu a senha?" para recuperar sua conta.';
-  }
-
-  // Erros de cadastro - Telefone duplicado
-  if (message.includes('users_phone_key') ||
-      (message.includes('duplicate key') && message.includes('phone')) ||
-      (message.includes('unique constraint') && message.includes('phone'))) {
-    return 'Este número de telefone já está cadastrado. Use outro número ou faça login com o email associado.';
-  }
-
-  // Erros de validação de email
+  // PRIORIDADE 3: Erros de validação
   if (message.includes('Invalid email') || message.includes('invalid email')) {
-    return 'O formato do email está inválido. Verifique é tente novamente.';
+    return 'O formato do email está inválido. Verifique e tente novamente.';
   }
   if (message.includes('Unable to validate email') || message.includes('cannot be validated')) {
     return 'Não foi possível validar o email. Verifique se digitou corretamente.';
@@ -54,14 +66,13 @@ const translateSupabaseError = (error) => {
     return 'A senha é muito fraca. Use uma combinação de letras, números e símbolos.';
   }
 
-  // Erros de login - Credenciais inválidas
+  // PRIORIDADE 4: Erros de login
   if (message.includes('Invalid login credentials') ||
       message.includes('invalid credentials') ||
       errorCode === 'invalid_credentials') {
     return 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
   }
 
-  // Erros de login - Usuário não encontrado
   if (message.includes('User not found') ||
       message.includes('user not found') ||
       errorCode === 'user_not_found') {
@@ -80,7 +91,7 @@ const translateSupabaseError = (error) => {
       message.includes('link has expired') ||
       message.includes('expired') ||
       errorCode === 'otp_expired') {
-    return 'O link expirou ou e inválido. Solicite um novo link de acesso.';
+    return 'O link expirou ou é inválido. Solicite um novo link de acesso.';
   }
 
   // Conta desativada ou banida
@@ -102,18 +113,20 @@ const translateSupabaseError = (error) => {
     return 'Novos cadastros estão temporariamente desativados. Tente novamente mais tarde.';
   }
 
-  // Erros de banco de dados
-  if (message.includes('Database error') || message.includes('database error')) {
-    if (message.includes('phone')) {
-      return 'Este número de telefone já está cadastrado. Use outro número.';
+  // PRIORIDADE 5: Erros genéricos de banco de dados - tentar identificar a causa
+  if (fullErrorText.includes('database error') || fullErrorText.includes('unexpected_failure')) {
+    // Verificar se tem alguma pista sobre o campo problemático
+    if (fullErrorText.includes('phone') || fullErrorText.includes('telefone')) {
+      return 'Este número de telefone já está cadastrado em outra conta. Por favor, use um número diferente.';
     }
-    if (message.includes('email')) {
+    if (fullErrorText.includes('email')) {
       return 'Este email já está cadastrado. Faça login ou recupere sua senha.';
     }
-    return 'Erro ao salvar dados. Verifique se todos os campos estão corretos.';
+    // Erro de banco genérico
+    return 'Ocorreu um erro ao processar seu cadastro. Verifique se o email e telefone não estão cadastrados em outra conta.';
   }
 
-  // Erros de conexão
+  // PRIORIDADE 6: Erros de conexão/rede
   if (message.includes('network') ||
       message.includes('fetch') ||
       message.includes('Failed to fetch') ||
@@ -132,9 +145,9 @@ const translateSupabaseError = (error) => {
     return 'Ocorreu um erro no servidor. Tente novamente em alguns instantes.';
   }
 
-  // Se não conseguir traduzir, retorna mensagem genérica com indicação de contato
-  console.error('Erro não traduzido:', message, errorCode);
-  return 'Ocorreu um erro inesperado. Por favor, tente novamente ou entre em contato com o suporte.';
+  // Se não conseguir traduzir, retorna mensagem genérica mas útil
+  console.error('Erro não traduzido:', message, errorCode, error);
+  return 'Ocorreu um erro inesperado. Verifique se seus dados estão corretos ou tente novamente mais tarde.';
 };
 
 export default function Login() {
