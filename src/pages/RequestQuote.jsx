@@ -7,21 +7,12 @@ export default function RequestQuote() {
   const navigate = useNavigate();
 
   const handleSuccess = () => {
-    navigate(createPageUrl('ClientDashboard') + '?tab=quotes');
+    navigate(createPageUrl('ClientAppointments'));
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12">
-      <div className="max-w-3xl mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Solicitar Orçamento
-          </h1>
-          <p className="text-slate-600">
-            Descreva o serviço que precisa e receba propostas de profissionais qualificados
-          </p>
-        </div>
-
+    <div className="min-h-screen bg-slate-50 py-8 md:py-12">
+      <div className="max-w-2xl mx-auto px-4">
         <CreateQuoteRequest onSuccess={handleSuccess} />
       </div>
     </div>

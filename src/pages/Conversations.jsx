@@ -182,7 +182,7 @@ export default function Conversations() {
     if (!trimmedMessage || sendMutation.isPending || !selectedConversation) return;
 
     setMessage('');
-    shouldScrollRef.current = true; // Marcar para scroll apos enviar
+    shouldScrollRef.current = true; // Marcar para scroll após enviar
     const senderType = user.user_type === 'profissional' ? 'professional' : 'client';
     const isDirect = selectedConversation.conversation_type === 'direct';
 
@@ -335,7 +335,7 @@ export default function Conversations() {
                     : 'bg-[#2a3942] text-[#8696a0] hover:bg-[#3b4a54]'
                 }`}
               >
-                Nao lidas
+                Não lidas
               </button>
             </div>
           </div>
@@ -424,7 +424,7 @@ export default function Conversations() {
               <p className="text-xs text-[#8696a0]">
                 {selectedConversation?.conversation_type === 'direct'
                   ? 'Conversa direta'
-                  : selectedConversation?.quote_request_title || 'Orcamento'}
+                  : selectedConversation?.quote_request_title || 'Orçamento'}
               </p>
             </div>
             <button className="p-2 hover:bg-[#2a3942] rounded-full">
@@ -568,8 +568,8 @@ export default function Conversations() {
                 ConectPro Chat
               </h2>
               <p className="text-[#8696a0]">
-                Converse com profissionais e clientes sobre orcamentos.
-                Selecione uma conversa para comecar.
+                Converse com profissionais e clientes sobre orçamentos.
+                Selecione uma conversa para começar.
               </p>
             </div>
           </div>

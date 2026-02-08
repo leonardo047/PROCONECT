@@ -81,7 +81,7 @@ export default function AppointmentCard({ appointment, isProfessional = false, c
             reminder_date: reminderDate.toISOString(),
             service_date: serviceDate.toISOString(),
             professional_name: currentUser?.full_name || 'o profissional',
-            message: `Olá! Esta é uma mensagem de lembrete amigável: amanhã estaremos aí para resolver seu problema de ${appointment.service_type}. Nos vemos em breve!`,
+            message: `Olá! Está e uma mensagem de lembrete amigável: amanhã estaremos aí para resolver seu problema de ${appointment.service_type}. Nos vemos em breve!`,
             sent: false
           });
         }

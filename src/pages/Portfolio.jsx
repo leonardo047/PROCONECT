@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Professional, Review, PortfolioService } from "@/lib/entities";
+import { Review } from "@/lib/entities";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import {
-  MapPin, Star, Instagram, Clock, Share2,
-  ExternalLink, Briefcase, CheckCircle, Camera,
-  ChevronLeft, ChevronRight, X, MessageCircle, User, DollarSign, Sparkles, Lock, MessageSquare
+  MapPin, Star, Instagram, Share2,
+  ExternalLink, CheckCircle, Camera,
+  ChevronLeft, ChevronRight, X, MessageSquare, User, DollarSign, Sparkles, Lock, FileText
 } from "lucide-react";
 import PublicAvailabilityView from "@/componentes/profissional/PublicAvailabilityView";
 import AvailabilityStatusBadge from "@/componentes/profissional/AvailabilityStatusBadge";
+import ProfessionalBadges from "@/componentes/profissional/ProfessionalBadges";
+import ServicesList from "@/componentes/profissional/ServicesList";
+import ServiceAreaMap from "@/componentes/profissional/ServiceAreaMap";
+import FloatingWhatsAppButton from "@/componentes/interface do usuário/FloatingWhatsAppButton";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
 
@@ -23,7 +27,7 @@ const professionLabels = {
   hidraulica: "Hidraulica",
   limpeza: "Limpeza Residencial / Pos-obra",
   jardinagem: "Jardinagem / Rocada",
-  gesso_drywall: "Gesso / Drywall",
+  gesso_drywall: "Gessó / Drywall",
   telhados: "Telhados",
   marido_aluguel: "Marido de Aluguel",
   carpinteiro: "Carpintaria",
@@ -34,7 +38,7 @@ const professionLabels = {
   ar_condicionado: "Ar Condicionado / Refrigeracao",
   dedetizacao: "Dedetizacao / Controle de Pragas",
   mudancas: "Mudancas e Fretes",
-  montador_moveis: "Montador de Moveis",
+  montador_móveis: "Montador de Móveis",
   instalador_pisos: "Instalador de Pisos",
   marmorista: "Marmorista / Granitos",
   piscineiro: "Piscineiro / Manutencao de Piscinas",
@@ -74,7 +78,7 @@ function PortfolioGallery({ photos }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
         {photos.map((photo, index) => (
           <div
             key={photo.id || index}
@@ -150,23 +154,20 @@ export default function Portfolio() {
   // Funcao para iniciar chat direto
   const startChat = () => {
     if (!isAuthenticated) {
-      // Salvar URL atual para retornar apos login
       const chatUrl = encodeURIComponent(`/Conversations?start_chat_with=${professionalId}`);
       navigate(`/login?returnUrl=${chatUrl}`);
       return;
     }
 
-    // Se for profissional tentando conversar com outro profissional, nao permitir
     if (user?.user_type === 'profissional') {
       alert('Apenas clientes podem iniciar conversas com profissionais.');
       return;
     }
 
-    // Navegar para conversas com parametro para iniciar chat
     navigate(`/Conversations?start_chat_with=${professionalId}`);
   };
 
-  // Buscar profissional usando fetch direto (evita race condition do Supabase client)
+  // Buscar profissional usando fetch direto
   const { data: professional, isLoading, error } = useQuery({
     queryKey: ['portfolio-professional', professionalId],
     queryFn: async () => {
@@ -174,13 +175,11 @@ export default function Portfolio() {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-        // Buscar token de autenticação se disponível
         const headers = {
           'apikey': supabaseAnonKey,
           'Content-Type': 'application/json'
         };
 
-        // Tentar pegar o token do localStorage para passar na requisição
         const supabaseKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
         if (supabaseKey) {
           try {
@@ -220,7 +219,6 @@ export default function Portfolio() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      // Buscar items com fotos
       const response = await fetch(
         `${supabaseUrl}/rest/v1/portfolio_items?professional_id=eq.${professionalId}&is_active=eq.true&select=*,portfolio_photos(*)&order=display_order.asc`,
         {
@@ -242,7 +240,7 @@ export default function Portfolio() {
     enabled: !!professionalId
   });
 
-  // Buscar avaliacoes
+  // Buscar avaliações
   const { data: reviews = [] } = useQuery({
     queryKey: ['portfolio-reviews', professionalId],
     queryFn: async () => {
@@ -275,11 +273,9 @@ export default function Portfolio() {
     }
   };
 
-  const openWhatsApp = () => {
-    if (!professional?.whatsapp) return;
-    const phone = professional.whatsapp.replace(/\D/g, '');
-    const message = encodeURIComponent(`Ola! Vi seu portfolio no ConectPro e gostaria de saber mais sobre seus servicos.`);
-    window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+  const scrollToQuoteForm = () => {
+    const element = document.getElementById('quote-form');
+    if (element) element.scrollIntoView({ behavior: 'smooth' });
   };
 
   // Mostrar loading enquanto ainda não tem o ID ou está carregando
@@ -302,9 +298,9 @@ export default function Portfolio() {
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <ExternalLink className="w-8 h-8 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Portfolio nao encontrado</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Portfolio não encontrado</h2>
             <p className="text-slate-600 mb-4">
-              O portfolio que voce esta procurando nao existe ou nao esta mais ativo.
+              O portfolio que você está procurando não existe ou não está mais ativo.
             </p>
             <Button
               onClick={() => window.location.href = '/'}
@@ -318,12 +314,11 @@ export default function Portfolio() {
     );
   }
 
-  // Verificar se é conta premium para mostrar portfolio completo
   const isPremium = professional.plan_active && professional.plan_type !== 'free';
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header com gradiente */}
+      {/* ====== HEADER COM GRADIENTE ====== */}
       <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
         <div className="max-w-5xl mx-auto px-4 py-8">
           <Button
@@ -336,7 +331,7 @@ export default function Portfolio() {
           </Button>
 
           <div className="flex flex-col md:flex-row gap-6 items-start">
-            {/* Foto do perfil (avatar) */}
+            {/* Foto do perfil */}
             <div className="flex-shrink-0">
               {(professional.avatar_url || (professional.photos && professional.photos.length > 0)) ? (
                 <img
@@ -344,7 +339,6 @@ export default function Portfolio() {
                   alt={professional.name}
                   className="w-32 h-32 rounded-2xl object-cover border-4 border-white/30 shadow-lg"
                   onError={(e) => {
-                    // Se a imagem falhar, mostra as iniciais
                     e.target.style.display = 'none';
                     e.target.nextSibling.style.display = 'flex';
                   }}
@@ -358,18 +352,19 @@ export default function Portfolio() {
               </div>
             </div>
 
-            {/* Informacoes */}
+            {/* Informacoes do profissional */}
             <div className="flex-1">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-bold mb-2">
+                  <h1 className="text-3xl md:text-4xl font-bold mb-1">
                     {professional.name}
                   </h1>
                   <p className="text-xl text-white/90 mb-3">
                     {professionLabels[professional.profession] || professional.profession}
                   </p>
 
-                  <div className="flex flex-wrap items-center gap-4 text-white/90 mb-4">
+                  {/* Localizacao e Rating */}
+                  <div className="flex flex-wrap items-center gap-4 text-white/90 mb-3">
                     <div className="flex items-center gap-1">
                       <MapPin className="w-4 h-4" />
                       <span>{professional.city}, {professional.state}</span>
@@ -378,17 +373,12 @@ export default function Portfolio() {
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-300 fill-yellow-300" />
                         <span className="font-semibold">{professional.rating.toFixed(1)}</span>
-                        <span className="text-sm text-white/70">({reviews.length} avaliacoes)</span>
-                      </div>
-                    )}
-                    {professional.total_jobs > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Briefcase className="w-4 h-4" />
-                        <span>{professional.total_jobs} trabalhos</span>
+                        <span className="text-sm text-white/70">({reviews.length} avaliações)</span>
                       </div>
                     )}
                   </div>
 
+                  {/* Badge de status */}
                   <AvailabilityStatusBadge professional={professional} showDetails={true} />
                 </div>
 
@@ -402,24 +392,14 @@ export default function Portfolio() {
                 </Button>
               </div>
 
-              {/* Badge Premium */}
-              {isPremium && (
-                <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white border-0 mt-2">
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  Profissional Premium
-                </Badge>
-              )}
-
-              {/* Descricao resumida do profissional */}
-              {professional.description && (
-                <div className="mt-4 p-4 bg-white/10 rounded-xl backdrop-blur-sm max-w-2xl">
-                  <p className="text-white leading-relaxed">
-                    {professional.description}
-                  </p>
+              {/* Frase curta do profissional */}
+              {professional.short_phrase && (
+                <div className="mt-4 p-3 bg-white/10 rounded-lg backdrop-blur-sm max-w-2xl">
+                  <p className="text-white italic">"{professional.short_phrase}"</p>
                 </div>
               )}
 
-              {/* Botoes de contato */}
+              {/* Botoes de acao */}
               <div className="flex flex-wrap gap-3 mt-6">
                 <Button
                   onClick={startChat}
@@ -428,20 +408,19 @@ export default function Portfolio() {
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Conversar
                 </Button>
-                {professional.whatsapp && (
-                  <Button
-                    onClick={openWhatsApp}
-                    className="bg-green-500 hover:bg-green-600 text-white"
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    WhatsApp
-                  </Button>
-                )}
+                <Button
+                  onClick={scrollToQuoteForm}
+                  variant="outline"
+                  className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Solicitar Orçamento
+                </Button>
                 {professional.instagram && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => window.open(`https://instagram.com/${professional.instagram.replace('@', '')}`, '_blank')}
-                    className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                    className="text-white hover:bg-white/20"
                   >
                     <Instagram className="w-4 h-4 mr-2" />
                     Instagram
@@ -453,12 +432,21 @@ export default function Portfolio() {
         </div>
       </div>
 
-      {/* Conteudo principal */}
+      {/* ====== SELOS AUTOMATICOS ====== */}
+      <div className="max-w-5xl mx-auto px-4 -mt-4 relative z-10">
+        <Card className="shadow-lg">
+          <CardContent className="p-4">
+            <ProfessionalBadges professional={professional} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ====== CONTEUDO PRINCIPAL ====== */}
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Coluna principal - Portfolio */}
+          {/* Coluna principal */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Sobre o Profissional - Descricao Pessoal ou Descricao Principal */}
+            {/* Sobre o Profissional */}
             {(professional.personal_description || professional.description) && (
               <Card>
                 <CardContent className="p-6">
@@ -466,39 +454,17 @@ export default function Portfolio() {
                     <User className="w-5 h-5 text-orange-500" />
                     Sobre o Profissional
                   </h2>
-
-                  {/* Descricao pessoal (mais detalhada) */}
-                  {professional.personal_description && (
-                    <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">
-                      {professional.personal_description}
-                    </p>
-                  )}
-
-                  {/* Descricao principal como fallback ou complemento */}
-                  {professional.description && !professional.personal_description && (
-                    <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">
-                      {professional.description}
-                    </p>
-                  )}
-
-                  {/* Se tem ambas descricoes e sao diferentes, mostra a descricao dos servicos tambem */}
-                  {professional.description && professional.personal_description &&
-                   professional.description !== professional.personal_description && (
-                    <div className="mt-4 pt-4 border-t border-slate-100">
-                      <h3 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-orange-500" />
-                        Sobre os Servicos
-                      </h3>
-                      <p className="text-slate-600 whitespace-pre-wrap leading-relaxed text-sm">
-                        {professional.description}
-                      </p>
-                    </div>
-                  )}
+                  <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">
+                    {professional.personal_description || professional.description}
+                  </p>
                 </CardContent>
               </Card>
             )}
 
-            {/* Fotos do Perfil - Sempre mostra para todos */}
+            {/* Serviços que Realiza */}
+            <ServicesList professional={professional} />
+
+            {/* Galeria de Trabalhos */}
             {professional.photos && professional.photos.length > 0 && (
               <Card>
                 <CardContent className="p-6">
@@ -513,13 +479,13 @@ export default function Portfolio() {
               </Card>
             )}
 
-            {/* Portfolio de Projetos - Apenas para Premium */}
+            {/* Trabalhos Realizados (Portfolio Premium) */}
             {isPremium && portfolioItems.length > 0 ? (
               <div className="space-y-6">
                 <div className="flex items-center gap-2">
                   <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                     <Sparkles className="w-6 h-6 text-purple-500" />
-                    Portfolio de Projetos
+                    Trabalhos Realizados
                   </h2>
                   <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
                     Premium
@@ -555,20 +521,19 @@ export default function Portfolio() {
                 ))}
               </div>
             ) : !isPremium && (
-              // Bloco informativo para conta gratuita
               <Card className="border-2 border-dashed border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
                 <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Lock className="w-8 h-8 text-white" />
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 mb-2">
-                    Portfolio de Projetos
+                    Trabalhos Realizados
                   </h3>
                   <p className="text-slate-600 mb-4">
-                    Este profissional ainda nao ativou seu Portfolio Premium de projetos detalhados.
+                    Este profissional ainda não ativou seu Portfolio Premium de projetos detalhados.
                   </p>
                   <p className="text-sm text-purple-600">
-                    Profissionais Premium podem mostrar ate 3 projetos com fotos e valores.
+                    Profissionais Premium podem mostrar até 3 projetos com fotos e valores.
                   </p>
                 </CardContent>
               </Card>
@@ -592,7 +557,7 @@ export default function Portfolio() {
                         className="w-full"
                         onClick={() => window.location.href = `/ProfessionalReviews?id=${professionalId}`}
                       >
-                        Ver todas as {reviews.length} avaliacoes
+                        Ver todas as {reviews.length} avaliações
                       </Button>
                     )}
                   </div>
@@ -603,79 +568,36 @@ export default function Portfolio() {
 
           {/* Coluna lateral */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Card de contato rapido */}
-            <Card className="sticky top-4">
-              <CardContent className="p-6">
-                <h3 className="font-bold text-slate-900 mb-4">Entre em Contato</h3>
-
-                {/* Botao de Chat do App - Principal */}
-                <Button
-                  onClick={startChat}
-                  className="w-full bg-orange-500 hover:bg-orange-600 mb-3"
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Conversar pelo App
-                </Button>
-
-                {professional.whatsapp && (
-                  <Button
-                    onClick={openWhatsApp}
-                    variant="outline"
-                    className="w-full mb-3 border-green-500 text-green-600 hover:bg-green-50"
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    WhatsApp
-                  </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    const element = document.getElementById('appointment-form');
-                    if (element) element.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <Clock className="w-4 h-4 mr-2" />
-                  Solicitar Orcamento
-                </Button>
-
-                {/* Links sociais */}
-                {professional.instagram && (
-                  <div className="mt-4 pt-4 border-t">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => window.open(`https://instagram.com/${professional.instagram.replace('@', '')}`, '_blank')}
-                      className="w-full justify-start text-slate-600"
-                    >
-                      <Instagram className="w-4 h-4 mr-2" />
-                      {professional.instagram}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Disponibilidade */}
             <PublicAvailabilityView
               professionalId={professionalId}
               professional={professional}
             />
 
-            {/* Formulario de agendamento */}
-            <div id="appointment-form">
-              <AppointmentRequestForm
-                professionalId={professionalId}
-                professionalName={professional?.name}
-                serviceType={professionLabels[professional?.profession] || professional?.profession}
-              />
+            {/* Area de Atendimento */}
+            <ServiceAreaMap professional={professional} />
+
+            {/* Formulario de orçamento */}
+            <div id="quote-form">
+              <Card>
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-orange-500" />
+                    Solicitar Orçamento com {professional?.name?.split(' ')[0]}
+                  </h2>
+                  <AppointmentRequestForm
+                    professionalId={professionalId}
+                    professionalName={professional?.name}
+                    serviceType={professionLabels[professional?.profession] || professional?.profession}
+                  />
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Footer */}
+      {/* ====== FOOTER ====== */}
       <div className="bg-slate-900 text-white py-6 mt-12">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <p className="text-slate-400 text-sm">
@@ -683,6 +605,12 @@ export default function Portfolio() {
           </p>
         </div>
       </div>
+
+      {/* ====== BOTAO FLUTUANTE WHATSAPP ====== */}
+      <FloatingWhatsAppButton
+        whatsapp={professional?.whatsapp}
+        professionalName={professional?.name?.split(' ')[0]}
+      />
     </div>
   );
 }

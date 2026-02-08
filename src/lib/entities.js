@@ -980,6 +980,38 @@ export const ProfessionalPlanService = {
 export const JobOpportunityService = {
   ...JobOpportunity,
 
+  // Criar vaga anônima (sem autenticação)
+  async createAnonymous(data) {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/job_opportunities`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          ...data,
+          is_anonymous: true,
+          professional_id: null,
+          status: 'active'
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Erro ao criar vaga: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result?.[0] || result;
+  },
+
   // Get active opportunities with filters
   async getActive({ city, state, profession, limit = 20, offset = 0 }) {
     let query = supabase
@@ -989,8 +1021,8 @@ export const JobOpportunityService = {
       .order('created_at', { ascending: false });
 
     if (city) query = query.ilike('city', `%${city}%`);
-    if (state) query = query.eq('state', state);
-    if (profession) query = query.ilike('profession', `%${profession}%`);
+    if (state && state !== 'all') query = query.eq('state', state);
+    if (profession && profession !== 'all') query = query.ilike('profession', `%${profession}%`);
 
     query = query.range(offset, offset + limit - 1);
 
@@ -1058,6 +1090,98 @@ export const JobOpportunityService = {
 
     if (error) throw error;
     return data;
+  }
+};
+
+// Job Application (candidaturas a vagas/oportunidades)
+export const JobApplication = createEntityService('job_applications');
+
+// Job Application Service - controla candidaturas e limite de contatos
+export const JobApplicationService = {
+  ...JobApplication,
+
+  // Contar candidaturas do usuario
+  async countByUser(userId) {
+    const { count, error } = await supabase
+      .from('job_applications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    return count || 0;
+  },
+
+  // Verificar se usuario ja se candidatou a esta vaga
+  async hasApplied(userId, jobOpportunityId) {
+    const { data, error } = await supabase
+      .from('job_applications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('job_opportunity_id', jobOpportunityId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return !!data;
+  },
+
+  // Criar candidatura
+  async apply(userId, jobOpportunityId, contactMethod = 'whatsapp') {
+    const { data, error } = await supabase
+      .from('job_applications')
+      .insert({
+        user_id: userId,
+        job_opportunity_id: jobOpportunityId,
+        contact_method: contactMethod
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Buscar candidaturas do usuario
+  async getByUser(userId) {
+    const { data, error } = await supabase
+      .from('job_applications')
+      .select('*, job_opportunities(*)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Verificar limite de contatos (3 para nao-assinantes)
+  async canApply(userId) {
+    // Verificar se usuario tem assinatura ativa de profissional
+    const { data: professional } = await supabase
+      .from('professionals')
+      .select('plan_type, plan_active, plan_expires_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Se tem plano ativo (nao free), pode candidatar sem limite
+    if (professional && professional.plan_type !== 'free' && professional.plan_active) {
+      const today = new Date();
+      const expiresAt = professional.plan_expires_at ? new Date(professional.plan_expires_at) : null;
+      if (!expiresAt || expiresAt > today) {
+        return { canApply: true, remaining: 'unlimited', hasSubscription: true };
+      }
+    }
+
+    // Contar candidaturas
+    const count = await this.countByUser(userId);
+    const limit = 3;
+    const remaining = Math.max(0, limit - count);
+
+    return {
+      canApply: count < limit,
+      remaining,
+      used: count,
+      limit,
+      hasSubscription: false
+    };
   }
 };
 
@@ -1483,6 +1607,363 @@ export const QuoteMessageService = {
   }
 };
 
+// Credit Transaction Entity
+export const CreditTransaction = createEntityService('credit_transactions');
+
+// Credits Service - gerencia creditos dos profissionais
+export const CreditsService = {
+  // Retorna status completo de creditos do profissional
+  async getStatus(professionalId) {
+    const { data, error } = await supabase.rpc('check_professional_credits', {
+      professional_uuid: professionalId
+    });
+
+    if (error) {
+      // Fallback: buscar dados diretamente
+      const { data: prof } = await supabase
+        .from('professionals')
+        .select('credits_balance, unlimited_credits, unlimited_credits_expires_at, referral_credits')
+        .eq('id', professionalId)
+        .single();
+
+      if (!prof) {
+        return {
+          can_respond: false,
+          credits_balance: 0,
+          has_unlimited: false,
+          reason: 'Profissional nao encontrado'
+        };
+      }
+
+      // Verificar creditos infinitos
+      const hasUnlimited = prof.unlimited_credits &&
+        (!prof.unlimited_credits_expires_at ||
+         new Date(prof.unlimited_credits_expires_at) > new Date());
+
+      if (hasUnlimited) {
+        return {
+          can_respond: true,
+          credits_balance: prof.credits_balance || 0,
+          has_unlimited: true,
+          unlimited_expires_at: prof.unlimited_credits_expires_at,
+          reason: 'Creditos infinitos ativos'
+        };
+      }
+
+      // Verificar creditos avulsos
+      if ((prof.credits_balance || 0) > 0) {
+        return {
+          can_respond: true,
+          credits_balance: prof.credits_balance,
+          has_unlimited: false,
+          reason: 'Creditos avulsos disponiveis'
+        };
+      }
+
+      // Verificar creditos de indicacao
+      if ((prof.referral_credits || 0) > 0) {
+        return {
+          can_respond: true,
+          credits_balance: 0,
+          has_unlimited: false,
+          referral_credits: prof.referral_credits,
+          reason: 'Creditos de indicacao disponiveis'
+        };
+      }
+
+      return {
+        can_respond: false,
+        credits_balance: 0,
+        has_unlimited: false,
+        reason: 'Sem creditos disponiveis'
+      };
+    }
+
+    return data;
+  },
+
+  // Verifica se profissional pode responder cotacao
+  async canRespond(professionalId) {
+    const status = await this.getStatus(professionalId);
+    return status.can_respond;
+  },
+
+  // Usa 1 credito (chamado ao responder cotacao)
+  async useCredit(professionalId, quoteResponseId = null) {
+    const { data, error } = await supabase.rpc('use_professional_credit', {
+      professional_uuid: professionalId,
+      quote_response_uuid: quoteResponseId
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao usar credito');
+    }
+
+    if (!data.success) {
+      throw new Error(data.error || 'Erro ao usar credito');
+    }
+
+    return data;
+  },
+
+  // Adiciona creditos avulsos (admin)
+  async addCredits(professionalId, amount, reason, adminId) {
+    const { data, error } = await supabase.rpc('admin_add_credits', {
+      professional_uuid: professionalId,
+      credit_amount: amount,
+      reason_text: reason,
+      admin_uuid: adminId
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao adicionar creditos');
+    }
+
+    if (!data.success) {
+      throw new Error(data.error || 'Erro ao adicionar creditos');
+    }
+
+    return data;
+  },
+
+  // Libera creditos infinitos (admin)
+  async grantUnlimited(professionalId, expiresAt, reason, adminId) {
+    const { data, error } = await supabase.rpc('admin_grant_unlimited_credits', {
+      professional_uuid: professionalId,
+      expires_at_date: expiresAt,
+      reason_text: reason,
+      admin_uuid: adminId
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao liberar creditos infinitos');
+    }
+
+    if (!data.success) {
+      throw new Error(data.error || 'Erro ao liberar creditos infinitos');
+    }
+
+    return data;
+  },
+
+  // Remove creditos infinitos (admin)
+  async revokeUnlimited(professionalId, reason, adminId) {
+    const { data, error } = await supabase.rpc('admin_revoke_unlimited_credits', {
+      professional_uuid: professionalId,
+      reason_text: reason,
+      admin_uuid: adminId
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao revogar creditos infinitos');
+    }
+
+    if (!data.success) {
+      throw new Error(data.error || 'Erro ao revogar creditos infinitos');
+    }
+
+    return data;
+  },
+
+  // Busca historico de transacoes
+  async getTransactions(professionalId, limit = 50) {
+    const { data, error } = await supabase
+      .from('credit_transactions')
+      .select('*')
+      .eq('professional_id', professionalId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  },
+
+  // Busca todas as transacoes (admin)
+  async getAllTransactions(limit = 100) {
+    const { data, error } = await supabase
+      .from('credit_transactions')
+      .select(`
+        *,
+        professionals:professional_id (id, name, profession, city)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  },
+
+  // ========== FUNCOES PARA CLIENTES ==========
+
+  // Retorna status completo de creditos do cliente
+  async getClientStatus(clientId) {
+    const { data, error } = await supabase.rpc('check_client_credits', {
+      client_uuid: clientId
+    });
+
+    if (error) {
+      // Fallback: buscar dados diretamente
+      const { data: client } = await supabase
+        .from('profiles')
+        .select('credits_balance, unlimited_credits, unlimited_credits_expires_at, referral_credits')
+        .eq('id', clientId)
+        .single();
+
+      if (!client) {
+        return {
+          can_use: false,
+          credits_balance: 0,
+          has_unlimited: false,
+          reason: 'Cliente nao encontrado'
+        };
+      }
+
+      const hasUnlimited = client.unlimited_credits &&
+        (!client.unlimited_credits_expires_at ||
+         new Date(client.unlimited_credits_expires_at) > new Date());
+
+      if (hasUnlimited) {
+        return {
+          can_use: true,
+          credits_balance: client.credits_balance || 0,
+          has_unlimited: true,
+          unlimited_expires_at: client.unlimited_credits_expires_at,
+          referral_credits: client.referral_credits || 0,
+          reason: 'Creditos infinitos ativos'
+        };
+      }
+
+      if ((client.credits_balance || 0) > 0) {
+        return {
+          can_use: true,
+          credits_balance: client.credits_balance,
+          has_unlimited: false,
+          referral_credits: client.referral_credits || 0,
+          reason: 'Creditos avulsos disponiveis'
+        };
+      }
+
+      if ((client.referral_credits || 0) > 0) {
+        return {
+          can_use: true,
+          credits_balance: 0,
+          has_unlimited: false,
+          referral_credits: client.referral_credits,
+          reason: 'Creditos de indicacao disponiveis'
+        };
+      }
+
+      return {
+        can_use: false,
+        credits_balance: 0,
+        has_unlimited: false,
+        referral_credits: 0,
+        reason: 'Sem creditos disponiveis'
+      };
+    }
+
+    return data;
+  },
+
+  // Adiciona creditos avulsos a cliente (admin)
+  async addClientCredits(clientId, amount, reason, adminId) {
+    const { data, error } = await supabase.rpc('admin_add_client_credits', {
+      client_uuid: clientId,
+      credit_amount: amount,
+      reason_text: reason,
+      admin_uuid: adminId
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao adicionar creditos');
+    }
+
+    if (!data.success) {
+      throw new Error(data.error || 'Erro ao adicionar creditos');
+    }
+
+    return data;
+  },
+
+  // Libera creditos infinitos a cliente (admin)
+  async grantClientUnlimited(clientId, expiresAt, reason, adminId) {
+    const { data, error } = await supabase.rpc('admin_grant_client_unlimited', {
+      client_uuid: clientId,
+      expires_at_date: expiresAt,
+      reason_text: reason,
+      admin_uuid: adminId
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao liberar creditos infinitos');
+    }
+
+    if (!data.success) {
+      throw new Error(data.error || 'Erro ao liberar creditos infinitos');
+    }
+
+    return data;
+  },
+
+  // Remove creditos infinitos de cliente (admin)
+  async revokeClientUnlimited(clientId, reason, adminId) {
+    const { data, error } = await supabase.rpc('admin_revoke_client_unlimited', {
+      client_uuid: clientId,
+      reason_text: reason,
+      admin_uuid: adminId
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao revogar creditos infinitos');
+    }
+
+    if (!data.success) {
+      throw new Error(data.error || 'Erro ao revogar creditos infinitos');
+    }
+
+    return data;
+  },
+
+  // Busca historico de transacoes do cliente
+  async getClientTransactions(clientId, limit = 50) {
+    const { data, error } = await supabase
+      .from('credit_transactions')
+      .select('*')
+      .eq('user_id', clientId)
+      .eq('user_type', 'client')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  },
+
+  // Busca todas as transacoes de clientes (admin)
+  async getAllClientTransactions(limit = 100) {
+    const { data, error } = await supabase
+      .from('credit_transactions')
+      .select('*')
+      .eq('user_type', 'client')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  }
+};
+
 // Extended Availability Service
 export const AvailabilityService = {
   ...Availability,
@@ -1696,6 +2177,8 @@ export default {
   generateReferralCode,
   JobOpportunity,
   JobOpportunityService,
+  JobApplication,
+  JobApplicationService,
   PortfolioItem,
   PortfolioPhoto,
   PortfolioService,
@@ -1704,5 +2187,7 @@ export default {
   QuoteMessage,
   QuoteMessageService,
   DirectConversation,
-  DirectConversationService
+  DirectConversationService,
+  CreditTransaction,
+  CreditsService
 };

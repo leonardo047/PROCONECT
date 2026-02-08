@@ -14,58 +14,133 @@ import { Loader2, Mail, Lock, User, Building2, Gift, Phone } from 'lucide-react'
 // Função para traduzir erros do Supabase para mensagens amigáveis
 const translateSupabaseError = (error) => {
   const message = error?.message || error || '';
+  const errorCode = error?.code || error?.error_code || '';
 
-  // Erros de cadastro
-  if (message.includes('users_phone_key') || message.includes('duplicate key') && message.includes('phone')) {
-    return 'Este número de telefone já está cadastrado. Use outro número ou faça login.';
+  // Erros de cadastro - Email duplicado
+  if (message.includes('User already registered') ||
+      message.includes('already been registered') ||
+      message.includes('email already exists') ||
+      errorCode === 'user_already_exists') {
+    return 'Este email já está cadastrado. Faça login ou use a opção "Esqueceu a senha?" para recuperar sua conta.';
   }
-  if (message.includes('User already registered') || message.includes('already been registered')) {
-    return 'Este email já está cadastrado. Faça login ou use outro email.';
+
+  // Erros de cadastro - Email duplicado (banco de dados)
+  if (message.includes('users_email_key') ||
+      (message.includes('duplicate key') && message.includes('email')) ||
+      (message.includes('unique constraint') && message.includes('email'))) {
+    return 'Este email já está cadastrado. Faça login ou use a opção "Esqueceu a senha?" para recuperar sua conta.';
   }
-  if (message.includes('users_email_key') || message.includes('duplicate key') && message.includes('email')) {
-    return 'Este email já está cadastrado. Faça login ou use outro email.';
+
+  // Erros de cadastro - Telefone duplicado
+  if (message.includes('users_phone_key') ||
+      (message.includes('duplicate key') && message.includes('phone')) ||
+      (message.includes('unique constraint') && message.includes('phone'))) {
+    return 'Este número de telefone já está cadastrado. Use outro número ou faça login com o email associado.';
   }
-  if (message.includes('Invalid email')) {
-    return 'Email inválido. Verifique e tente novamente.';
+
+  // Erros de validação de email
+  if (message.includes('Invalid email') || message.includes('invalid email')) {
+    return 'O formato do email está inválido. Verifique é tente novamente.';
   }
-  if (message.includes('Password should be at least')) {
-    return 'A senha deve ter pelo menos 6 caracteres.';
-  }
-  if (message.includes('Unable to validate email')) {
+  if (message.includes('Unable to validate email') || message.includes('cannot be validated')) {
     return 'Não foi possível validar o email. Verifique se digitou corretamente.';
   }
 
-  // Erros de login
-  if (message.includes('Invalid login credentials')) {
-    return 'Email ou senha incorretos. Verifique suas credenciais.';
+  // Erros de senha
+  if (message.includes('Password should be at least') || message.includes('password is too short')) {
+    return 'A senha deve ter pelo menos 6 caracteres.';
   }
-  if (message.includes('Email not confirmed')) {
-    return 'Email não confirmado. Verifique sua caixa de entrada.';
-  }
-  if (message.includes('Too many requests')) {
-    return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+  if (message.includes('password is too weak')) {
+    return 'A senha é muito fraca. Use uma combinação de letras, números e símbolos.';
   }
 
-  // Erros gerais
-  if (message.includes('Database error')) {
-    // Tentar extrair mais detalhes
+  // Erros de login - Credenciais inválidas
+  if (message.includes('Invalid login credentials') ||
+      message.includes('invalid credentials') ||
+      errorCode === 'invalid_credentials') {
+    return 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
+  }
+
+  // Erros de login - Usuário não encontrado
+  if (message.includes('User not found') ||
+      message.includes('user not found') ||
+      errorCode === 'user_not_found') {
+    return 'Nenhuma conta encontrada com este email. Verifique o email ou crie uma nova conta.';
+  }
+
+  // Erros de confirmação de email
+  if (message.includes('Email not confirmed') ||
+      message.includes('email not verified') ||
+      errorCode === 'email_not_confirmed') {
+    return 'Seu email ainda não foi confirmado. Verifique sua caixa de entrada (e spam) e clique no link de confirmação.';
+  }
+
+  // Link expirado ou inválido
+  if (message.includes('link is invalid') ||
+      message.includes('link has expired') ||
+      message.includes('expired') ||
+      errorCode === 'otp_expired') {
+    return 'O link expirou ou e inválido. Solicite um novo link de acesso.';
+  }
+
+  // Conta desativada ou banida
+  if (message.includes('User is banned') ||
+      message.includes('account has been disabled') ||
+      errorCode === 'user_banned') {
+    return 'Sua conta foi desativada. Entre em contato com o suporte para mais informações.';
+  }
+
+  // Rate limiting
+  if (message.includes('Too many requests') ||
+      message.includes('rate limit') ||
+      errorCode === 'over_request_rate_limit') {
+    return 'Muitas tentativas. Por segurança, aguarde alguns minutos antes de tentar novamente.';
+  }
+
+  // Cadastros desativados
+  if (message.includes('Signups not allowed') || message.includes('signups are disabled')) {
+    return 'Novos cadastros estão temporariamente desativados. Tente novamente mais tarde.';
+  }
+
+  // Erros de banco de dados
+  if (message.includes('Database error') || message.includes('database error')) {
     if (message.includes('phone')) {
       return 'Este número de telefone já está cadastrado. Use outro número.';
     }
+    if (message.includes('email')) {
+      return 'Este email já está cadastrado. Faça login ou recupere sua senha.';
+    }
     return 'Erro ao salvar dados. Verifique se todos os campos estão corretos.';
   }
-  if (message.includes('network') || message.includes('fetch')) {
+
+  // Erros de conexão
+  if (message.includes('network') ||
+      message.includes('fetch') ||
+      message.includes('Failed to fetch') ||
+      message.includes('NetworkError') ||
+      message.includes('timeout')) {
     return 'Erro de conexão. Verifique sua internet e tente novamente.';
   }
 
-  // Se não conseguir traduzir, retorna mensagem genérica
-  return 'Erro ao processar sua solicitação. Tente novamente.';
+  // Servidor indisponível
+  if (message.includes('503') || message.includes('Service Unavailable')) {
+    return 'Serviço temporariamente indisponível. Tente novamente em alguns instantes.';
+  }
+
+  // Erro interno do servidor
+  if (message.includes('500') || message.includes('Internal Server Error')) {
+    return 'Ocorreu um erro no servidor. Tente novamente em alguns instantes.';
+  }
+
+  // Se não conseguir traduzir, retorna mensagem genérica com indicação de contato
+  console.error('Erro não traduzido:', message, errorCode);
+  return 'Ocorreu um erro inesperado. Por favor, tente novamente ou entre em contato com o suporte.';
 };
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp, signInWithProvider, isAuthenticated, isLoadingAuth } = useAuth();
+  const { signIn, signUp, isAuthenticated, isLoadingAuth } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -198,7 +273,7 @@ export default function Login() {
     // Validate phone number (must have at least 10 digits)
     const phoneDigits = registerPhone.replace(/\D/g, '');
     if (phoneDigits.length < 10) {
-      setError('Digite um numero de telefone valido com DDD.');
+      setError('Digite um número de telefone válido com DDD.');
       setIsLoading(false);
       return;
     }
@@ -221,18 +296,6 @@ export default function Login() {
     } catch (err) {
       setError(translateSupabaseError(err));
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    setError('');
-
-    try {
-      await signInWithProvider('google');
-    } catch (err) {
-      setError(translateSupabaseError(err));
       setIsLoading(false);
     }
   };
@@ -304,44 +367,7 @@ export default function Login() {
                   Entrar
                 </Button>
 
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-gray-500">ou continue com</span>
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGoogleLogin}
-                  disabled={isLoading}
-                >
-                  <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  Google
-                </Button>
-
-                <div className="text-center text-sm">
+                <div className="text-center text-sm mt-4">
                   <Link to="/forgot-password" className="text-orange-600 hover:underline">
                     Esqueceu a senha?
                   </Link>
@@ -356,8 +382,8 @@ export default function Login() {
                     <Gift className="h-4 w-4 text-purple-600" />
                     <AlertDescription className="text-purple-700">
                       {referrerName
-                        ? `Voce foi indicado por ${referrerName}!`
-                        : 'Voce foi indicado! Seu cadastro ajudara quem te indicou.'}
+                        ? `Você foi indicado por ${referrerName}!`
+                        : 'Você foi indicado! Seu cadastro ajudará quem te indicou.'}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -420,7 +446,7 @@ export default function Login() {
                       required
                     />
                   </div>
-                  <p className="text-xs text-gray-500">Digite o DDD + numero com 9 digitos</p>
+                  <p className="text-xs text-gray-500">Digite o DDD + número com 9 digitos</p>
                 </div>
 
                 <div className="space-y-2">

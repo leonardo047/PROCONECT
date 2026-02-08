@@ -4,12 +4,19 @@ import { DailyAvailability } from "@/lib/entities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Calendar } from "@/componentes/interface do usuário/calendar";
-import { Calendar as CalendarIcon, Clock, CheckCircle } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { Calendar as CalendarIcon, CheckCircle, FileText } from "lucide-react";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+// Profissoes que usam sistema de vagas diarias (slots)
+const SLOT_BASED_PROFESSIONS = ['marido_aluguel', 'chaveiro', 'montador_móveis'];
 
 export default function PublicAvailabilityView({ professionalId, professional }) {
   const [selectedDate, setSelectedDate] = React.useState(null);
+
+  // Determinar tipo de disponibilidade
+  const availabilityType = professional?.availability_type ||
+    (SLOT_BASED_PROFESSIONS.includes(professional?.profession) ? 'slots' : 'project');
 
   const { data: dailyAvailability = [] } = useQuery({
     queryKey: ['daily-availability', professionalId],
@@ -21,7 +28,7 @@ export default function PublicAvailabilityView({ professionalId, professional })
       );
       return results;
     },
-    enabled: !!professionalId
+    enabled: !!professionalId && availabilityType === 'slots'
   });
 
   const getDayStatus = (date) => {
@@ -29,7 +36,6 @@ export default function PublicAvailabilityView({ professionalId, professional })
     const dayData = dailyAvailability.find(d => d.date === dateStr);
 
     if (!dayData) {
-      // Check if professional is available today
       if (professional?.availability_status === 'unavailable') return 'blocked';
       return 'available';
     }
@@ -48,80 +54,130 @@ export default function PublicAvailabilityView({ professionalId, professional })
     return dayData.total_slots - dayData.booked_slots;
   };
 
-  const statusColors = {
-    available_today: 'bg-green-500 text-white',
-    available_from_date: 'bg-blue-500 text-white',
-    fully_booked: 'bg-red-500 text-white',
-    unavailable: 'bg-gray-500 text-white'
-  };
+  // Calcular vagas disponíveis hoje
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayData = dailyAvailability.find(d => d.date === todayStr);
+  const slotsToday = todayData
+    ? todayData.total_slots - todayData.booked_slots
+    : (professional?.daily_slots || 5);
 
-  const statusLabels = {
-    available_today: 'Disponível Hoje',
-    available_from_date: 'Disponível em Breve',
-    fully_booked: 'Agenda Cheia',
-    unavailable: 'Indisponível'
-  };
+  const acceptsQuotes = professional?.accepts_quotes !== false;
 
+  // Renderizar visualizacao para profissionais tipo 'project' (pintor, pedreiro, etc)
+  if (availabilityType === 'project') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-orange-500" />
+            Disponibilidade
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Status de disponibilidade para orçamentos */}
+          {acceptsQuotes && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-green-800">Disponivel para orçamentos</p>
+                  <p className="text-sm text-green-600">Solicite um orçamento sem compromisso</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Data de início do próximo trabalho */}
+          {professional?.next_work_start_date && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                  <CalendarIcon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-blue-800">Proximo trabalho inicia em</p>
+                  <p className="text-lg text-blue-700">
+                    {format(new Date(professional.next_work_start_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mensagem alternativa se não tem data de início */}
+          {!professional?.next_work_start_date && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-400 rounded-full flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-slate-700">Entre em contato para agendar</p>
+                  <p className="text-sm text-slate-500">O profissional ira informar a data de início</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!acceptsQuotes && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
+              <p className="text-orange-700">Este profissional não está aceitando novos orçamentos no momento.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Renderizar visualizacao para profissionais tipo 'slots' (marido de aluguel, chaveiro, etc)
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5" />
+            <CalendarIcon className="w-5 h-5 text-orange-500" />
             Disponibilidade
           </CardTitle>
-          <Badge className={statusColors[professional?.availability_status]}>
-            {statusLabels[professional?.availability_status]}
-          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Quick Info */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="bg-green-50 p-3 rounded-lg">
-            <div className="text-green-600 font-medium mb-1">Vagas por Dia</div>
-            <div className="text-2xl font-bold text-green-700">
-              {professional?.daily_slots || 5}
+        {/* Vagas disponíveis hoje */}
+        <div className={`rounded-lg p-4 ${
+          slotsToday > 0
+            ? 'bg-green-50 border border-green-200'
+            : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white ${
+              slotsToday > 0 ? 'bg-green-500' : 'bg-red-500'
+            }`}>
+              {slotsToday}
             </div>
-          </div>
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="text-blue-600 font-medium mb-1">Tempo Médio</div>
-            <div className="text-2xl font-bold text-blue-700">
-              {professional?.average_service_time || 60}min
+            <div>
+              <p className={`font-semibold ${slotsToday > 0 ? 'text-green-800' : 'text-red-800'}`}>
+                {slotsToday > 0
+                  ? `${slotsToday} vaga${slotsToday > 1 ? 's' : ''} disponível${slotsToday > 1 ? 'eis' : ''} hoje`
+                  : 'Sem vagas disponíveis hoje'
+                }
+              </p>
+              <p className={`text-sm ${slotsToday > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {slotsToday > 0
+                  ? 'Solicite seu atendimento'
+                  : 'Verifique outras datas no calendario'
+                }
+              </p>
             </div>
           </div>
         </div>
 
-        {professional?.availability_status === 'available_from_date' && professional?.available_from_date && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-            <div className="flex items-center gap-2 text-blue-700">
-              <CalendarIcon className="w-4 h-4" />
-              <span>
-                Disponível a partir de{' '}
-                <strong>{format(new Date(professional.available_from_date), "dd/MM/yyyy", { locale: ptBR })}</strong>
-              </span>
-            </div>
-          </div>
-        )}
-
-        {professional?.next_available_date && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
-            <div className="flex items-center gap-2 text-green-700">
-              <CheckCircle className="w-4 h-4" />
-              <span>
-                Próxima data disponível:{' '}
-                <strong>{format(new Date(professional.next_available_date), "dd/MM/yyyy", { locale: ptBR })}</strong>
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Calendar */}
+        {/* Legenda do calendario */}
         <div className="space-y-3">
           <div className="flex gap-3 text-xs flex-wrap">
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 bg-green-100 border-2 border-green-500 rounded" />
-              <span>Disponível</span>
+              <span>Disponivel</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 bg-yellow-100 border-2 border-yellow-500 rounded" />
@@ -137,6 +193,7 @@ export default function PublicAvailabilityView({ professionalId, professional })
             </div>
           </div>
 
+          {/* Calendario */}
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -158,6 +215,7 @@ export default function PublicAvailabilityView({ professionalId, professional })
             }}
           />
 
+          {/* Data selecionada */}
           {selectedDate && getDayStatus(selectedDate) !== 'blocked' && (
             <div className="bg-slate-50 p-4 rounded-lg">
               <div className="flex items-center justify-between mb-2">
@@ -171,16 +229,12 @@ export default function PublicAvailabilityView({ professionalId, professional })
                   {getAvailableSlots(selectedDate)} vagas disponíveis
                 </Badge>
               </div>
-              <div className="text-sm text-slate-600">
-                <Clock className="w-4 h-4 inline mr-1" />
-                Tempo estimado: {professional?.average_service_time || 60} minutos
-              </div>
             </div>
           )}
         </div>
 
         <div className="text-xs text-slate-500 text-center">
-          Selecione uma data no calendário para ver a disponibilidade
+          Selecione uma data no calendario para ver a disponibilidade
         </div>
       </CardContent>
     </Card>

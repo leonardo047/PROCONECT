@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
         setProfessional(professionalData);
       }
     } catch (error) {
-      // Silencioso - professional profile é opcional
+      // Silenciosó - professional profile é opcional
     }
   }, []);
 
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
     if (isLoadingRef.current && !forceReload) return;
     isLoadingRef.current = true;
 
-    // Helper para verificar se esta request ainda é válida
+    // Helper para verificar se está request ainda e válida
     const isValidRequest = () => mountedRef.current && loadRequestIdRef.current === currentRequestId;
 
     // Criar usuário básico imediatamente com dados do auth
@@ -75,8 +75,8 @@ export const AuthProvider = ({ children }) => {
       const userProfile = await User.get(authUser.id);
 
       if (isValidRequest() && userProfile) {
-        // Role é definido APENAS pelo banco de dados (profiles.role)
-        // Isso garante que a verificação seja feita server-side via RLS
+        // Role e definido APENAS pelo banco de dados (profiles.role)
+        // Issó garante que a verificação seja feita server-side via RLS
         const finalRole = userProfile.role || 'user';
 
         const combinedUser = {

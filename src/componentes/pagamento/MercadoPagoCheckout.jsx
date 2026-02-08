@@ -26,7 +26,7 @@ const MERCADOPAGO_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 /**
  * NOTA DE SEGURANÇA:
  * - A implementação de pagamento por cartão requer a SDK do MercadoPago.js para tokenização segura
- * - NUNCA armazenamos dados de cartão (número, CVV) no state do React ou enviamos ao nosso backend
+ * - NUNCA armazenamos dados de cartão (número, CVV) no state do React ou enviamos ao nossó backend
  * - A tokenização deve ser feita diretamente pelo SDK do MercadoPago no navegador
  * - Até a implementação completa, a opção de cartão está desabilitada
  * - Apenas PIX está disponível, que é mais seguro por não manipular dados de cartão
@@ -54,7 +54,7 @@ export default function MercadoPagoCheckout({
 
   // NOTA DE SEGURANÇA: Não armazenamos mais dados de cartão no state
   // A tokenização deve ser feita diretamente pelo SDK do MercadoPago
-  // Mantemos apenas installments que não é dado sensível
+  // Mantemos apenas installments que não e dado sensível
   const [installments, setInstallments] = useState(1);
 
   // Função para limpar todos os dados sensíveis
@@ -418,7 +418,7 @@ export default function MercadoPagoCheckout({
         <Check className="w-10 h-10 text-green-600" />
       </div>
       <h3 className="text-2xl font-bold text-slate-900 mb-2">Pagamento Confirmado!</h3>
-      <p className="text-slate-600">Seu acesso foi liberado com sucesso.</p>
+      <p className="text-slate-600">Seu acessó foi liberado com sucesso.</p>
     </motion.div>
   );
 

@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useEffect, Suspense, lazy } from 'react';
+import React, { memo, useMemo, useEffect, Suspense, lazy, useState, useCallback } from 'react';
 import { Link, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ProfessionalService, ClientReferralService, Category } from "@/lib/entities";
@@ -7,19 +7,18 @@ import { Button } from "@/componentes/interface do usuário/button";
 import {
   Search, ArrowRight, Paintbrush, Wrench, Zap,
   Droplets, Sparkles, TreePine, HardHat, Users,
-  Star, Loader2
+  Star, Loader2, Home as HomeIcon, Hammer, Plug, Droplet,
+  Wind, Scissors, Truck, Building2, Ruler, ShoppingBag,
+  Brush, Palette, Warehouse, LayoutGrid, ChevronRight,
+  Thermometer, Sun, Camera, Waves, Flower2, Bug, Sofa,
+  DoorOpen, Frame, Layers, Square, ScrollText, Mountain,
+  Package, Shovel, Container, MapPin, FileText, PenTool,
+  ClipboardCheck, Compass, Calculator, Settings, Flame,
+  Snowflake, Fan, Car, Bath, Fence, Trees, Share2, Copy, Check
 } from "lucide-react";
 
-// Lazy load do componente de card (pesado por causa das imagens)
+// Lazy load do componente de card
 const ProfessionalCard = lazy(() => import("@/componentes/interface do usuário/ProfessionalCard"));
-
-// Mapeamento de nomes de ícones para componentes
-const iconMap = {
-  HardHat, Paintbrush, Wrench, Zap, Droplets, Sparkles, TreePine, Users, Search
-};
-
-// Helper para obter componente de ícone pelo nome
-const getIconComponent = (iconName) => iconMap[iconName] || Wrench;
 
 // Skeleton para cards
 const CardSkeleton = memo(() => (
@@ -30,145 +29,301 @@ const CardSkeleton = memo(() => (
   </div>
 ));
 
-// Slugs populares (para filtrar categorias em destaque)
-const popularSlugs = [
-  "pintura_residencial", "pedreiro_alvenaria", "eletricista", "hidraulica",
-  "gesso_drywall", "azulejista", "ar_condicionado", "limpeza",
-  "marceneiro", "jardinagem"
+// Categorias populares fixas (atalhos)
+const popularCategorySlugs = [
+  { slug: "pintor", name: "Pintor", icon: Paintbrush, color: "bg-orange-500" },
+  { slug: "pedreiro", name: "Pedreiro", icon: HardHat, color: "bg-slate-600" },
+  { slug: "eletricista", name: "Eletricista", icon: Zap, color: "bg-yellow-500" },
+  { slug: "encanador", name: "Encanador", icon: Droplets, color: "bg-blue-500" },
+  { slug: "gesso_drywall", name: "Gesso/Drywall", icon: LayoutGrid, color: "bg-gray-500" },
+  { slug: "azulejista", name: "Azulejista", icon: Square, color: "bg-cyan-500" },
+  { slug: "telhadista", name: "Telhadista", icon: HomeIcon, color: "bg-red-600" },
+  { slug: "ar_condicionado", name: "Ar Condicionado", icon: Snowflake, color: "bg-sky-500" },
+  { slug: "limpeza", name: "Limpeza", icon: Sparkles, color: "bg-green-500" },
+  { slug: "jardinagem", name: "Jardinagem", icon: TreePine, color: "bg-emerald-600" },
+  { slug: "marceneiro", name: "Marceneiro", icon: Hammer, color: "bg-amber-700" }
 ];
 
-// Componente de categoria otimizado
-const CategoryCard = memo(({ cat }) => {
-  const IconComponent = getIconComponent(cat.icon);
+// Grupos de serviços com ícones e cores individuais variadas
+const serviceGroups = [
+  {
+    title: "Construção, Reforma e Estrutura",
+    emoji: "🏗️",
+    color: "bg-orange-500",
+    hoverColor: "hover:bg-orange-50",
+    services: [
+      { name: "Pedreiro", icon: HardHat, color: "bg-orange-500" },
+      { name: "Mestre de Obras", icon: HardHat, color: "bg-violet-500" },
+      { name: "Empreiteiro", icon: Building2, color: "bg-orange-600" },
+      { name: "Pintor", icon: Paintbrush, color: "bg-rose-500" },
+      { name: "Gesso/Drywall", icon: LayoutGrid, color: "bg-slate-600" },
+      { name: "Azulejista", icon: Square, color: "bg-slate-700" },
+      { name: "Porcelanista", icon: Square, color: "bg-orange-500" },
+      { name: "Reboco/Acabamento", icon: Brush, color: "bg-violet-500" },
+      { name: "Telhadista", icon: HomeIcon, color: "bg-red-500" },
+      { name: "Calheiro", icon: Droplets, color: "bg-blue-500" },
+      { name: "Impermeabilização", icon: Droplets, color: "bg-blue-600" },
+      { name: "Isolamento", icon: Layers, color: "bg-orange-500" },
+      { name: "Fundações", icon: Mountain, color: "bg-slate-600" },
+      { name: "Concreto", icon: Package, color: "bg-violet-500" },
+      { name: "Pré-moldados", icon: Package, color: "bg-orange-500" },
+      { name: "Demolição", icon: Hammer, color: "bg-amber-700" },
+      { name: "Reformas Geral", icon: Wrench, color: "bg-amber-700" }
+    ]
+  },
+  {
+    title: "Elétrica, Hidráulica e Climatização",
+    emoji: "⚡",
+    color: "bg-yellow-500",
+    hoverColor: "hover:bg-yellow-50",
+    services: [
+      { name: "Eletricista Residencial", icon: Zap, color: "bg-orange-500" },
+      { name: "Eletricista Industrial", icon: Zap, color: "bg-violet-500" },
+      { name: "Automação Residencial", icon: Settings, color: "bg-orange-600" },
+      { name: "Energia Solar", icon: Sun, color: "bg-yellow-500" },
+      { name: "CFTV/Câmeras", icon: Camera, color: "bg-slate-700" },
+      { name: "Encanador", icon: Droplets, color: "bg-teal-500" },
+      { name: "Bombeiro Hidráulico", icon: Droplets, color: "bg-orange-500" },
+      { name: "Gás", icon: Flame, color: "bg-amber-500" },
+      { name: "Aquecimento", icon: Thermometer, color: "bg-orange-600" },
+      { name: "Ar Condicionado", icon: Snowflake, color: "bg-cyan-500" },
+      { name: "Ventilação/Exaustão", icon: Fan, color: "bg-teal-600" },
+      { name: "Piscinas", icon: Waves, color: "bg-emerald-500" },
+      { name: "Irrigação", icon: Droplets, color: "bg-green-600" },
+      { name: "Desentupimento", icon: Wrench, color: "bg-slate-600" }
+    ]
+  },
+  {
+    title: "Limpeza, Manutenção e Conservação",
+    emoji: "🧹",
+    color: "bg-pink-500",
+    hoverColor: "hover:bg-pink-50",
+    services: [
+      { name: "Limpeza Residencial", icon: Sparkles, color: "bg-pink-500" },
+      { name: "Limpeza Comercial", icon: Sparkles, color: "bg-violet-500" },
+      { name: "Limpeza Pós-obra", icon: Sparkles, color: "bg-rose-500" },
+      { name: "Limpeza Fachada", icon: Building2, color: "bg-blue-500" },
+      { name: "Limpeza Telhado", icon: HomeIcon, color: "bg-slate-600" },
+      { name: "Lavagem Pátio", icon: Droplets, color: "bg-cyan-500" },
+      { name: "Limpeza Caixa d'água", icon: Droplets, color: "bg-teal-500" },
+      { name: "Dedetização", icon: Bug, color: "bg-red-500" },
+      { name: "Controle Pragas", icon: Bug, color: "bg-orange-500" },
+      { name: "Jardinagem", icon: Flower2, color: "bg-green-500" },
+      { name: "Paisagismo", icon: Trees, color: "bg-emerald-600" },
+      { name: "Roçada", icon: Scissors, color: "bg-lime-600" },
+      { name: "Poda", icon: Scissors, color: "bg-green-600" },
+      { name: "Manutenção Predial", icon: Wrench, color: "bg-slate-700" },
+      { name: "Marido Aluguel", icon: Wrench, color: "bg-amber-600" }
+    ]
+  },
+  {
+    title: "Madeira, Móveis e Acabamentos",
+    emoji: "🪵",
+    color: "bg-amber-600",
+    hoverColor: "hover:bg-amber-50",
+    services: [
+      { name: "Marceneiro", icon: Hammer, color: "bg-amber-700" },
+      { name: "Carpinteiro", icon: Hammer, color: "bg-orange-600" },
+      { name: "Montador Móveis", icon: Sofa, color: "bg-violet-500" },
+      { name: "Restauração", icon: Brush, color: "bg-rose-500" },
+      { name: "Instalação Portas", icon: DoorOpen, color: "bg-amber-600" },
+      { name: "Instalação Janelas", icon: Frame, color: "bg-blue-500" },
+      { name: "Vidraçaria", icon: Frame, color: "bg-cyan-500" },
+      { name: "Serralheria", icon: Wrench, color: "bg-slate-700" },
+      { name: "Alumínio/Esquadrias", icon: Frame, color: "bg-slate-600" },
+      { name: "Pisos Laminados", icon: Layers, color: "bg-amber-700" },
+      { name: "Pisos Vinílicos", icon: Layers, color: "bg-orange-500" },
+      { name: "Rodapés", icon: Layers, color: "bg-violet-500" },
+      { name: "Forros", icon: LayoutGrid, color: "bg-teal-500" },
+      { name: "Gessó Decorativo", icon: Sparkles, color: "bg-pink-500" },
+      { name: "Papel Parede", icon: ScrollText, color: "bg-rose-500" },
+      { name: "Persianas", icon: LayoutGrid, color: "bg-blue-600" }
+    ]
+  },
+  {
+    title: "Máquinas, Terraplanagem e Logística",
+    emoji: "🚚",
+    color: "bg-blue-600",
+    hoverColor: "hover:bg-blue-50",
+    services: [
+      { name: "Terraplanagem", icon: Mountain, color: "bg-amber-700" },
+      { name: "Escavação", icon: Shovel, color: "bg-orange-600" },
+      { name: "Retroescavadeira", icon: Truck, color: "bg-yellow-500" },
+      { name: "Caminhão Munck", icon: Truck, color: "bg-blue-600" },
+      { name: "Guindaste", icon: Truck, color: "bg-violet-500" },
+      { name: "Compactação", icon: Package, color: "bg-slate-600" },
+      { name: "Locação Máquinas", icon: Truck, color: "bg-teal-500" },
+      { name: "Caçamba", icon: Container, color: "bg-green-600" },
+      { name: "Frete", icon: Truck, color: "bg-blue-500" },
+      { name: "Mudança", icon: Package, color: "bg-orange-500" },
+      { name: "Carreto", icon: Truck, color: "bg-rose-500" },
+      { name: "Guincho Pesado", icon: Truck, color: "bg-red-600" }
+    ]
+  },
+  {
+    title: "Lojas, Fornecedores e Materiais",
+    emoji: "🏪",
+    color: "bg-purple-600",
+    hoverColor: "hover:bg-purple-50",
+    services: [
+      { name: "Materiais Construção", icon: ShoppingBag, color: "bg-orange-500" },
+      { name: "Areia / Brita", icon: Mountain, color: "bg-amber-600" },
+      { name: "Concreto Usinado", icon: Package, color: "bg-slate-600" },
+      { name: "Pré-moldados", icon: Package, color: "bg-violet-500" },
+      { name: "Madeireira", icon: TreePine, color: "bg-green-600" },
+      { name: "Casa de Tintas", icon: Palette, color: "bg-pink-500" },
+      { name: "Vidraçaria", icon: Frame, color: "bg-cyan-500" },
+      { name: "Serralheria", icon: Wrench, color: "bg-slate-700" },
+      { name: "Marmoraria", icon: Square, color: "bg-amber-700" },
+      { name: "Elétrica (Loja)", icon: Zap, color: "bg-yellow-500" },
+      { name: "Hidráulica (Loja)", icon: Droplets, color: "bg-blue-500" },
+      { name: "Ferramentas", icon: Wrench, color: "bg-red-500" },
+      { name: "Equipamentos", icon: Settings, color: "bg-teal-600" },
+      { name: "Distribuidores", icon: Truck, color: "bg-indigo-500" }
+    ]
+  },
+  {
+    title: "Projetos e Engenharia",
+    emoji: "📐",
+    color: "bg-slate-700",
+    hoverColor: "hover:bg-slate-50",
+    services: [
+      { name: "Arquiteto", icon: PenTool, color: "bg-violet-600" },
+      { name: "Engenheiro Civil", icon: Building2, color: "bg-blue-600" },
+      { name: "Projetos Elétricos", icon: Zap, color: "bg-yellow-500" },
+      { name: "Projetos Hidráulicos", icon: Droplets, color: "bg-cyan-500" },
+      { name: "Laudos Técnicos", icon: FileText, color: "bg-slate-600" },
+      { name: "Habite-se", icon: ClipboardCheck, color: "bg-green-600" },
+      { name: "Regularização Imóveis", icon: FileText, color: "bg-amber-600" },
+      { name: "Topografia", icon: Compass, color: "bg-teal-500" },
+      { name: "Orçamentos Técnicos", icon: Calculator, color: "bg-orange-500" }
+    ]
+  }
+];
+
+// Card de serviço individual
+const ServiceCard = memo(({ service }) => {
+  const IconComponent = service.icon;
+  const slug = service.name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+
   return (
     <Link
-      to={createPageUrl(`SearchProfessionals?profession=${cat.slug}`)}
+      to={createPageUrl(`SearchProfessionals?profession=${slug}`)}
       className="group"
     >
-      <div className="bg-white hover:bg-orange-50 rounded-xl p-4 text-center transition-all duration-200 hover:shadow-lg border-2 border-slate-200 hover:border-orange-400">
-        <div className={`w-12 h-12 ${cat.color} rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform shadow-md`}>
-          <IconComponent className="w-6 h-6 text-white" />
+      <div className="bg-white rounded-xl p-4 flex flex-col items-center hover:shadow-md transition-all border border-slate-100 hover:border-slate-200">
+        <div className={`w-14 h-14 ${service.color} rounded-2xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-sm`}>
+          <IconComponent className="w-7 h-7 text-white" />
         </div>
-        <h4 className="font-bold text-xs sm:text-sm text-slate-900 break-words leading-tight">{cat.name}</h4>
+        <span className="text-xs text-center text-slate-700 font-medium leading-tight">
+          {service.name}
+        </span>
       </div>
     </Link>
   );
 });
 
-// Hero section otimizada (sem framer-motion)
-const HeroSection = memo(() => (
-  <section className="relative bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
-    <div className="absolute inset-0">
-      <div className="absolute top-20 left-10 w-72 h-72 bg-orange-500 rounded-full blur-3xl opacity-20" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl opacity-20" />
+// Card de grupo de serviços
+const ServiceGroupCard = memo(({ group }) => {
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+          <span className="text-white text-sm">●</span>
+        </div>
+        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+          <span>{group.emoji}</span>
+          {group.title}
+        </h3>
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+        {group.services.map((service) => (
+          <ServiceCard
+            key={service.name}
+            service={service}
+          />
+        ))}
+      </div>
+    </div>
+  );
+});
+
+// Bloco 1 - Hero com gradiente roxo/laranja
+const SearchSection = memo(() => (
+  <section className="bg-gradient-to-r from-purple-900 via-purple-800 to-orange-600 py-12 md:py-16 relative overflow-hidden">
+    {/* Efeitos de fundo */}
+    <div className="absolute inset-0 opacity-20">
+      <div className="absolute top-0 right-0 w-96 h-96 bg-orange-400 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-400 rounded-full blur-3xl" />
     </div>
 
-    <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24">
-      <div className="max-w-3xl">
-        <div className="inline-flex items-center gap-2 bg-orange-500/20 backdrop-blur-sm border border-orange-500/50 rounded-full px-4 py-2 mb-6">
-          <Sparkles className="w-4 h-4 text-orange-400" />
-          <span className="text-orange-300 font-medium text-sm">Encontre profissionais em segundos</span>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
+      <p className="text-base md:text-lg text-white/90 mb-6 max-w-2xl mx-auto leading-relaxed">
+        Use sua localização para encontrar pintores, pedreiros, eletricistas e outros profissionais qualificados. Rápido, fácil e confiável. ✨
+      </p>
 
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
-          Encontre o profissional
-          <span className="bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent"> perfeito </span>
-          perto de você
-        </h1>
-        <p className="text-lg md:text-xl text-slate-300 mb-8 leading-relaxed">
-          Pintores, pedreiros, eletricistas e outros profissionais qualificados. Rápido, fácil e confiável.
-        </p>
+      <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-2xl mx-auto mb-8">
+        <Link to={createPageUrl("RequestQuote")}>
+          <Button size="lg" className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-6 py-5 rounded-xl shadow-lg">
+            Solicitar Orçamento
+          </Button>
+        </Link>
+        <Link to={createPageUrl("SearchProfessionals")}>
+          <Button size="lg" variant="outline" className="w-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-6 py-5 rounded-xl">
+            Buscar Profissionais
+          </Button>
+        </Link>
+        <Link to={createPageUrl("Onboarding")}>
+          <Button size="lg" variant="outline" className="w-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-6 py-5 rounded-xl">
+            Sou Profissional
+          </Button>
+        </Link>
+      </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Link to={createPageUrl("RequestQuote")}>
-            <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold text-lg px-8 py-6 rounded-xl shadow-xl shadow-orange-500/30">
-              <Search className="w-5 h-5 mr-2" />
-              Solicitar Orçamento
-            </Button>
-          </Link>
-          <Link to={createPageUrl("SearchProfessionals")}>
-            <Button size="lg" className="w-full sm:w-auto bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-2 border-white/30 font-bold text-lg px-8 py-6 rounded-xl">
-              Buscar Profissionais
-            </Button>
-          </Link>
-          <Link to={createPageUrl("Onboarding")}>
-            <Button size="lg" className="w-full sm:w-auto bg-white text-orange-600 hover:bg-orange-50 font-bold text-lg px-8 py-6 rounded-xl">
-              Sou Profissional
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-8 mt-10">
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {[1,2,3,4].map(i => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-slate-900 bg-gradient-to-br from-orange-400 to-pink-500" />
-              ))}
-            </div>
-            <div className="text-left">
-              <p className="text-white font-bold">500+</p>
-              <p className="text-slate-400 text-sm">Profissionais</p>
-            </div>
+      <div className="flex items-center justify-center gap-8 text-white/80 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="flex -space-x-2">
+            <div className="w-6 h-6 bg-orange-500 rounded-full border-2 border-white" />
+            <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white" />
+            <div className="w-6 h-6 bg-green-500 rounded-full border-2 border-white" />
           </div>
-
-          <div className="flex items-center gap-2">
-            <Star className="w-8 h-8 text-yellow-400 fill-yellow-400" />
-            <div className="text-left">
-              <p className="text-white font-bold">4.8/5</p>
-              <p className="text-slate-400 text-sm">Avaliação</p>
-            </div>
-          </div>
+          <span className="font-semibold">500+</span>
+          <span>Profissionais</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+          <span className="font-semibold">4.8/5</span>
+          <span>Avaliação</span>
         </div>
       </div>
     </div>
   </section>
 ));
 
-// Seção de categorias populares
-const PopularCategories = memo(({ categories, isLoading }) => {
-  const popularCategories = useMemo(() => {
-    if (!categories?.length) return [];
-    // Primeiro tenta pegar as que estão marcadas como featured
-    const featured = categories.filter(c => c.is_featured && c.location === 'home');
-    if (featured.length >= 6) return featured.slice(0, 10);
-    // Fallback para slugs populares
-    return popularSlugs.map(slug => categories.find(c => c.slug === slug)).filter(Boolean);
-  }, [categories]);
-
-  if (isLoading) {
-    return (
-      <section className="py-10 bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
-        </div>
-      </section>
-    );
-  }
-
-  if (!popularCategories.length) return null;
-
+// Bloco 2 - Categorias Populares (Atalhos)
+const PopularCategories = memo(() => {
   return (
-    <section className="py-10 bg-white border-b border-slate-200">
+    <section className="py-8 bg-slate-50">
       <div className="max-w-7xl mx-auto px-4">
-        <h3 className="text-xl font-bold text-slate-900 mb-4 text-center">
-          Categorias Populares
+        <h3 className="text-lg font-semibold text-slate-700 mb-6 text-center">
+          Acessó Rápido às Categorias Populares
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-3">
-          {popularCategories.map(cat => {
-            const IconComponent = getIconComponent(cat.icon);
+        <div className="flex flex-wrap justify-center gap-4 md:gap-6">
+          {popularCategorySlugs.map((cat) => {
+            const IconComponent = cat.icon;
             return (
               <Link
                 key={cat.slug}
                 to={createPageUrl(`SearchProfessionals?profession=${cat.slug}`)}
-                className="group"
+                className="group flex flex-col items-center"
               >
-                <div className="bg-white hover:bg-orange-50 rounded-lg p-3 text-center transition-colors border border-slate-200 hover:border-orange-400">
-                  <div className={`w-8 h-8 ${cat.color} rounded-lg flex items-center justify-center mx-auto mb-1`}>
-                    <IconComponent className="w-4 h-4 text-white" />
-                  </div>
-                  <p className="text-xs font-medium text-slate-700">{cat.name}</p>
+                <div className={`w-14 h-14 ${cat.color} rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-md`}>
+                  <IconComponent className="w-7 h-7 text-white" />
                 </div>
+                <p className="text-xs font-medium text-slate-600 text-center max-w-[70px] leading-tight">{cat.name}</p>
               </Link>
             );
           })}
@@ -178,23 +333,31 @@ const PopularCategories = memo(({ categories, isLoading }) => {
   );
 });
 
-// Seção de todas as categorias
-const AllCategories = memo(({ categories, isLoading }) => {
-  // Filtrar apenas categorias de "home" (construção civil)
-  const homeCategories = useMemo(() =>
-    categories?.filter(c => c.location === 'home' && c.is_active) || [],
-    [categories]
-  );
+// Banner laranja para Outros Serviços
+const OtherServicesBanner = memo(() => (
+  <section className="bg-gradient-to-r from-orange-500 to-orange-600 py-4">
+    <div className="max-w-7xl mx-auto px-4">
+      <Link to={createPageUrl("OtherServices")} className="flex items-center justify-center gap-2 text-white hover:opacity-90 transition-opacity">
+        <span className="font-semibold">✨ Outros Tipos de Serviços</span>
+        <span className="hidden sm:inline text-orange-100">- Automotivo · Beleza · Pets · Eventos · Tecnologia e mais</span>
+        <ChevronRight className="w-5 h-5" />
+      </Link>
+    </div>
+  </section>
+));
 
+// Bloco 3 - Todos os Serviços (FOCO OBRA) com novo design
+const AllServicesSection = memo(({ isLoading }) => {
   return (
     <section className="py-12 bg-slate-50">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="text-center mb-8">
+        {/* Título principal */}
+        <div className="text-center mb-10">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
-            Todos os Serviços
+            Serviços de Construção Civil e Reformas
           </h2>
           <p className="text-slate-600">
-            Encontre o profissional ideal para sua necessidade
+            Profissionais, Empresas e Fornecedores - Tudo para sua obra em um só lugar!
           </p>
         </div>
 
@@ -203,18 +366,18 @@ const AllCategories = memo(({ categories, isLoading }) => {
             <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
           </div>
         ) : (
-          <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-3">
-            {homeCategories.map((cat) => (
-              <CategoryCard key={cat.slug} cat={cat} />
+          <div className="space-y-6">
+            {serviceGroups.map((group, index) => (
+              <ServiceGroupCard key={index} group={group} />
             ))}
           </div>
         )}
 
-        <div className="mt-8 text-center">
-          <Link to={createPageUrl("OtherServices")}>
-            <Button variant="outline" className="font-semibold">
-              <Search className="w-4 h-4 mr-2" />
-              Outros Serviços
+        {/* Botão Ver Todos os Profissionais */}
+        <div className="mt-10 text-center">
+          <Link to={createPageUrl("SearchProfessionals")}>
+            <Button size="lg" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-10 py-6 rounded-xl shadow-lg">
+              Ver Todos os Profissionais
             </Button>
           </Link>
         </div>
@@ -288,25 +451,74 @@ const HowItWorks = memo(() => (
   </section>
 ));
 
-// CTA para profissionais
-const ProfessionalCTA = memo(() => (
-  <section className="py-12 bg-gradient-to-r from-orange-500 to-orange-600">
-    <div className="max-w-7xl mx-auto px-4 text-center">
-      <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
-        É profissional da construção?
-      </h2>
-      <p className="text-lg text-orange-100 mb-6 max-w-xl mx-auto">
-        Cadastre-se e mostre seu trabalho para milhares de clientes
-      </p>
-      <Link to={createPageUrl("Onboarding")}>
-        <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 font-semibold px-8 py-5 rounded-xl">
-          Criar Meu Perfil
-          <ArrowRight className="w-5 h-5 ml-2" />
-        </Button>
-      </Link>
-    </div>
-  </section>
-));
+// CTA para profissionais com botão de compartilhamento
+const ProfessionalCTA = memo(() => {
+  const [copied, setCopied] = useState(false);
+  const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://conectpro.com.br';
+  const shareText = 'Encontre profissionais qualificados para sua obra ou serviço no ConectPro!';
+
+  const handleShare = useCallback(async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'ConectPro - Profissionais de Construção',
+          text: shareText,
+          url: shareUrl
+        });
+      } catch (error) {
+        // Usuário cancelou ou erro
+      }
+    } else {
+      // Fallback: copiar link
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        // Erro ao copiar
+      }
+    }
+  }, [shareUrl, shareText]);
+
+  return (
+    <section className="py-12 bg-gradient-to-r from-orange-500 to-orange-600">
+      <div className="max-w-7xl mx-auto px-4 text-center">
+        <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+          É profissional da construção?
+        </h2>
+        <p className="text-lg text-orange-100 mb-6 max-w-xl mx-auto">
+          Cadastre-se e mostre seu trabalho para milhares de clientes
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <Link to={createPageUrl("Onboarding")}>
+            <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 font-semibold px-8 py-5 rounded-xl">
+              Criar Meu Perfil
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </Link>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={handleShare}
+            className="bg-white/10 text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-8 py-5 rounded-xl"
+          >
+            {copied ? (
+              <>
+                <Check className="w-5 h-5 mr-2" />
+                Link Copiado!
+              </>
+            ) : (
+              <>
+                <Share2 className="w-5 h-5 mr-2" />
+                Compartilhar Site
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+});
 
 export default function Home() {
   const [searchParams] = useSearchParams();
@@ -317,7 +529,6 @@ export default function Home() {
     const captureReferralCode = async () => {
       if (refCode) {
         try {
-          // Valida se o código pertence a um profissional ou cliente
           const referrerProfessional = await ProfessionalService.findByReferralCode(refCode);
           if (referrerProfessional) {
             localStorage.setItem('referral_code', refCode);
@@ -330,7 +541,6 @@ export default function Home() {
             }
           }
         } catch (error) {
-          // Mesmo com erro, salva o código para tentar novamente no login
           localStorage.setItem('referral_code', refCode);
         }
       }
@@ -338,15 +548,15 @@ export default function Home() {
     captureReferralCode();
   }, [refCode]);
 
-  // Buscar categorias do banco
-  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+  // Buscar categorias do banco (para possível usó futuro)
+  const { isLoading: loadingCategories } = useQuery({
     queryKey: ['home-categories'],
     queryFn: () => Category.filter({
       orderBy: { field: 'order', direction: 'asc' },
       limit: 500
     }),
-    staleTime: 10 * 60 * 1000, // 10 minutos
-    gcTime: 30 * 60 * 1000, // 30 minutos
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   const { data: professionals = [] } = useQuery({
@@ -359,17 +569,31 @@ export default function Home() {
       });
       return all || [];
     },
-    staleTime: 10 * 60 * 1000, // 10 minutos
-    gcTime: 30 * 60 * 1000, // 30 minutos
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   return (
     <div>
-      <HeroSection />
-      <PopularCategories categories={categories} isLoading={loadingCategories} />
-      <AllCategories categories={categories} isLoading={loadingCategories} />
+      {/* Bloco 1 - Hero */}
+      <SearchSection />
+
+      {/* Bloco 2 - Categorias Populares (Atalhos) */}
+      <PopularCategories />
+
+      {/* Banner Outros Serviços */}
+      <OtherServicesBanner />
+
+      {/* Bloco 3 - Todos os Serviços (FOCO OBRA) */}
+      <AllServicesSection isLoading={loadingCategories} />
+
+      {/* Profissionais em Destaque */}
       <FeaturedProfessionals professionals={professionals} />
+
+      {/* Como Funciona */}
       <HowItWorks />
+
+      {/* CTA para Profissionais */}
       <ProfessionalCTA />
     </div>
   );

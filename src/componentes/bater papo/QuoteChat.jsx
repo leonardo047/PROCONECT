@@ -41,7 +41,7 @@ export default function QuoteChat({
         await Notification.create({
           user_id: otherUser.id,
           type: 'quote_message',
-          title: 'Nova Mensagem no Orcamento',
+          title: 'Nova Mensagem no Orçamento',
           message: `${currentUser.full_name || currentUser.name} enviou uma mensagem sobre "${quoteRequest?.title}"`,
           link: currentUser.user_type === 'profissional'
             ? `/ClientQuotes?response=${quoteResponseId}`
@@ -162,7 +162,7 @@ export default function QuoteChat({
             <div className="text-center text-slate-400 py-8">
               <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>Nenhuma mensagem ainda</p>
-              <p className="text-sm">Inicie a conversa sobre este orcamento!</p>
+              <p className="text-sm">Inicie a conversa sobre este orçamento!</p>
             </div>
           ) : (
             messages.map((msg) => {

@@ -92,7 +92,7 @@ const states = [
   { value: "GO", label: "Goiás" },
   { value: "MA", label: "Maranhão" },
   { value: "MT", label: "Mato Grosso" },
-  { value: "MS", label: "Mato Grosso do Sul" },
+  { value: "MS", label: "Mato Grossó do Sul" },
   { value: "MG", label: "Minas Gerais" },
   { value: "PA", label: "Pará" },
   { value: "PB", label: "Paraíba" },
@@ -148,7 +148,7 @@ export default function Onboarding() {
     });
 
     // Ordenar grupos - construção primeiro
-    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+    const sortedGroupNamês = Object.keys(groups).sort((a, b) => {
       const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
       const aIsHome = homeGroups.some(g => a.includes(g));
       const bIsHome = homeGroups.some(g => b.includes(g));
@@ -158,7 +158,7 @@ export default function Onboarding() {
     });
 
     // Adicionar cada grupo com header
-    sortedGroupNames.forEach(groupName => {
+    sortedGroupNamês.forEach(groupName => {
       // Adicionar header do grupo (disabled)
       const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
       const cleanName = groupName.replace(/^[^\w\s]\s*/, '');

@@ -56,7 +56,7 @@ export default function ContactPaymentModal({
         // Simulate payment
         const subscription = await ClientSubscription.create({
           user_id: user.id,
-          plan_type: 'diario',
+          plan_type: 'diário',
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           is_active: true
         });
@@ -125,7 +125,7 @@ export default function ContactPaymentModal({
             <Card className="border-2 border-orange-300 hover:border-orange-500 transition-colors">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-slate-900">Acesso de 1 Dia</h3>
+                  <h3 className="text-lg font-bold text-slate-900">Acessó de 1 Dia</h3>
                   <div className="text-right">
                     <p className="text-3xl font-bold text-orange-600">R$ 3,69</p>
                     <p className="text-sm text-slate-500">por 24 horas</p>
@@ -168,8 +168,8 @@ export default function ContactPaymentModal({
         <MercadoPagoCheckout
           isOpen={showMPCheckout}
           onClose={() => setShowMPCheckout(false)}
-          planKey="cliente_diario"
-          planName="Acesso de 1 Dia - Contatos Ilimitados"
+          planKey="cliente_diário"
+          planName="Acessó de 1 Dia - Contatos Ilimitados"
           planPrice={3.69}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['user'] });

@@ -91,7 +91,7 @@ export default function ClientQuotes() {
   // Abrir chat com um profissional
   const openChat = async (response) => {
     try {
-      // Buscar dados do profissional (precisa do user_id para notificacoes)
+      // Buscar dados do profissional (precisa do user_id para notificações)
       const professional = await ProfessionalService.get(response.professional_id);
       setChatProfessional(professional);
       setChatResponse(response);
@@ -247,9 +247,9 @@ export default function ClientQuotes() {
             </DialogHeader>
             <CardContent>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg">Orcamentos Recebidos</h3>
+                <h3 className="font-bold text-lg">Orçamentos Recebidos</h3>
                 <Badge>
-                  {selectedQuote?.responses_count || 0} orcamentos
+                  {selectedQuote?.responses_count || 0} orçamentos
                 </Badge>
               </div>
               <div className="space-y-4">
@@ -295,7 +295,7 @@ export default function ClientQuotes() {
                 ))}
                 {responses.length === 0 && (
                   <div className="text-center py-8 text-slate-500">
-                    Aguardando orcamentos...
+                    Aguardando orçamentos...
                   </div>
                 )}
               </div>
@@ -308,7 +308,7 @@ export default function ClientQuotes() {
           <DialogContent className="max-w-2xl p-0">
             <DialogHeader className="sr-only">
               <DialogTitle>Chat com {chatProfessional?.name}</DialogTitle>
-              <DialogDescription>Converse sobre o orcamento</DialogDescription>
+              <DialogDescription>Converse sobre o orçamento</DialogDescription>
             </DialogHeader>
             {chatResponse && chatProfessional && (
               <QuoteChat

@@ -7,7 +7,7 @@ import { buttonVariants } from "@/componentes/interface do usuário/button"
 
 function Calendar({
   className,
-  classNames,
+  classNamês,
   showOutsideDays = true,
   ...props
 }) {
@@ -53,7 +53,7 @@ function Calendar({
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
-        ...classNames,
+        ...classNamês,
       }}
       components={{
         IconLeft: ({ className, ...props }) => (

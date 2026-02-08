@@ -31,7 +31,7 @@ export default function QuoteRequestForm() {
       }
 
       alert('Pedido de orçamento criado com sucesso!');
-      window.location.href = '/client-quotes';
+      window.location.href = '/ClientQuotes';
     }
   });
 
@@ -136,10 +136,10 @@ export default function QuoteRequestForm() {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="construcao">Construção</SelectItem>
+                  <SelectItem value="construção">Construção</SelectItem>
                   <SelectItem value="reforma">Reforma</SelectItem>
-                  <SelectItem value="manutencao">Manutenção</SelectItem>
-                  <SelectItem value="instalacao">Instalação</SelectItem>
+                  <SelectItem value="manutenção">Manutenção</SelectItem>
+                  <SelectItem value="instalação">Instalação</SelectItem>
                 </SelectContent>
               </Select>
             </div>

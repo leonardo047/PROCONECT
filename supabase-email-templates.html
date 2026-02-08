@@ -1,0 +1,402 @@
+<!--
+===========================================
+TEMPLATES DE EMAIL PARA O SUPABASE
+===========================================
+
+INSTRUCOES:
+1. Acesse o Supabase Dashboard: https://supabase.com/dashboard
+2. Selecione seu projeto (PROCONECT)
+3. Va em Authentication > Email Templates
+4. Copie cada template abaixo para o campo correspondente
+
+IMPORTANTE: Certifique-se de que a URL Configuration esta correta:
+- Site URL: https://conectpro.app.br
+- Redirect URLs deve incluir: https://conectpro.app.br/**
+
+===========================================
+-->
+
+
+<!--
+===========================================
+TEMPLATE 1: CONFIRM SIGNUP (Confirmacao de Email)
+===========================================
+Subject: Confirme seu cadastro na ConectPro
+-->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header com logo -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border-radius: 12px 12px 0 0;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">ConectPro</h1>
+              <p style="color: #fed7aa; margin: 10px 0 0 0; font-size: 14px;">Conectando profissionais e clientes</p>
+            </td>
+          </tr>
+
+          <!-- Conteudo -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Bem-vindo a ConectPro!</h2>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                Obrigado por se cadastrar. Para ativar sua conta e comecar a usar a plataforma, confirme seu email clicando no botao abaixo:
+              </p>
+
+              <!-- Botao de confirmacao -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
+                       style="display: inline-block; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);">
+                      Confirmar meu email
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
+                Se o botao nao funcionar, copie e cole o link abaixo no seu navegador:
+              </p>
+              <p style="color: #f97316; font-size: 12px; word-break: break-all; margin: 10px 0 0 0;">
+                {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email
+              </p>
+
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                Se voce nao criou uma conta na ConectPro, ignore este email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-radius: 0 0 12px 12px; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                &copy; 2024 ConectPro. Todos os direitos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+
+
+<!--
+===========================================
+TEMPLATE 2: MAGIC LINK (Link Magico)
+===========================================
+Subject: Seu link de acesso a ConectPro
+-->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header com logo -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border-radius: 12px 12px 0 0;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">ConectPro</h1>
+              <p style="color: #fed7aa; margin: 10px 0 0 0; font-size: 14px;">Conectando profissionais e clientes</p>
+            </td>
+          </tr>
+
+          <!-- Conteudo -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Seu link de acesso</h2>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                Voce solicitou um link de acesso a sua conta ConectPro. Clique no botao abaixo para entrar:
+              </p>
+
+              <!-- Botao de acesso -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink"
+                       style="display: inline-block; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);">
+                      Acessar minha conta
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
+                Se o botao nao funcionar, copie e cole o link abaixo no seu navegador:
+              </p>
+              <p style="color: #f97316; font-size: 12px; word-break: break-all; margin: 10px 0 0 0;">
+                {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink
+              </p>
+
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                Este link expira em 1 hora. Se voce nao solicitou este acesso, ignore este email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-radius: 0 0 12px 12px; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                &copy; 2024 ConectPro. Todos os direitos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+
+
+<!--
+===========================================
+TEMPLATE 3: RESET PASSWORD (Recuperacao de Senha)
+===========================================
+Subject: Recuperacao de senha - ConectPro
+-->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header com logo -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border-radius: 12px 12px 0 0;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">ConectPro</h1>
+              <p style="color: #fed7aa; margin: 10px 0 0 0; font-size: 14px;">Conectando profissionais e clientes</p>
+            </td>
+          </tr>
+
+          <!-- Conteudo -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Recuperar sua senha</h2>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                Recebemos uma solicitacao para redefinir a senha da sua conta ConectPro. Clique no botao abaixo para criar uma nova senha:
+              </p>
+
+              <!-- Botao de recuperacao -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery"
+                       style="display: inline-block; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);">
+                      Redefinir minha senha
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
+                Se o botao nao funcionar, copie e cole o link abaixo no seu navegador:
+              </p>
+              <p style="color: #f97316; font-size: 12px; word-break: break-all; margin: 10px 0 0 0;">
+                {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery
+              </p>
+
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                Este link expira em 1 hora. Se voce nao solicitou a recuperacao de senha, ignore este email. Sua senha permanecera a mesma.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-radius: 0 0 12px 12px; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                &copy; 2024 ConectPro. Todos os direitos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+
+
+<!--
+===========================================
+TEMPLATE 4: INVITE (Convite)
+===========================================
+Subject: Voce foi convidado para a ConectPro!
+-->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header com logo -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border-radius: 12px 12px 0 0;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">ConectPro</h1>
+              <p style="color: #fed7aa; margin: 10px 0 0 0; font-size: 14px;">Conectando profissionais e clientes</p>
+            </td>
+          </tr>
+
+          <!-- Conteudo -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Voce foi convidado!</h2>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                Voce foi convidado para fazer parte da ConectPro, a plataforma que conecta profissionais e clientes. Clique no botao abaixo para aceitar o convite e criar sua conta:
+              </p>
+
+              <!-- Botao de convite -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite"
+                       style="display: inline-block; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);">
+                      Aceitar convite
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
+                Se o botao nao funcionar, copie e cole o link abaixo no seu navegador:
+              </p>
+              <p style="color: #f97316; font-size: 12px; word-break: break-all; margin: 10px 0 0 0;">
+                {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite
+              </p>
+
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                Se voce nao conhece a ConectPro ou nao esperava este convite, ignore este email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-radius: 0 0 12px 12px; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                &copy; 2024 ConectPro. Todos os direitos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+
+
+<!--
+===========================================
+TEMPLATE 5: EMAIL CHANGE (Alteracao de Email)
+===========================================
+Subject: Confirme seu novo email - ConectPro
+-->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header com logo -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); border-radius: 12px 12px 0 0;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">ConectPro</h1>
+              <p style="color: #fed7aa; margin: 10px 0 0 0; font-size: 14px;">Conectando profissionais e clientes</p>
+            </td>
+          </tr>
+
+          <!-- Conteudo -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Confirme seu novo email</h2>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                Voce solicitou a alteracao do email da sua conta ConectPro para {{ .NewEmail }}. Clique no botao abaixo para confirmar esta alteracao:
+              </p>
+
+              <!-- Botao de confirmacao -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email_change"
+                       style="display: inline-block; background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: bold; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.4);">
+                      Confirmar novo email
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 20px 0 0 0;">
+                Se o botao nao funcionar, copie e cole o link abaixo no seu navegador:
+              </p>
+              <p style="color: #f97316; font-size: 12px; word-break: break-all; margin: 10px 0 0 0;">
+                {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email_change
+              </p>
+
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                Se voce nao solicitou esta alteracao, ignore este email e sua conta permanecera com o email atual.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 20px 40px; background-color: #f9fafb; border-radius: 0 0 12px 12px; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                &copy; 2024 ConectPro. Todos os direitos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

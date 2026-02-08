@@ -21,10 +21,13 @@ export const PUBLIC_ROUTES = [
   '/ProfessionalCard', // Cartão digital público para compartilhar
   '/Portfolio', // Visualização pública do portfolio de um profissional
   '/ProfessionalProfile', // Visualização pública do perfil de um profissional
+  '/JobOpportunities', // Visualização pública de vagas/trabalhos terceirizados
+  '/ServiceQuotes', // Visualização pública de orçamentos de clientes
   '/forgot-password',
   '/reset-password',
   '/termos',
-  '/privacidade'
+  '/privacidade',
+  '/auth/confirm' // Callback de confirmação de email
 ];
 
 // Rotas que exigem role de admin
@@ -37,8 +40,7 @@ export const PROFESSIONAL_ROUTES = [
   '/ProfessionalDashboard',
   '/ProfessionalSchedule',
   '/ProfessionalReviews',
-  '/ProfessionalQuotes',
-  '/JobOpportunities'
+  '/ProfessionalQuotes'
 ];
 
 // Rotas que exigem usuário cliente

@@ -22,7 +22,7 @@ const states = [
   { value: "BA", label: "Bahia" }, { value: "CE", label: "Ceara" },
   { value: "DF", label: "Distrito Federal" }, { value: "ES", label: "Espirito Santo" },
   { value: "GO", label: "Goias" }, { value: "MA", label: "Maranhao" },
-  { value: "MT", label: "Mato Grosso" }, { value: "MS", label: "Mato Grosso do Sul" },
+  { value: "MT", label: "Mato Grosso" }, { value: "MS", label: "Mato Grossó do Sul" },
   { value: "MG", label: "Minas Gerais" }, { value: "PA", label: "Para" },
   { value: "PB", label: "Paraiba" }, { value: "PR", label: "Parana" },
   { value: "PE", label: "Pernambuco" }, { value: "PI", label: "Piaui" },
@@ -40,10 +40,9 @@ export default function JobOpportunityManager({ professionalId, professional }) 
     description: '',
     profession: '',
     city: professional?.city || '',
+    neighborhood: '',
     state: professional?.state || '',
-    urgency: 'normal',
-    payment_type: 'to_negotiate',
-    payment_value: '',
+    period: '',
     contact_whatsapp: professional?.whatsapp || ''
   });
   const queryClient = useQueryClient();
@@ -83,7 +82,7 @@ export default function JobOpportunityManager({ professionalId, professional }) 
     });
 
     // Ordenar grupos - construção primeiro
-    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+    const sortedGroupNamês = Object.keys(groups).sort((a, b) => {
       const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
       const aIsHome = homeGroups.some(g => a.includes(g));
       const bIsHome = homeGroups.some(g => b.includes(g));
@@ -93,7 +92,7 @@ export default function JobOpportunityManager({ professionalId, professional }) 
     });
 
     // Adicionar cada grupo com header
-    sortedGroupNames.forEach(groupName => {
+    sortedGroupNamês.forEach(groupName => {
       // Adicionar header do grupo (disabled)
       const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
       const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
@@ -157,10 +156,9 @@ export default function JobOpportunityManager({ professionalId, professional }) 
       description: '',
       profession: '',
       city: professional?.city || '',
+      neighborhood: '',
       state: professional?.state || '',
-      urgency: 'normal',
-      payment_type: 'to_negotiate',
-      payment_value: '',
+      period: '',
       contact_whatsapp: professional?.whatsapp || ''
     });
   };
@@ -203,7 +201,7 @@ export default function JobOpportunityManager({ professionalId, professional }) 
       case 'daily':
         return value ? `R$ ${value}/dia` : 'Diaria a combinar';
       case 'per_job':
-        return value ? `R$ ${value}/servico` : 'Por servico';
+        return value ? `R$ ${value}/serviço` : 'Por serviço';
       case 'hourly':
         return value ? `R$ ${value}/hora` : 'Por hora';
       default:
@@ -221,24 +219,24 @@ export default function JobOpportunityManager({ professionalId, professional }) 
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-blue-600" />
-              Oportunidades de Trabalho
+              Vagas de Trabalho
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-blue-500 hover:bg-blue-600">
                   <Plus className="w-4 h-4 mr-2" />
-                  Nova Oportunidade
+                  Nova Vaga
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Publicar Oportunidade</DialogTitle>
+                  <DialogTitle>Publicar Vaga de Trabalho</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <Label>Titulo da Vaga *</Label>
                     <Input
-                      placeholder="Ex: Preciso de ajudante para pintura"
+                      placeholder="Ex: Precisó de ajudante para pintura"
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       required
@@ -246,17 +244,7 @@ export default function JobOpportunityManager({ professionalId, professional }) 
                   </div>
 
                   <div>
-                    <Label>Descricao</Label>
-                    <Textarea
-                      placeholder="Descreva o trabalho, requisitos, horarios..."
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Tipo de Profissional *</Label>
+                    <Label>Tipo de Serviço *</Label>
                     <Select
                       value={formData.profession}
                       onValueChange={(value) => setFormData({ ...formData, profession: value })}
@@ -269,7 +257,7 @@ export default function JobOpportunityManager({ professionalId, professional }) 
                             Carregando...
                           </div>
                         ) : (
-                          <SelectValue placeholder="Selecione" />
+                          <SelectValue placeholder="Selecione o tipo de serviço" />
                         )}
                       </SelectTrigger>
                       <SelectContent>
@@ -287,111 +275,92 @@ export default function JobOpportunityManager({ professionalId, professional }) 
                     </Select>
                   </div>
 
+                  <div>
+                    <Label>Descrição</Label>
+                    <Textarea
+                      placeholder="Descreva o trabalho, requisitos, horários, valor..."
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Estado *</Label>
-                      <Select
-                        value={formData.state}
-                        onValueChange={(value) => setFormData({ ...formData, state: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {states.map(s => (
-                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                     <div>
                       <Label>Cidade *</Label>
                       <Input
+                        placeholder="Ex: Sao Paulo"
                         value={formData.city}
                         onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                         required
                       />
                     </div>
+                    <div>
+                      <Label>Bairro</Label>
+                      <Input
+                        placeholder="Ex: Centro"
+                        value={formData.neighborhood}
+                        onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <Label>Urgencia</Label>
+                    <Label>Estado *</Label>
                     <Select
-                      value={formData.urgency}
-                      onValueChange={(value) => setFormData({ ...formData, urgency: value })}
+                      value={formData.state}
+                      onValueChange={(value) => setFormData({ ...formData, state: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione o estado" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="urgent">Urgente</SelectItem>
-                        <SelectItem value="today">Para Hoje</SelectItem>
-                        <SelectItem value="this_week">Esta Semana</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
+                        {states.map(s => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Tipo de Pagamento</Label>
-                      <Select
-                        value={formData.payment_type}
-                        onValueChange={(value) => setFormData({ ...formData, payment_type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="daily">Diaria</SelectItem>
-                          <SelectItem value="per_job">Por Servico</SelectItem>
-                          <SelectItem value="hourly">Por Hora</SelectItem>
-                          <SelectItem value="to_negotiate">A Combinar</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {formData.payment_type !== 'to_negotiate' && (
-                      <div>
-                        <Label>Valor (R$)</Label>
-                        <Input
-                          type="number"
-                          placeholder="0.00"
-                          value={formData.payment_value}
-                          onChange={(e) => setFormData({ ...formData, payment_value: e.target.value })}
-                        />
-                      </div>
-                    )}
+                  <div>
+                    <Label>Data ou Periodo</Label>
+                    <Input
+                      placeholder="Ex: Amanha, Está semana, 15/02 a 20/02"
+                      value={formData.period}
+                      onChange={(e) => setFormData({ ...formData, period: e.target.value })}
+                    />
                   </div>
 
                   <div>
-                    <Label>WhatsApp para Contato</Label>
+                    <Label>Telefone para Contato *</Label>
                     <Input
                       placeholder="(11) 99999-9999"
                       value={formData.contact_whatsapp}
                       onChange={(e) => setFormData({ ...formData, contact_whatsapp: e.target.value })}
+                      required
                     />
                   </div>
 
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                     <p className="text-sm text-green-800 font-medium">
-                      Esta funcionalidade e 100% GRATUITA!
+                      Está funcionalidade e 100% GRATUITA!
                     </p>
                     <p className="text-xs text-green-700 mt-1">
-                      Publique vagas para ajudar outros profissionais a encontrar trabalho.
+                      Publique vagas para encontrar ajudantes, funcionarios ou parceiros.
                     </p>
                   </div>
 
                   <Button
                     type="submit"
                     className="w-full bg-blue-500 hover:bg-blue-600"
-                    disabled={createMutation.isPending || !formData.title || !formData.profession}
+                    disabled={createMutation.isPending || !formData.title || !formData.profession || !formData.contact_whatsapp}
                   >
                     {createMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     ) : (
                       <Plus className="w-4 h-4 mr-2" />
                     )}
-                    Publicar Oportunidade
+                    Publicar Vaga
                   </Button>
                 </form>
               </DialogContent>
@@ -401,17 +370,17 @@ export default function JobOpportunityManager({ professionalId, professional }) 
         <CardContent>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <p className="text-blue-800 font-medium">
-              Precisa de ajudante ou parceiro para um trabalho?
+              Precisa de ajudante, funcionario ou parceiro?
             </p>
             <p className="text-sm text-blue-700 mt-1">
-              Publique aqui gratuitamente e encontre outros profissionais disponiveis!
+              Publique aqui sua vaga e encontre profissionais disponíveis para serviços e obras!
             </p>
           </div>
 
           <div className="flex items-center gap-4 text-sm text-slate-600">
             <div className="flex items-center gap-1">
               <Briefcase className="w-4 h-4" />
-              <span>{activeCount} oportunidade{activeCount !== 1 ? 's' : ''} ativa{activeCount !== 1 ? 's' : ''}</span>
+              <span>{activeCount} vaga{activeCount !== 1 ? 's' : ''} ativa{activeCount !== 1 ? 's' : ''}</span>
             </div>
           </div>
         </CardContent>
@@ -426,9 +395,9 @@ export default function JobOpportunityManager({ professionalId, professional }) 
         <Card>
           <CardContent className="py-12 text-center">
             <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600 mb-2">Nenhuma oportunidade publicada</p>
+            <p className="text-slate-600 mb-2">Nenhuma vaga publicada</p>
             <p className="text-sm text-slate-500">
-              Publique uma vaga para encontrar ajudantes ou parceiros de trabalho.
+              Publique uma vaga para encontrar ajudantes, funcionarios ou parceiros.
             </p>
           </CardContent>
         </Card>
@@ -493,7 +462,7 @@ export default function JobOpportunityManager({ professionalId, professional }) 
                         variant="outline"
                         className="text-red-600 border-red-300 hover:bg-red-50"
                         onClick={() => {
-                          if (confirm('Tem certeza que deseja excluir esta oportunidade?')) {
+                          if (confirm('Tem certeza que deseja excluir está oportunidade?')) {
                             deleteMutation.mutate(opp.id);
                           }
                         }}

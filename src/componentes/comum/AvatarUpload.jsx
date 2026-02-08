@@ -10,7 +10,7 @@ import { Camera, Loader2, User, X } from 'lucide-react';
  * @param {Object} props
  * @param {string} props.currentAvatarUrl - URL atual do avatar (já salvo no banco)
  * @param {string} props.fallbackName - Nome para fallback (iniciais)
- * @param {function} props.onFileSelect - Callback quando arquivo é selecionado (recebe o File ou null)
+ * @param {function} props.onFileSelect - Callback quando arquivo e selecionado (recebe o File ou null)
  * @param {File} props.pendingFile - Arquivo pendente de upload (para preview)
  * @param {string} props.size - Tamanho do avatar ('sm', 'md', 'lg', 'xl') - default: 'lg'
  * @param {boolean} props.disabled - Desabilita o upload

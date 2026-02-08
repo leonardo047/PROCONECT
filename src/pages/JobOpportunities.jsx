@@ -1,27 +1,30 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/lib/AuthContext";
-import { JobOpportunityService, Category } from "@/lib/entities";
-import { useQuery } from "@tanstack/react-query";
+import { JobOpportunityService, JobApplicationService, Category } from "@/lib/entities";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import { Badge } from "@/componentes/interface do usuário/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/componentes/interface do usuário/dialog";
 import {
   Briefcase, MapPin, Clock, DollarSign, Search, MessageCircle,
-  Filter, Users, Loader2
+  Filter, Users, Loader2, AlertCircle, Lock, Crown, UserPlus, Plus, Navigation
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import PublicJobForm from "@/componentes/jobs/PublicJobForm";
 
 const states = [
-  { value: "", label: "Todos" },
+  { value: "all", label: "Todos" },
   { value: "AC", label: "Acre" }, { value: "AL", label: "Alagoas" },
   { value: "AP", label: "Amapa" }, { value: "AM", label: "Amazonas" },
   { value: "BA", label: "Bahia" }, { value: "CE", label: "Ceara" },
   { value: "DF", label: "Distrito Federal" }, { value: "ES", label: "Espirito Santo" },
   { value: "GO", label: "Goias" }, { value: "MA", label: "Maranhao" },
-  { value: "MT", label: "Mato Grosso" }, { value: "MS", label: "Mato Grosso do Sul" },
+  { value: "MT", label: "Mato Grosso" }, { value: "MS", label: "Mato Grossó do Sul" },
   { value: "MG", label: "Minas Gerais" }, { value: "PA", label: "Para" },
   { value: "PB", label: "Paraiba" }, { value: "PR", label: "Parana" },
   { value: "PE", label: "Pernambuco" }, { value: "PI", label: "Piaui" },
@@ -33,19 +36,86 @@ const states = [
 ];
 
 export default function JobOpportunities() {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user, isAuthenticated } = useAuth();
+
   const [filters, setFilters] = useState({
     city: '',
-    state: '',
-    profession: ''
+    state: 'all',
+    profession: 'all'
   });
+
+  // Modais
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState(null);
+  const [applicationStatus, setApplicationStatus] = useState(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [locationMessage, setLocationMessage] = useState('');
+
+  // Função para obter localização atual
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationMessage('Geolocalização não suportada pelo navegador');
+      return;
+    }
+
+    setLoadingLocation(true);
+    setLocationMessage('');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${position.coords.latitude}&lon=${position.coords.longitude}&format=json&addressdetails=1`,
+            { headers: { 'Accept-Language': 'pt-BR' } }
+          );
+          const data = await response.json();
+
+          if (data.address) {
+            const city = data.address.city || data.address.town || data.address.municipality || data.address.village || '';
+            const state = data.address.state || '';
+
+            const stateMap = {
+              'Acre': 'AC', 'Alagoas': 'AL', 'Amapá': 'AP', 'Amazonas': 'AM',
+              'Bahia': 'BA', 'Ceará': 'CE', 'Distrito Federal': 'DF', 'Espírito Santo': 'ES',
+              'Goiás': 'GO', 'Maranhão': 'MA', 'Mato Grosso': 'MT', 'Mato Grosso do Sul': 'MS',
+              'Minas Gerais': 'MG', 'Pará': 'PA', 'Paraíba': 'PB', 'Paraná': 'PR',
+              'Pernambuco': 'PE', 'Piauí': 'PI', 'Rio de Janeiro': 'RJ', 'Rio Grande do Norte': 'RN',
+              'Rio Grande do Sul': 'RS', 'Rondônia': 'RO', 'Roraima': 'RR', 'Santa Catarina': 'SC',
+              'São Paulo': 'SP', 'Sergipe': 'SE', 'Tocantins': 'TO'
+            };
+
+            const stateCode = stateMap[state] || 'all';
+
+            setFilters(prev => ({
+              ...prev,
+              city: city,
+              state: stateCode
+            }));
+            setLocationMessage(`Localização: ${city}, ${stateCode}`);
+          }
+        } catch (error) {
+          setLocationMessage('Erro ao obter endereço da localização');
+        }
+        setLoadingLocation(false);
+      },
+      (error) => {
+        setLocationMessage('Não foi possível obter sua localização. Verifique as permissões.');
+        setLoadingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const { data: opportunities = [], isLoading } = useQuery({
     queryKey: ['job-opportunities', filters],
     queryFn: () => JobOpportunityService.getActive(filters)
   });
 
-  // Buscar categorias (profissões) do banco
+  // Buscar categorias (profissoes) do banco
   const { data: categories = [], isLoading: loadingCategories } = useQuery({
     queryKey: ['job-opportunities-categories'],
     queryFn: () => Category.filter({
@@ -57,9 +127,32 @@ export default function JobOpportunities() {
     gcTime: 30 * 60 * 1000,
   });
 
+  // Verificar limite de candidaturas do usuario
+  const { data: applicationLimit } = useQuery({
+    queryKey: ['job-application-limit', user?.id],
+    queryFn: () => JobApplicationService.canApply(user.id),
+    enabled: !!user?.id,
+    staleTime: 30000,
+  });
+
+  // Mutation para registrar candidatura
+  const applyMutation = useMutation({
+    mutationFn: async ({ userId, opportunityId }) => {
+      // Verificar se já candidatou
+      const hasApplied = await JobApplicationService.hasApplied(userId, opportunityId);
+      if (!hasApplied) {
+        await JobApplicationService.apply(userId, opportunityId, 'whatsapp');
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['job-application-limit']);
+    }
+  });
+
   // Transformar categorias em opções para o select
   const professions = useMemo(() => {
-    const options = [{ value: "", label: "Todas" }];
+    const options = [{ value: "all", label: "Todas" }];
 
     if (!categories.length) return options;
 
@@ -74,8 +167,8 @@ export default function JobOpportunities() {
     });
 
     // Ordenar grupos - construção primeiro
-    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
-      const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
+    const sortedGroupNamês = Object.keys(groups).sort((a, b) => {
+      const homeGroups = ['Construcao', 'Eletrica/Hidraulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
       const aIsHome = homeGroups.some(g => a.includes(g));
       const bIsHome = homeGroups.some(g => b.includes(g));
       if (aIsHome && !bIsHome) return -1;
@@ -84,9 +177,8 @@ export default function JobOpportunities() {
     });
 
     // Adicionar cada grupo com header
-    sortedGroupNames.forEach(groupName => {
-      // Adicionar header do grupo (disabled)
-      const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
+    sortedGroupNamês.forEach(groupName => {
+      const emoji = groupName.match(/^[^\w\s]/)?.[0] || '';
       const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
       options.push({
         value: `header_${groupName}`,
@@ -94,7 +186,6 @@ export default function JobOpportunities() {
         disabled: true
       });
 
-      // Adicionar categorias do grupo
       groups[groupName].forEach(cat => {
         options.push({
           value: cat.slug,
@@ -106,7 +197,7 @@ export default function JobOpportunities() {
     return options;
   }, [categories]);
 
-  // Criar um mapa para buscar label por value (para exibição na lista)
+  // Criar um mapa para buscar label por value
   const professionMap = useMemo(() => {
     const map = {};
     categories.forEach(cat => {
@@ -133,7 +224,7 @@ export default function JobOpportunities() {
       case 'daily':
         return value ? `R$ ${value}/dia` : 'Diaria a combinar';
       case 'per_job':
-        return value ? `R$ ${value}/servico` : 'Por servico';
+        return value ? `R$ ${value}/serviço` : 'Por serviço';
       case 'hourly':
         return value ? `R$ ${value}/hora` : 'Por hora';
       default:
@@ -141,10 +232,50 @@ export default function JobOpportunities() {
     }
   };
 
-  const handleWhatsAppContact = (opp) => {
-    const phone = opp.contact_whatsapp?.replace(/\D/g, '');
-    const message = `Ola! Vi sua oportunidade "${opp.title}" no ConectPro e tenho interesse.`;
-    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  const handleWhatsAppContact = async (opp) => {
+    // Se não está logado, mostrar modal de login
+    if (!isAuthenticated || !user) {
+      setSelectedOpportunity(opp);
+      setLoginModalOpen(true);
+      return;
+    }
+
+    // Verificar limite de candidaturas
+    if (applicationLimit && !applicationLimit.canApply && !applicationLimit.hasSubscription) {
+      setSelectedOpportunity(opp);
+      setUpgradeModalOpen(true);
+      return;
+    }
+
+    // Registrar candidatura e abrir WhatsApp
+    try {
+      await applyMutation.mutateAsync({ userId: user.id, opportunityId: opp.id });
+
+      const phone = opp.contact_whatsapp?.replace(/\D/g, '');
+      const message = `Ola! Vi sua oportunidade "${opp.title}" no ConectPro e tenho interesse.`;
+      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    } catch (error) {
+      console.error('Erro ao registrar candidatura:', error);
+      // Mesmo com erro, abre o WhatsApp
+      const phone = opp.contact_whatsapp?.replace(/\D/g, '');
+      const message = `Ola! Vi sua oportunidade "${opp.title}" no ConectPro e tenho interesse.`;
+      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    }
+  };
+
+  const handleLogin = () => {
+    setLoginModalOpen(false);
+    navigate('/login?returnUrl=/JobOpportunities');
+  };
+
+  const handleRegister = () => {
+    setLoginModalOpen(false);
+    navigate('/login?tab=register&returnUrl=/JobOpportunities');
+  };
+
+  const handleUpgrade = () => {
+    setUpgradeModalOpen(false);
+    navigate('/ProfessionalDashboard?tab=plano');
   };
 
   return (
@@ -152,14 +283,23 @@ export default function JobOpportunities() {
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-              <Users className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">Vagas de Trabalho</h1>
+                <p className="text-slate-600">Encontre oportunidades publicadas por profissionais e empresas</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Oportunidades de Trabalho</h1>
-              <p className="text-slate-600">Encontre vagas publicadas por outros profissionais</p>
-            </div>
+            <Button
+              onClick={() => setPublishModalOpen(true)}
+              className="bg-green-500 hover:bg-green-600"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Publicar Vaga Gratis
+            </Button>
           </div>
         </div>
 
@@ -169,23 +309,78 @@ export default function JobOpportunities() {
             <div className="flex items-start gap-3">
               <Briefcase className="w-6 h-6 text-blue-600 flex-shrink-0" />
               <div>
-                <p className="font-semibold text-blue-900">Conexao entre Profissionais - 100% Gratuito!</p>
+                <p className="font-semibold text-blue-900">Vagas para Profissionais</p>
                 <p className="text-sm text-blue-800 mt-1">
-                  Aqui profissionais publicam vagas de ajudante, parceiros para obras ou trabalhos avulsos.
-                  Nao cobramos nada por isso - e apenas para facilitar a conexao entre voces!
+                  Aqui você encontra vagas publicadas por profissionais e empresas que precisam de ajudantes,
+                  funcionarios ou parceiros para serviços e obras.
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Limite de contatos (se logado e não assinante) */}
+        {isAuthenticated && applicationLimit && !applicationLimit.hasSubscription && (
+          <Card className={`mb-6 ${applicationLimit.canApply ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Lock className={`w-6 h-6 flex-shrink-0 ${applicationLimit.canApply ? 'text-amber-600' : 'text-red-600'}`} />
+                <div className="flex-1">
+                  <p className={`font-semibold ${applicationLimit.canApply ? 'text-amber-900' : 'text-red-900'}`}>
+                    {applicationLimit.canApply
+                      ? `Você tem ${applicationLimit.remaining} contato(s) gratuito(s) restante(s)`
+                      : 'Limite de contatos gratuitos atingido'
+                    }
+                  </p>
+                  <p className={`text-sm mt-1 ${applicationLimit.canApply ? 'text-amber-800' : 'text-red-800'}`}>
+                    {applicationLimit.canApply
+                      ? 'Assine um plano profissional para ter contatos ilimitados.'
+                      : 'Para continuar entrando em contato com vagas, assine um plano profissional.'
+                    }
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => navigate('/ProfessionalDashboard?tab=plano')}
+                  className={applicationLimit.canApply ? 'bg-amber-600 hover:bg-amber-700' : 'bg-red-600 hover:bg-red-700'}
+                >
+                  <Crown className="w-4 h-4 mr-1" />
+                  Assinar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Filters */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Filter className="w-5 h-5 text-slate-600" />
-              <span className="font-medium text-slate-700">Filtros</span>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-slate-600" />
+                <span className="font-medium text-slate-700">Filtros</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={getCurrentLocation}
+                disabled={loadingLocation}
+                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+              >
+                {loadingLocation ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Navigation className="w-4 h-4 mr-2" />
+                )}
+                Usar minha localização
+              </Button>
             </div>
+            {locationMessage && (
+              <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                {locationMessage}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Select
@@ -206,7 +401,7 @@ export default function JobOpportunities() {
                   <SelectContent>
                     {professions.map(p => (
                       <SelectItem
-                        key={p.value || 'all'}
+                        key={p.value}
                         value={p.value}
                         disabled={p.disabled}
                         className={p.disabled ? 'font-bold text-slate-500 bg-slate-100' : ''}
@@ -305,8 +500,13 @@ export default function JobOpportunities() {
                       <Button
                         className="bg-green-500 hover:bg-green-600 flex-shrink-0"
                         onClick={() => handleWhatsAppContact(opp)}
+                        disabled={applyMutation.isPending}
                       >
-                        <MessageCircle className="w-4 h-4 mr-2" />
+                        {applyMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                        )}
                         Contato
                       </Button>
                     )}
@@ -317,6 +517,116 @@ export default function JobOpportunities() {
           </div>
         )}
       </div>
+
+      {/* Modal de Login/Cadastro */}
+      <Dialog open={loginModalOpen} onOpenChange={setLoginModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-blue-500" />
+              Faca Login para Continuar
+            </DialogTitle>
+            <DialogDescription>
+              Para entrar em contato com quem públicou está vaga, você precisa estar logado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>Primeira vez aqui?</strong> Cadastre-se gratuitamente e tenha acessó a 3 contatos gratuitos para vagas!
+              </p>
+            </div>
+
+            {selectedOpportunity && (
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-sm text-slate-600">Vaga selecionada:</p>
+                <p className="font-medium text-slate-900">{selectedOpportunity.title}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setLoginModalOpen(false)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button onClick={handleRegister} className="flex-1 bg-green-500 hover:bg-green-600">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Cadastrar
+            </Button>
+            <Button onClick={handleLogin} className="flex-1 bg-blue-500 hover:bg-blue-600">
+              Já tenho conta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Upgrade */}
+      <Dialog open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-amber-500" />
+              Limite de Contatos Atingido
+            </DialogTitle>
+            <DialogDescription>
+              Você já usou seus 3 contatos gratuitos para vagas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <p className="font-semibold text-amber-900 mb-2">Assine um plano profissional e tenha:</p>
+              <ul className="text-sm text-amber-800 space-y-1">
+                <li>- Contatos ilimitados para vagas</li>
+                <li>- Perfil destacado nas buscas</li>
+                <li>- Acessó a orçamentos de clientes</li>
+                <li>- Portfolio profissional</li>
+              </ul>
+            </div>
+
+            {selectedOpportunity && (
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-sm text-slate-600">Vaga que você quer contatar:</p>
+                <p className="font-medium text-slate-900">{selectedOpportunity.title}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setUpgradeModalOpen(false)} className="flex-1">
+              Depois
+            </Button>
+            <Button onClick={handleUpgrade} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+              <Crown className="w-4 h-4 mr-2" />
+              Ver Planos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Publicar Vaga Anonima */}
+      <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-green-500" />
+              Publicar Vaga Gratis
+            </DialogTitle>
+            <DialogDescription>
+              Publique sua vaga e encontre profissionais disponíveis para o trabalho.
+            </DialogDescription>
+          </DialogHeader>
+
+          <PublicJobForm
+            onSuccess={() => {
+              setPublishModalOpen(false);
+              queryClient.invalidateQueries(['job-opportunities']);
+            }}
+            onCancel={() => setPublishModalOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

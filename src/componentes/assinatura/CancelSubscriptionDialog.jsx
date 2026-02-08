@@ -17,8 +17,8 @@ const CANCELLATION_REASONS = [
   { value: 'too_expensive', label: 'Muito caro' },
   { value: 'not_using', label: 'Nao estou usando o suficiente' },
   { value: 'found_alternative', label: 'Encontrei outra alternativa' },
-  { value: 'technical_issues', label: 'Problemas tecnicos' },
-  { value: 'not_satisfied', label: 'Nao estou satisfeito com o servico' },
+  { value: 'technical_issues', label: 'Problemas técnicos' },
+  { value: 'not_satisfied', label: 'Nao estou satisfeito com o serviço' },
   { value: 'temporary', label: 'Pausa temporaria' },
   { value: 'other', label: 'Outro motivo' },
 ];
@@ -85,7 +85,7 @@ export default function CancelSubscriptionDialog({
                 <ul className="text-sm text-amber-700 space-y-2">
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 mt-0.5 text-green-600 flex-shrink-0" />
-                    <span>Voce mantera acesso ate <strong>{formatDate(expiresAt)}</strong></span>
+                    <span>Você manterá acessó até <strong>{formatDate(expiresAt)}</strong></span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 mt-0.5 text-green-600 flex-shrink-0" />
@@ -93,7 +93,7 @@ export default function CancelSubscriptionDialog({
                   </li>
                   <li className="flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 flex-shrink-0" />
-                    <span>Apos a data de expiracao, voce perdera os beneficios do plano</span>
+                    <span>Apos a data de expiração, você perderá os benefícios do plano</span>
                   </li>
                 </ul>
               </div>
@@ -109,7 +109,7 @@ export default function CancelSubscriptionDialog({
                   <div className="flex items-center gap-2 text-slate-700 mt-2">
                     <Calendar className="w-4 h-4" />
                     <span className="text-sm">
-                      <strong>Acesso ate:</strong> {formatDate(expiresAt)}
+                      <strong>Acessó ate:</strong> {formatDate(expiresAt)}
                     </span>
                   </div>
                 )}
@@ -135,7 +135,7 @@ export default function CancelSubscriptionDialog({
             <DialogHeader>
               <DialogTitle>Motivo do Cancelamento</DialogTitle>
               <DialogDescription>
-                Nos ajude a melhorar! Por que voce esta cancelando?
+                Nos ajude a melhorar! Por que você está cancelando?
               </DialogDescription>
             </DialogHeader>
 
@@ -157,7 +157,7 @@ export default function CancelSubscriptionDialog({
                   id="feedback"
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="Conte-nos mais sobre sua experiencia..."
+                  placeholder="Conte-nos mais sobre sua experiência..."
                   className="mt-1"
                   rows={3}
                 />
@@ -204,7 +204,7 @@ export default function CancelSubscriptionDialog({
               </p>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
                 <p className="text-sm text-blue-800">
-                  <strong>Lembre-se:</strong> Voce ainda tem acesso aos beneficios do seu plano ate{' '}
+                  <strong>Lembre-se:</strong> Você ainda tem acessó aos benefícios do seu plano ate{' '}
                   <strong>{formatDate(expiresAt)}</strong>.
                 </p>
               </div>

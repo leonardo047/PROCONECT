@@ -82,7 +82,7 @@ export default function ProfessionalReviews() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Minhas Avaliacoes</h1>
-          <p className="text-slate-600">Veja e responda as avaliacoes dos seus clientes</p>
+          <p className="text-slate-600">Veja e responda as avaliações dos seus clientes</p>
         </div>
 
         {/* Stats */}
@@ -184,10 +184,10 @@ export default function ProfessionalReviews() {
               <CardContent className="p-12 text-center">
                 <MessageSquare className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-slate-700 mb-2">
-                  Nenhuma avaliacao ainda
+                  Nenhuma avaliação ainda
                 </h3>
                 <p className="text-slate-500">
-                  Suas avaliacoes aparecerao aqui quando os clientes avaliarem seus servicos.
+                  Suas avaliações aparecerao aqui quando os clientes avaliarem seus serviços.
                 </p>
               </CardContent>
             </Card>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, Category, PlanConfig, Payment, Referral, Profile, Expense, ClientSubscription } from "@/lib/entities";
+import { Professional, Category, PlanConfig, Payment, Referral, Profile, Expense, ClientSubscription, CreditsService, CreditTransaction } from "@/lib/entities";
 import { jsPDF } from 'jspdf';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
@@ -22,7 +22,8 @@ import {
   History, Send, Copy, ArrowUp, ArrowDown, Home, Package,
   ChevronLeft, ChevronRight, Gift, CreditCard, Search,
   Download, Calendar, Filter, UserPlus, Clock, PieChart,
-  FileText, RefreshCw, Receipt, Wallet, MinusCircle, Percent
+  FileText, RefreshCw, Receipt, Wallet, MinusCircle, Percent,
+  Infinity, Coins
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -73,6 +74,28 @@ export default function AdminDashboard() {
   const [selectedReferrer, setSelectedReferrer] = useState(null);
   const [creditAmount, setCreditAmount] = useState(1);
 
+  // Estados de Gestao de Créditos (Profissionais)
+  const [creditSearch, setCreditSearch] = useState('');
+  const [showGrantUnlimitedDialog, setShowGrantUnlimitedDialog] = useState(false);
+  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
+  const [selectedProfessionalForCredits, setSelectedProfessionalForCredits] = useState(null);
+  const [unlimitedExpiresAt, setUnlimitedExpiresAt] = useState('');
+  const [unlimitedReason, setUnlimitedReason] = useState('');
+  const [addCreditsAmount, setAddCreditsAmount] = useState(5);
+  const [addCreditsReason, setAddCreditsReason] = useState('');
+  const [savingCredits, setSavingCredits] = useState(false);
+
+  // Estados de Gestao de Créditos (Clientes)
+  const [clientCreditSearch, setClientCreditSearch] = useState('');
+  const [showClientGrantUnlimitedDialog, setShowClientGrantUnlimitedDialog] = useState(false);
+  const [showClientAddCreditsDialog, setShowClientAddCreditsDialog] = useState(false);
+  const [selectedClientForCredits, setSelectedClientForCredits] = useState(null);
+  const [clientUnlimitedExpiresAt, setClientUnlimitedExpiresAt] = useState('');
+  const [clientUnlimitedReason, setClientUnlimitedReason] = useState('');
+  const [clientAddCreditsAmount, setClientAddCreditsAmount] = useState(5);
+  const [clientAddCreditsReason, setClientAddCreditsReason] = useState('');
+  const [savingClientCredits, setSavingClientCredits] = useState(false);
+
   const queryClient = useQueryClient();
 
   // Redirect if not authenticated or not admin
@@ -83,16 +106,16 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Verificar role do user (agora já é setado no basicUser pelo email)
+      // Verificar role do user (agora já e setado no basicUser pelo email)
       if (user && user.role === 'admin') {
         // É admin, pode prosseguir
         setIsCheckingAdmin(false);
       } else if (user && user.role !== 'admin') {
-        // Não é admin, redirecionar
-        alert('Acesso negado. Apenas administradores podem acessar esta pagina.');
+        // Não e admin, redirecionar
+        alert('Acessó negado. Apenas administradores podem acessar está pagina.');
         window.location.href = '/';
       }
-      // Se user é null, aguardar
+      // Se user e null, aguardar
     }
   }, [isLoadingAuth, isAuthenticated, user, navigateToLogin]);
 
@@ -168,6 +191,20 @@ export default function AdminDashboard() {
     enabled: !!user && user.role === 'admin'
   });
 
+  // Credit Transactions Query (historico de créditos profissionais)
+  const { data: creditTransactions = [], isLoading: loadingCreditTransactions } = useQuery({
+    queryKey: ['admin-credit-transactions'],
+    queryFn: () => CreditsService.getAllTransactions(200),
+    enabled: !!user && user.role === 'admin'
+  });
+
+  // Client Credit Transactions Query (historico de créditos clientes)
+  const { data: clientCreditTransactions = [], isLoading: loadingClientCreditTransactions } = useQuery({
+    queryKey: ['admin-client-credit-transactions'],
+    queryFn: () => CreditsService.getAllClientTransactions(200),
+    enabled: !!user && user.role === 'admin'
+  });
+
   // Mutations
   const updateProfessionalMutation = useMutation({
     mutationFn: ({ id, data }) => Professional.update(id, data),
@@ -218,7 +255,7 @@ export default function AdminDashboard() {
   // Adicionar créditos manualmente a um usuário (centralizado na tabela profiles)
   const addClientCreditMutation = useMutation({
     mutationFn: async ({ id, credits }) => {
-      if (!id) throw new Error('ID do usuario nao encontrado');
+      if (!id) throw new Error('ID do usuario não encontrado');
       const profile = profiles.find(p => p.id === id);
       const newCredits = (profile?.referral_credits || 0) + credits;
       await Profile.update(id, { referral_credits: newCredits });
@@ -226,10 +263,10 @@ export default function AdminDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-profiles']);
-      alert('Creditos adicionados com sucesso!');
+      alert('Créditos adicionados com sucesso!');
     },
     onError: (error) => {
-      alert('Erro ao adicionar creditos: ' + error.message);
+      alert('Erro ao adicionar créditos: ' + error.message);
     }
   });
 
@@ -420,8 +457,8 @@ export default function AdminDashboard() {
 
   // Helper: Determinar tipo do indicador (professional se não definido)
   const getReferrerType = (referral) => {
-    // Se referrer_type é explicitamente 'client', é cliente
-    // Caso contrário, se tem referrer_professional_id, é profissional
+    // Se referrer_type e explicitamente 'client', e cliente
+    // Casó contrário, se tem referrer_professional_id, e profissional
     if (referral.referrer_type === 'client') return 'client';
     if (referral.referrer_professional_id) return 'professional';
     if (referral.referrer_user_id) return 'client';
@@ -567,7 +604,7 @@ export default function AdminDashboard() {
           start: new Date(now.getFullYear(), now.getMonth(), 1),
           end: new Date(now.getFullYear(), now.getMonth() + 1, 0)
         };
-      case 'ultimo_mes':
+      case 'último_mes':
         return {
           start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
           end: new Date(now.getFullYear(), now.getMonth(), 0)
@@ -912,7 +949,7 @@ export default function AdminDashboard() {
       'pessoal': 'Pessoal'
     };
 
-    const headers = ['Data', 'Descricao', 'Categoria', 'Valor', 'Recorrente', 'Observacoes'];
+    const headers = ['Data', 'Descrição', 'Categoria', 'Valor', 'Recorrente', 'Observacoes'];
     const rows = filtered.map(e => [
       new Date(e.date).toLocaleDateString('pt-BR'),
       `"${e.description}"`,
@@ -938,7 +975,7 @@ export default function AdminDashboard() {
 
     const periodLabel = {
       'este_mes': 'Este Mes',
-      'ultimo_mes': 'Ultimo Mes',
+      'último_mes': 'Ultimo Mes',
       '3_meses': 'Ultimos 3 Meses',
       'ano': 'Este Ano',
       'todos': 'Todo Periodo'
@@ -992,7 +1029,7 @@ export default function AdminDashboard() {
 
     const periodLabel = {
       'este_mes': 'Este Mes',
-      'ultimo_mes': 'Ultimo Mes',
+      'último_mes': 'Ultimo Mes',
       '3_meses': 'Ultimos 3 Meses',
       'ano': 'Este Ano',
       'todos': 'Todo Periodo'
@@ -1304,7 +1341,7 @@ export default function AdminDashboard() {
               {pendingChanges.length > 0 && (
                 <>
                   <Badge className="bg-orange-500 text-white px-4 py-2 text-sm">
-                    {pendingChanges.length} alteracoes pendentes
+                    {pendingChanges.length} alterações pendentes
                   </Badge>
                   <Button
                     onClick={() => setPublishConfirmDialog(true)}
@@ -1390,7 +1427,7 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="overview">Visao Geral</TabsTrigger>
             <TabsTrigger value="categories">Categorias</TabsTrigger>
             <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
@@ -1401,6 +1438,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="indicacoes" className="flex items-center gap-1">
               <Gift className="w-4 h-4" />
               Indicacoes
+            </TabsTrigger>
+            <TabsTrigger value="créditos" className="flex items-center gap-1">
+              <Coins className="w-4 h-4" />
+              Créditos
             </TabsTrigger>
           </TabsList>
 
@@ -1560,10 +1601,10 @@ export default function AdminDashboard() {
 
               {/* Seção Inferior */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Acesso Rapido */}
+                {/* Acessó Rapido */}
                 <Card className="border-0 shadow-sm bg-white">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-medium text-slate-700">Acesso Rapido</CardTitle>
+                    <CardTitle className="text-base font-medium text-slate-700">Acessó Rapido</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <button
@@ -1622,7 +1663,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="text-center p-4 bg-slate-50 rounded-xl">
                         <p className="text-2xl font-bold text-slate-800">{stats.totalCreditsAwarded}</p>
-                        <p className="text-xs text-slate-500 mt-1">Creditos Dados</p>
+                        <p className="text-xs text-slate-500 mt-1">Créditos Dados</p>
                       </div>
                       <div className="text-center p-4 bg-slate-50 rounded-xl">
                         <p className="text-2xl font-bold text-slate-800">
@@ -1861,7 +1902,7 @@ export default function AdminDashboard() {
                 <DialogHeader>
                   <DialogTitle className="text-red-600">Excluir Categoria</DialogTitle>
                   <DialogDescription>
-                    Tem certeza que deseja excluir a categoria "{categoryToDelete?.name}"? Esta ação não pode ser desfeita.
+                    Tem certeza que deseja excluir a categoria "{categoryToDelete?.name}"? Está ação não pode ser desfeita.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="flex justify-end gap-3 mt-4">
@@ -1974,7 +2015,7 @@ export default function AdminDashboard() {
                             <TableHead>Tipo</TableHead>
                             <TableHead>Pagante</TableHead>
                             <TableHead>Plano</TableHead>
-                            <TableHead>Creditos</TableHead>
+                            <TableHead>Créditos</TableHead>
                             <TableHead>Cadastro</TableHead>
                             <TableHead className="text-right">Acoes</TableHead>
                           </TableRow>
@@ -1986,7 +2027,7 @@ export default function AdminDashboard() {
                               ? professionals.find(p => p.user_id === user.id)
                               : null;
 
-                            // Verificar se é pagante
+                            // Verificar se e pagante
                             const isPaying = user.user_type === 'profissional'
                               ? prof?.plan_type && prof.plan_type !== 'free' && prof.plan_active
                               : user.subscription_active;
@@ -2180,7 +2221,7 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          {['este_mes', 'ultimo_mes', '3_meses', 'ano', 'todos'].map((period) => (
+                          {['este_mes', 'último_mes', '3_meses', 'ano', 'todos'].map((period) => (
                             <Button
                               key={period}
                               size="sm"
@@ -2193,7 +2234,7 @@ export default function AdminDashboard() {
                             >
                               {{
                                 'este_mes': 'Este Mes',
-                                'ultimo_mes': 'Ultimo Mes',
+                                'último_mes': 'Ultimo Mes',
                                 '3_meses': '3 Meses',
                                 'ano': 'Ano',
                                 'todos': 'Todos'
@@ -2520,7 +2561,7 @@ export default function AdminDashboard() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Data</TableHead>
-                                <TableHead>Descricao</TableHead>
+                                <TableHead>Descrição</TableHead>
                                 <TableHead>Categoria</TableHead>
                                 <TableHead>Valor</TableHead>
                                 <TableHead>Recorrente</TableHead>
@@ -2586,7 +2627,7 @@ export default function AdminDashboard() {
                                           variant="outline"
                                           className="text-red-500 hover:text-red-700"
                                           onClick={() => {
-                                            if (confirm('Excluir esta despesa?')) {
+                                            if (confirm('Excluir está despesa?')) {
                                               deleteExpenseMutation.mutate(expense.id);
                                             }
                                           }}
@@ -2833,7 +2874,7 @@ export default function AdminDashboard() {
                       <Gift className="w-6 h-6 text-slate-600" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Creditos</p>
+                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Créditos</p>
                       <p className="text-xl font-bold text-slate-800 mt-0.5">{stats.totalCreditsAwarded}</p>
                     </div>
                   </div>
@@ -2921,7 +2962,7 @@ export default function AdminDashboard() {
                             {getFilteredReferrals().length === 0 ? (
                               <TableRow>
                                 <TableCell colSpan={6} className="text-center text-slate-500 py-8">
-                                  Nenhuma indicacao encontrada
+                                  Nenhuma indicação encontrada
                                 </TableCell>
                               </TableRow>
                             ) : (
@@ -3018,7 +3059,7 @@ export default function AdminDashboard() {
                               </div>
                               <div className="text-right">
                                 <p className="font-bold text-purple-600">{referrer.credits}</p>
-                                <p className="text-xs text-slate-500">creditos</p>
+                                <p className="text-xs text-slate-500">créditos</p>
                               </div>
                               <Button
                                 size="sm"
@@ -3041,7 +3082,823 @@ export default function AdminDashboard() {
               </div>
             </div>
           </TabsContent>
+
+          {/* Credits Tab */}
+          <TabsContent value="créditos">
+            <div className="space-y-6">
+              {/* Header com busca */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Gestao de Créditos</h2>
+                  <p className="text-slate-500 text-sm">Gerencie créditos avulsos e infinitos dos profissionais</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      placeholder="Buscar profissional..."
+                      value={creditSearch}
+                      onChange={(e) => setCreditSearch(e.target.value)}
+                      className="pl-10 w-64"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Cards - Profissionais */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Infinity className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Profissionais c/ Infinito</p>
+                        <p className="text-xl font-bold text-slate-800">
+                          {professionals.filter(p => p.unlimited_credits).length}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <Coins className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Créditos Prof. Avulsos</p>
+                        <p className="text-xl font-bold text-slate-800">
+                          {professionals.reduce((sum, p) => sum + (p.credits_balance || 0), 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <Users className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Clientes c/ Infinito</p>
+                        <p className="text-xl font-bold text-slate-800">
+                          {profiles.filter(p => p.unlimited_credits && (p.user_type === 'cliente' || !p.user_type)).length}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <Coins className="w-5 h-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Créditos Clientes Avulsos</p>
+                        <p className="text-xl font-bold text-slate-800">
+                          {profiles.filter(p => p.user_type === 'cliente' || !p.user_type).reduce((sum, p) => sum + (p.credits_balance || 0), 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Lista de Profissionais */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Profissionais e Créditos
+                  </CardTitle>
+                  <CardDescription>Clique em um profissional para gerenciar seus créditos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingProfessionals ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Profissional</TableHead>
+                            <TableHead>Profissao</TableHead>
+                            <TableHead>Cidade</TableHead>
+                            <TableHead className="text-center">Créditos Avulsos</TableHead>
+                            <TableHead className="text-center">Créditos Infinitos</TableHead>
+                            <TableHead>Acoes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {professionals
+                            .filter(p =>
+                              !creditSearch ||
+                              p.name?.toLowerCase().includes(creditSearch.toLowerCase()) ||
+                              p.profession?.toLowerCase().includes(creditSearch.toLowerCase()) ||
+                              p.city?.toLowerCase().includes(creditSearch.toLowerCase())
+                            )
+                            .slice(0, 50)
+                            .map((prof) => (
+                              <TableRow key={prof.id}>
+                                <TableCell className="font-medium">{prof.name}</TableCell>
+                                <TableCell>{prof.profession}</TableCell>
+                                <TableCell>{prof.city}, {prof.state}</TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant="outline" className="min-w-[60px]">
+                                    {prof.credits_balance || 0}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {prof.unlimited_credits ? (
+                                    <Badge className="bg-purple-500">
+                                      <Infinity className="w-3 h-3 mr-1" />
+                                      {prof.unlimited_credits_expires_at
+                                        ? `Ate ${new Date(prof.unlimited_credits_expires_at).toLocaleDateString('pt-BR')}`
+                                        : 'Permanente'
+                                      }
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-slate-400">
+                                      Inativo
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setSelectedProfessionalForCredits(prof);
+                                        setAddCreditsAmount(5);
+                                        setAddCreditsReason('');
+                                        setShowAddCreditsDialog(true);
+                                      }}
+                                    >
+                                      <Plus className="w-4 h-4 mr-1" />
+                                      Créditos
+                                    </Button>
+                                    {prof.unlimited_credits ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-red-600 hover:bg-red-50"
+                                        onClick={async () => {
+                                          if (!confirm(`Revogar créditos infinitos de ${prof.name}?`)) return;
+                                          setSavingCredits(true);
+                                          try {
+                                            await CreditsService.revokeUnlimited(
+                                              prof.id,
+                                              'Revogado pelo admin',
+                                              user.id
+                                            );
+                                            queryClient.invalidateQueries(['admin-professionals']);
+                                            queryClient.invalidateQueries(['admin-credit-transactions']);
+                                          } catch (err) {
+                                            alert('Erro ao revogar: ' + err.message);
+                                          }
+                                          setSavingCredits(false);
+                                        }}
+                                        disabled={savingCredits}
+                                      >
+                                        <XCircle className="w-4 h-4 mr-1" />
+                                        Revogar
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        className="bg-purple-500 hover:bg-purple-600"
+                                        onClick={() => {
+                                          setSelectedProfessionalForCredits(prof);
+                                          setUnlimitedExpiresAt('');
+                                          setUnlimitedReason('');
+                                          setShowGrantUnlimitedDialog(true);
+                                        }}
+                                      >
+                                        <Infinity className="w-4 h-4 mr-1" />
+                                        Infinito
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Clientes e Créditos */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-blue-500" />
+                        Clientes e Créditos
+                      </CardTitle>
+                      <CardDescription>Gerencie créditos dos clientes</CardDescription>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input
+                        placeholder="Buscar cliente..."
+                        value={clientCreditSearch}
+                        onChange={(e) => setClientCreditSearch(e.target.value)}
+                        className="pl-10 w-48"
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingProfiles ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto" />
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Cliente</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Cidade</TableHead>
+                            <TableHead className="text-center">Créditos Avulsos</TableHead>
+                            <TableHead className="text-center">Créditos Infinitos</TableHead>
+                            <TableHead>Acoes</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {profiles
+                            .filter(p => p.user_type === 'cliente' || !p.user_type)
+                            .filter(p =>
+                              !clientCreditSearch ||
+                              p.full_name?.toLowerCase().includes(clientCreditSearch.toLowerCase()) ||
+                              p.email?.toLowerCase().includes(clientCreditSearch.toLowerCase()) ||
+                              p.city?.toLowerCase().includes(clientCreditSearch.toLowerCase())
+                            )
+                            .slice(0, 30)
+                            .map((client) => (
+                              <TableRow key={client.id}>
+                                <TableCell className="font-medium">{client.full_name || 'Sem nome'}</TableCell>
+                                <TableCell className="text-sm text-slate-500">{client.email}</TableCell>
+                                <TableCell>{client.city ? `${client.city}, ${client.state}` : '-'}</TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant="outline" className="min-w-[60px]">
+                                    {client.credits_balance || 0}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {client.unlimited_credits ? (
+                                    <Badge className="bg-purple-500">
+                                      <Infinity className="w-3 h-3 mr-1" />
+                                      {client.unlimited_credits_expires_at
+                                        ? `Ate ${new Date(client.unlimited_credits_expires_at).toLocaleDateString('pt-BR')}`
+                                        : 'Permanente'
+                                      }
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-slate-400">
+                                      Inativo
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setSelectedClientForCredits(client);
+                                        setClientAddCreditsAmount(5);
+                                        setClientAddCreditsReason('');
+                                        setShowClientAddCreditsDialog(true);
+                                      }}
+                                    >
+                                      <Plus className="w-4 h-4 mr-1" />
+                                      Créditos
+                                    </Button>
+                                    {client.unlimited_credits ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-red-600 hover:bg-red-50"
+                                        onClick={async () => {
+                                          if (!confirm(`Revogar créditos infinitos de ${client.full_name || client.email}?`)) return;
+                                          setSavingClientCredits(true);
+                                          try {
+                                            await CreditsService.revokeClientUnlimited(
+                                              client.id,
+                                              'Revogado pelo admin',
+                                              user.id
+                                            );
+                                            queryClient.invalidateQueries(['admin-profiles']);
+                                            queryClient.invalidateQueries(['admin-client-credit-transactions']);
+                                          } catch (err) {
+                                            alert('Erro ao revogar: ' + err.message);
+                                          }
+                                          setSavingClientCredits(false);
+                                        }}
+                                        disabled={savingClientCredits}
+                                      >
+                                        <XCircle className="w-4 h-4 mr-1" />
+                                        Revogar
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        className="bg-purple-500 hover:bg-purple-600"
+                                        onClick={() => {
+                                          setSelectedClientForCredits(client);
+                                          setClientUnlimitedExpiresAt('');
+                                          setClientUnlimitedReason('');
+                                          setShowClientGrantUnlimitedDialog(true);
+                                        }}
+                                      >
+                                        <Infinity className="w-4 h-4 mr-1" />
+                                        Infinito
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Historico de Transacoes (Profissionais) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    Historico de Transacoes (Profissionais)
+                  </CardTitle>
+                  <CardDescription>Ultimas transacoes de créditos de profissionais</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingCreditTransactions ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+                    </div>
+                  ) : creditTransactions.length === 0 ? (
+                    <p className="text-center text-slate-500 py-8">Nenhuma transacao encontrada</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Profissional</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead className="text-center">Qtd</TableHead>
+                            <TableHead>Motivo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {creditTransactions.slice(0, 30).map((tx) => (
+                            <TableRow key={tx.id}>
+                              <TableCell>
+                                {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {tx.professionals?.name || 'N/A'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={
+                                  tx.transaction_type === 'grant_unlimited' ? 'bg-purple-500' :
+                                  tx.transaction_type === 'revoke_unlimited' ? 'bg-red-500' :
+                                  tx.transaction_type === 'add_credits' ? 'bg-green-500' :
+                                  tx.transaction_type === 'use_credit' ? 'bg-blue-500' :
+                                  tx.transaction_type === 'purchase_credits' ? 'bg-orange-500' :
+                                  'bg-slate-500'
+                                }>
+                                  {tx.transaction_type === 'grant_unlimited' && 'Infinito Liberado'}
+                                  {tx.transaction_type === 'revoke_unlimited' && 'Infinito Revogado'}
+                                  {tx.transaction_type === 'add_credits' && 'Créditos Adicionados'}
+                                  {tx.transaction_type === 'use_credit' && 'Crédito Usado'}
+                                  {tx.transaction_type === 'purchase_credits' && 'Compra'}
+                                  {tx.transaction_type === 'expire_unlimited' && 'Expirado'}
+                                  {tx.transaction_type === 'refund_credit' && 'Estorno'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {tx.amount !== 0 && (
+                                  <span className={tx.amount > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                                    {tx.amount > 0 ? '+' : ''}{tx.amount}
+                                  </span>
+                                )}
+                                {tx.unlimited_after && (
+                                  <Infinity className="w-4 h-4 inline ml-1 text-purple-500" />
+                                )}
+                              </TableCell>
+                              <TableCell className="max-w-[200px] truncate">
+                                {tx.reason || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Historico de Transacoes (Clientes) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5 text-blue-500" />
+                    Historico de Transacoes (Clientes)
+                  </CardTitle>
+                  <CardDescription>Ultimas transacoes de créditos de clientes</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingClientCreditTransactions ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto" />
+                    </div>
+                  ) : clientCreditTransactions.length === 0 ? (
+                    <p className="text-center text-slate-500 py-8">Nenhuma transacao de cliente encontrada</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Cliente</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead className="text-center">Qtd</TableHead>
+                            <TableHead>Motivo</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientCreditTransactions.slice(0, 30).map((tx) => {
+                            const client = profiles.find(p => p.id === tx.user_id);
+                            return (
+                              <TableRow key={tx.id}>
+                                <TableCell>
+                                  {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  {client?.full_name || client?.email || 'N/A'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className={
+                                    tx.transaction_type === 'grant_unlimited' ? 'bg-purple-500' :
+                                    tx.transaction_type === 'revoke_unlimited' ? 'bg-red-500' :
+                                    tx.transaction_type === 'add_credits' ? 'bg-green-500' :
+                                    tx.transaction_type === 'use_credit' ? 'bg-blue-500' :
+                                    tx.transaction_type === 'purchase_credits' ? 'bg-orange-500' :
+                                    'bg-slate-500'
+                                  }>
+                                    {tx.transaction_type === 'grant_unlimited' && 'Infinito Liberado'}
+                                    {tx.transaction_type === 'revoke_unlimited' && 'Infinito Revogado'}
+                                    {tx.transaction_type === 'add_credits' && 'Créditos Adicionados'}
+                                    {tx.transaction_type === 'use_credit' && 'Crédito Usado'}
+                                    {tx.transaction_type === 'purchase_credits' && 'Compra'}
+                                    {tx.transaction_type === 'expire_unlimited' && 'Expirado'}
+                                    {tx.transaction_type === 'refund_credit' && 'Estorno'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {tx.amount !== 0 && (
+                                    <span className={tx.amount > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                                      {tx.amount > 0 ? '+' : ''}{tx.amount}
+                                    </span>
+                                  )}
+                                  {tx.unlimited_after && (
+                                    <Infinity className="w-4 h-4 inline ml-1 text-purple-500" />
+                                  )}
+                                </TableCell>
+                                <TableCell className="max-w-[200px] truncate">
+                                  {tx.reason || '-'}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
+
+        {/* Grant Unlimited Credits Dialog */}
+        <Dialog open={showGrantUnlimitedDialog} onOpenChange={setShowGrantUnlimitedDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Infinity className="w-5 h-5 text-purple-500" />
+                Liberar Créditos Infinitos
+              </DialogTitle>
+              <DialogDescription>
+                Liberar créditos infinitos para {selectedProfessionalForCredits?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Data de Expiracao (opcional)</Label>
+                <Input
+                  type="date"
+                  value={unlimitedExpiresAt}
+                  onChange={(e) => setUnlimitedExpiresAt(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Deixe em branco para créditos infinitos permanentes
+                </p>
+              </div>
+              <div>
+                <Label>Motivo *</Label>
+                <Textarea
+                  value={unlimitedReason}
+                  onChange={(e) => setUnlimitedReason(e.target.value)}
+                  placeholder="Ex: Teste gratis por 30 dias, Promocao especial..."
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowGrantUnlimitedDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-purple-500 hover:bg-purple-600"
+                disabled={!unlimitedReason || savingCredits}
+                onClick={async () => {
+                  setSavingCredits(true);
+                  try {
+                    const expiresAt = unlimitedExpiresAt
+                      ? new Date(unlimitedExpiresAt + 'T23:59:59').toISOString()
+                      : null;
+                    await CreditsService.grantUnlimited(
+                      selectedProfessionalForCredits.id,
+                      expiresAt,
+                      unlimitedReason,
+                      user.id
+                    );
+                    queryClient.invalidateQueries(['admin-professionals']);
+                    queryClient.invalidateQueries(['admin-credit-transactions']);
+                    setShowGrantUnlimitedDialog(false);
+                  } catch (err) {
+                    alert('Erro: ' + err.message);
+                  }
+                  setSavingCredits(false);
+                }}
+              >
+                {savingCredits ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Infinity className="w-4 h-4 mr-2" />
+                )}
+                Liberar Infinito
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Credits Dialog */}
+        <Dialog open={showAddCreditsDialog} onOpenChange={setShowAddCreditsDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-green-500" />
+                Adicionar Créditos Avulsos
+              </DialogTitle>
+              <DialogDescription>
+                Adicionar créditos para {selectedProfessionalForCredits?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Saldo Atual</Label>
+                <p className="text-2xl font-bold text-slate-800">
+                  {selectedProfessionalForCredits?.credits_balance || 0} créditos
+                </p>
+              </div>
+              <div>
+                <Label>Quantidade a Adicionar *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={addCreditsAmount}
+                  onChange={(e) => setAddCreditsAmount(parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <Label>Motivo *</Label>
+                <Textarea
+                  value={addCreditsReason}
+                  onChange={(e) => setAddCreditsReason(e.target.value)}
+                  placeholder="Ex: Bonus promocional, Compensacao..."
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowAddCreditsDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-green-500 hover:bg-green-600"
+                disabled={!addCreditsReason || addCreditsAmount <= 0 || savingCredits}
+                onClick={async () => {
+                  setSavingCredits(true);
+                  try {
+                    await CreditsService.addCredits(
+                      selectedProfessionalForCredits.id,
+                      addCreditsAmount,
+                      addCreditsReason,
+                      user.id
+                    );
+                    queryClient.invalidateQueries(['admin-professionals']);
+                    queryClient.invalidateQueries(['admin-credit-transactions']);
+                    setShowAddCreditsDialog(false);
+                  } catch (err) {
+                    alert('Erro: ' + err.message);
+                  }
+                  setSavingCredits(false);
+                }}
+              >
+                {savingCredits ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Adicionar {addCreditsAmount} Créditos
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Client Grant Unlimited Credits Dialog */}
+        <Dialog open={showClientGrantUnlimitedDialog} onOpenChange={setShowClientGrantUnlimitedDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Infinity className="w-5 h-5 text-purple-500" />
+                Liberar Créditos Infinitos (Cliente)
+              </DialogTitle>
+              <DialogDescription>
+                Liberar créditos infinitos para {selectedClientForCredits?.full_name || selectedClientForCredits?.email}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Data de Expiracao (opcional)</Label>
+                <Input
+                  type="date"
+                  value={clientUnlimitedExpiresAt}
+                  onChange={(e) => setClientUnlimitedExpiresAt(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Deixe em branco para créditos infinitos permanentes
+                </p>
+              </div>
+              <div>
+                <Label>Motivo *</Label>
+                <Textarea
+                  value={clientUnlimitedReason}
+                  onChange={(e) => setClientUnlimitedReason(e.target.value)}
+                  placeholder="Ex: Teste gratis por 30 dias, Promocao especial..."
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowClientGrantUnlimitedDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-purple-500 hover:bg-purple-600"
+                disabled={!clientUnlimitedReason || savingClientCredits}
+                onClick={async () => {
+                  setSavingClientCredits(true);
+                  try {
+                    const expiresAt = clientUnlimitedExpiresAt
+                      ? new Date(clientUnlimitedExpiresAt + 'T23:59:59').toISOString()
+                      : null;
+                    await CreditsService.grantClientUnlimited(
+                      selectedClientForCredits.id,
+                      expiresAt,
+                      clientUnlimitedReason,
+                      user.id
+                    );
+                    queryClient.invalidateQueries(['admin-profiles']);
+                    queryClient.invalidateQueries(['admin-client-credit-transactions']);
+                    setShowClientGrantUnlimitedDialog(false);
+                  } catch (err) {
+                    alert('Erro: ' + err.message);
+                  }
+                  setSavingClientCredits(false);
+                }}
+              >
+                {savingClientCredits ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Infinity className="w-4 h-4 mr-2" />
+                )}
+                Liberar Infinito
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Client Add Credits Dialog */}
+        <Dialog open={showClientAddCreditsDialog} onOpenChange={setShowClientAddCreditsDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-green-500" />
+                Adicionar Créditos (Cliente)
+              </DialogTitle>
+              <DialogDescription>
+                Adicionar créditos para {selectedClientForCredits?.full_name || selectedClientForCredits?.email}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Saldo Atual</Label>
+                <p className="text-2xl font-bold text-slate-800">
+                  {selectedClientForCredits?.credits_balance || 0} créditos
+                </p>
+              </div>
+              <div>
+                <Label>Quantidade a Adicionar *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={clientAddCreditsAmount}
+                  onChange={(e) => setClientAddCreditsAmount(parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <Label>Motivo *</Label>
+                <Textarea
+                  value={clientAddCreditsReason}
+                  onChange={(e) => setClientAddCreditsReason(e.target.value)}
+                  placeholder="Ex: Bonus promocional, Compensacao..."
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowClientAddCreditsDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-green-500 hover:bg-green-600"
+                disabled={!clientAddCreditsReason || clientAddCreditsAmount <= 0 || savingClientCredits}
+                onClick={async () => {
+                  setSavingClientCredits(true);
+                  try {
+                    await CreditsService.addClientCredits(
+                      selectedClientForCredits.id,
+                      clientAddCreditsAmount,
+                      clientAddCreditsReason,
+                      user.id
+                    );
+                    queryClient.invalidateQueries(['admin-profiles']);
+                    queryClient.invalidateQueries(['admin-client-credit-transactions']);
+                    setShowClientAddCreditsDialog(false);
+                  } catch (err) {
+                    alert('Erro: ' + err.message);
+                  }
+                  setSavingClientCredits(false);
+                }}
+              >
+                {savingClientCredits ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Adicionar {clientAddCreditsAmount} Créditos
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Category Dialog */}
         <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
@@ -3083,7 +3940,7 @@ export default function AdminDashboard() {
                     <SelectItem value="Construcao, Reforma e Estrutura">Construcao, Reforma e Estrutura</SelectItem>
                     <SelectItem value="Eletrica, Hidraulica e Climatizacao">Eletrica, Hidraulica e Climatizacao</SelectItem>
                     <SelectItem value="Limpeza, Manutencao e Conservacao">Limpeza, Manutencao e Conservacao</SelectItem>
-                    <SelectItem value="Madeira, Moveis e Acabamentos">Madeira, Moveis e Acabamentos</SelectItem>
+                    <SelectItem value="Madeira, Móveis e Acabamentos">Madeira, Móveis e Acabamentos</SelectItem>
                     <SelectItem value="Maquinas, Terraplanagem e Logistica">Maquinas, Terraplanagem e Logistica</SelectItem>
                     <SelectItem value="Fornecedores e Materiais">Fornecedores e Materiais</SelectItem>
                     <SelectItem value="Projetos e Engenharia">Projetos e Engenharia</SelectItem>
@@ -3104,7 +3961,7 @@ export default function AdminDashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="home">Home</SelectItem>
-                    <SelectItem value="other_services">Outros Servicos</SelectItem>
+                    <SelectItem value="other_services">Outros Serviços</SelectItem>
                     <SelectItem value="both">Ambos</SelectItem>
                   </SelectContent>
                 </Select>
@@ -3159,7 +4016,7 @@ export default function AdminDashboard() {
             <DialogHeader>
               <DialogTitle>Confirmar Publicacao</DialogTitle>
               <DialogDescription>
-                Voce tem {pendingChanges.length} alteracoes pendentes. Deseja publicar todas?
+                Você tem {pendingChanges.length} alterações pendentes. Deseja publicar todas?
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -3207,7 +4064,7 @@ export default function AdminDashboard() {
                   <span className="font-semibold text-blue-900">Funcionalidade em Desenvolvimento</span>
                 </div>
                 <p className="text-sm text-blue-700">
-                  O historico de alteracoes estara disponivel em breve. Por enquanto, todas as mudancas sao aplicadas imediatamente apos a publicacao.
+                  O historico de alterações estará disponível em breve. Por enquanto, todas as mudancas sao aplicadas imediatamente após a publicacao.
                 </p>
               </div>
             </div>
@@ -3316,7 +4173,7 @@ export default function AdminDashboard() {
             </DialogHeader>
             <form onSubmit={handleSaveExpense} className="space-y-4">
               <div>
-                <Label>Descricao *</Label>
+                <Label>Descrição *</Label>
                 <Input
                   name="description"
                   defaultValue={editingExpense?.description}
@@ -3449,9 +4306,9 @@ export default function AdminDashboard() {
         <Dialog open={showAddCreditDialog} onOpenChange={setShowAddCreditDialog}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Adicionar Creditos</DialogTitle>
+              <DialogTitle>Adicionar Créditos</DialogTitle>
               <DialogDescription>
-                Adicione creditos de indicacao manualmente
+                Adicione créditos de indicação manualmente
               </DialogDescription>
             </DialogHeader>
             {selectedReferrer && (
@@ -3465,12 +4322,12 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="bg-orange-50 p-4 rounded-lg">
-                  <Label className="text-slate-500 text-sm">Creditos Atuais</Label>
+                  <Label className="text-slate-500 text-sm">Créditos Atuais</Label>
                   <p className="font-bold text-2xl text-orange-600">{selectedReferrer.credits}</p>
                 </div>
 
                 <div>
-                  <Label>Quantidade de Creditos a Adicionar</Label>
+                  <Label>Quantidade de Créditos a Adicionar</Label>
                   <div className="flex items-center gap-2 mt-2">
                     <Button
                       type="button"
@@ -3506,7 +4363,7 @@ export default function AdminDashboard() {
                     className="bg-orange-500 hover:bg-orange-600"
                     onClick={() => {
                       if (!selectedReferrer?.id) {
-                        alert('Erro: ID do usuario nao encontrado');
+                        alert('Erro: ID do usuario não encontrado');
                         return;
                       }
 
@@ -3519,7 +4376,7 @@ export default function AdminDashboard() {
                     }}
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Adicionar {creditAmount} Credito{creditAmount > 1 ? 's' : ''}
+                    Adicionar {creditAmount} Crédito{creditAmount > 1 ? 's' : ''}
                   </Button>
                 </div>
               </div>

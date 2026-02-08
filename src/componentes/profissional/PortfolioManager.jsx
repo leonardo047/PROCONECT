@@ -230,7 +230,7 @@ export default function PortfolioManager({ professionalId, professional }) {
 
   const handleCreate = () => {
     if (!formData.title.trim()) {
-      alert('O titulo do trabalho e obrigatorio.');
+      alert('O titulo do trabalho é obrigatório.');
       return;
     }
     if (formData.photos.length === 0) {
@@ -258,7 +258,7 @@ export default function PortfolioManager({ professionalId, professional }) {
 
   const handleUpdate = () => {
     if (!formData.title.trim()) {
-      alert('O titulo do trabalho e obrigatorio.');
+      alert('O titulo do trabalho é obrigatório.');
       return;
     }
     updateMutation.mutate({
@@ -296,10 +296,10 @@ export default function PortfolioManager({ professionalId, professional }) {
             <Lock className="w-8 h-8 text-orange-500" />
           </div>
           <h3 className="text-xl font-bold text-slate-900 mb-2">
-            Recurso Exclusivo para Assinantes
+            Recursó Exclusivo para Assinantes
           </h3>
           <p className="text-slate-600 mb-6 max-w-md mx-auto">
-            O Portfolio de Trabalhos permite que voce mostre seus melhores projetos
+            O Portfolio de Trabalhos permite que você mostre seus melhores projetos
             para potenciais clientes. Assine um plano para desbloquear este recurso.
           </p>
           <Button
@@ -497,7 +497,7 @@ export default function PortfolioManager({ professionalId, professional }) {
             </div>
 
             <div>
-              <Label>Tipo de Servico</Label>
+              <Label>Tipo de Serviço</Label>
               <Input
                 value={formData.service_type}
                 onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
@@ -507,7 +507,7 @@ export default function PortfolioManager({ professionalId, professional }) {
             </div>
 
             <div>
-              <Label>Descricao do Trabalho</Label>
+              <Label>Descrição do Trabalho</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -622,7 +622,7 @@ export default function PortfolioManager({ professionalId, professional }) {
             </div>
 
             <div>
-              <Label>Tipo de Servico</Label>
+              <Label>Tipo de Serviço</Label>
               <Input
                 value={formData.service_type}
                 onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
@@ -631,7 +631,7 @@ export default function PortfolioManager({ professionalId, professional }) {
             </div>
 
             <div>
-              <Label>Descricao do Trabalho</Label>
+              <Label>Descrição do Trabalho</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -690,7 +690,7 @@ export default function PortfolioManager({ professionalId, professional }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Trabalho?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acao nao pode ser desfeita. O trabalho e todas as suas fotos serao excluidos permanentemente.
+              Está acao não pode ser desfeita. O trabalho e todas as suas fotos serão excluidos permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

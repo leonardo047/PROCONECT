@@ -28,6 +28,8 @@ import CancelSubscriptionDialog from "@/componentes/assinatura/CancelSubscriptio
 import JobOpportunityManager from "@/componentes/profissional/JobOpportunityManager";
 import PortfolioManager from "@/componentes/profissional/PortfolioManager";
 import AvatarUpload from "@/componentes/comum/AvatarUpload";
+import CreditStatusCard from "@/componentes/profissional/CreditStatusCard";
+import BuyCreditsModal from "@/componentes/profissional/BuyCreditsModal";
 
 const PHOTO_LIMITS = { MIN: 1, MAX: 1 };
 
@@ -37,7 +39,7 @@ const states = [
   { value: "BA", label: "Bahia" }, { value: "CE", label: "Ceara" },
   { value: "DF", label: "Distrito Federal" }, { value: "ES", label: "Espirito Santo" },
   { value: "GO", label: "Goias" }, { value: "MA", label: "Maranhao" },
-  { value: "MT", label: "Mato Grosso" }, { value: "MS", label: "Mato Grosso do Sul" },
+  { value: "MT", label: "Mato Grosso" }, { value: "MS", label: "Mato Grossó do Sul" },
   { value: "MG", label: "Minas Gerais" }, { value: "PA", label: "Para" },
   { value: "PB", label: "Paraiba" }, { value: "PR", label: "Parana" },
   { value: "PE", label: "Pernambuco" }, { value: "PI", label: "Piaui" },
@@ -60,6 +62,7 @@ export default function ProfessionalDashboard() {
   const [cancellingPlan, setCancellingPlan] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [pendingAvatarFile, setPendingAvatarFile] = useState(null); // Arquivo de avatar aguardando upload
+  const [buyCreditsOpen, setBuyCreditsOpen] = useState(false); // Modal de compra de créditos
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -135,7 +138,7 @@ export default function ProfessionalDashboard() {
     });
 
     // Ordenar grupos - construção primeiro
-    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+    const sortedGroupNamês = Object.keys(groups).sort((a, b) => {
       const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
       const aIsHome = homeGroups.some(g => a.includes(g));
       const bIsHome = homeGroups.some(g => b.includes(g));
@@ -145,7 +148,7 @@ export default function ProfessionalDashboard() {
     });
 
     // Adicionar cada grupo com header
-    sortedGroupNames.forEach(groupName => {
+    sortedGroupNamês.forEach(groupName => {
       // Adicionar header do grupo (disabled)
       const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
       const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
@@ -450,6 +453,14 @@ export default function ProfessionalDashboard() {
           </Card>
         </div>
 
+        {/* Card de Créditos */}
+        <div className="mb-8">
+          <CreditStatusCard
+            professionalId={professional?.id}
+            onBuyCredits={() => setBuyCreditsOpen(true)}
+          />
+        </div>
+
         {/* Info Box e Link do Perfil - Profissionais Gratis */}
         {professional.plan_type === 'free' && (
           <>
@@ -459,12 +470,12 @@ export default function ProfessionalDashboard() {
                 <div>
                   <p className="font-bold text-lg text-green-900 mb-2">Perfil Gratuito Ativo!</p>
                   <p className="text-green-700 mb-3">
-                    Seu perfil esta visivel e clientes podem te encontrar. Voce so paga quando receber contatos!
+                    Seu perfil está visível e clientes podem te encontrar. Você só paga quando receber contatos!
                   </p>
                   <ul className="text-sm text-green-700 space-y-1.5">
-                    <li>R$ 3,69 por contato (pague so quando necessario)</li>
+                    <li>R$ 3,69 por contato (pague só quando necessário)</li>
                     <li>Ou assine R$ 36,93 por 3 meses (ate 10 contatos/mes)</li>
-                    <li>Sem compromisso ou mensalidade fixa</li>
+                    <li>Sem compromissó ou mensalidade fixa</li>
                   </ul>
                 </div>
               </div>
@@ -477,7 +488,7 @@ export default function ProfessionalDashboard() {
                 <div className="flex-1">
                   <p className="font-bold text-lg text-blue-900 mb-2">Seus Links</p>
                   <p className="text-blue-700 mb-4">
-                    Compartilhe seus links e ganhe creditos na plataforma!
+                    Compartilhe seus links e ganhe créditos na plataforma!
                   </p>
 
                   {/* Link do Perfil */}
@@ -486,7 +497,7 @@ export default function ProfessionalDashboard() {
                       <User className="w-4 h-4 text-blue-500" />
                       <p className="text-sm text-slate-700 font-semibold">Link do Perfil</p>
                     </div>
-                    <p className="text-xs text-slate-500 mb-2">Este e o perfil que clientes veem quando te encontram na busca.</p>
+                    <p className="text-xs text-slate-500 mb-2">Este é o perfil que clientes veem quando te encontram na busca.</p>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
@@ -516,15 +527,15 @@ export default function ProfessionalDashboard() {
                     </Button>
                   </div>
 
-                  {/* Link de Indicacao */}
+                  {/* Link de Indicação */}
                   {professional.referral_code && (
                     <div className="bg-white rounded-lg p-4 border border-green-200">
                       <div className="flex items-center gap-2 mb-2">
                         <Gift className="w-4 h-4 text-green-500" />
-                        <p className="text-sm text-slate-700 font-semibold">Link de Indicacao</p>
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+1 credito por indicacao</span>
+                        <p className="text-sm text-slate-700 font-semibold">Link de Indicação</p>
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+1 crédito por indicação</span>
                       </div>
-                      <p className="text-xs text-slate-500 mb-2">Compartilhe e ganhe 1 credito para cada pessoa que se cadastrar!</p>
+                      <p className="text-xs text-slate-500 mb-2">Compartilhe e ganhe 1 crédito para cada pessoa que se cadastrar!</p>
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
@@ -550,7 +561,7 @@ export default function ProfessionalDashboard() {
                           variant="outline"
                           className="flex-1 text-green-600 border-green-300 hover:bg-green-50"
                           onClick={() => {
-                            const text = `Ola! Estou usando o ConectPro para divulgar meus servicos. Cadastre-se tambem usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
+                            const text = `Ola! Estou usando o ConectPro para divulgar meus serviços. Cadastre-se também usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
                             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                           }}
                         >
@@ -558,7 +569,7 @@ export default function ProfessionalDashboard() {
                           WhatsApp
                         </Button>
                         <div className="text-xs text-slate-500">
-                          Creditos: <span className="font-bold text-green-600">{professional.referral_credits || 0}</span>
+                          Créditos: <span className="font-bold text-green-600">{professional.referral_credits || 0}</span>
                         </div>
                       </div>
                     </div>
@@ -579,7 +590,7 @@ export default function ProfessionalDashboard() {
               <div className="flex-1">
                 <p className="font-bold text-lg text-purple-900 mb-2">Seus Links</p>
                 <p className="text-purple-700 mb-4">
-                  Compartilhe seus links e ganhe creditos na plataforma!
+                  Compartilhe seus links e ganhe créditos na plataforma!
                 </p>
 
                 {/* Link do Portfolio */}
@@ -588,7 +599,7 @@ export default function ProfessionalDashboard() {
                     <Sparkles className="w-4 h-4 text-purple-500" />
                     <p className="text-sm text-slate-700 font-semibold">Link do Portfolio</p>
                   </div>
-                  <p className="text-xs text-slate-500 mb-2">Este e o perfil que clientes veem quando te encontram na busca.</p>
+                  <p className="text-xs text-slate-500 mb-2">Este é o perfil que clientes veem quando te encontram na busca.</p>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
@@ -618,15 +629,15 @@ export default function ProfessionalDashboard() {
                   </Button>
                 </div>
 
-                {/* Link de Indicacao */}
+                {/* Link de Indicação */}
                 {professional.referral_code && (
                   <div className="bg-white rounded-lg p-4 border border-green-200">
                     <div className="flex items-center gap-2 mb-2">
                       <Gift className="w-4 h-4 text-green-500" />
-                      <p className="text-sm text-slate-700 font-semibold">Link de Indicacao</p>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+1 credito por indicacao</span>
+                      <p className="text-sm text-slate-700 font-semibold">Link de Indicação</p>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+1 crédito por indicação</span>
                     </div>
-                    <p className="text-xs text-slate-500 mb-2">Compartilhe e ganhe 1 credito para cada pessoa que se cadastrar!</p>
+                    <p className="text-xs text-slate-500 mb-2">Compartilhe e ganhe 1 crédito para cada pessoa que se cadastrar!</p>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
@@ -652,7 +663,7 @@ export default function ProfessionalDashboard() {
                         variant="outline"
                         className="flex-1 text-green-600 border-green-300 hover:bg-green-50"
                         onClick={() => {
-                          const text = `Ola! Estou usando o ConectPro para divulgar meus servicos. Cadastre-se tambem usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
+                          const text = `Ola! Estou usando o ConectPro para divulgar meus serviços. Cadastre-se também usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                         }}
                       >
@@ -660,7 +671,7 @@ export default function ProfessionalDashboard() {
                         WhatsApp
                       </Button>
                       <div className="text-xs text-slate-500">
-                        Creditos: <span className="font-bold text-green-600">{professional.referral_credits || 0}</span>
+                        Créditos: <span className="font-bold text-green-600">{professional.referral_credits || 0}</span>
                       </div>
                     </div>
                   </div>
@@ -695,13 +706,13 @@ export default function ProfessionalDashboard() {
                   <p className="text-slate-600 mb-2">
                     {professional?.plan_type !== 'free' && professional?.plan_active
                       ? 'Gerencie seus projetos e mostre seus melhores trabalhos para clientes'
-                      : 'Mostre seus projetos e aumente em ate 40% sua taxa de conversao na plataforma'}
+                      : 'Mostre seus projetos e aumente em até 40% sua taxa de conversão na plataforma'}
                   </p>
                   {professional?.plan_type === 'free' && (
                     <div className="flex items-center gap-2 text-sm">
                       <div className="flex items-center gap-1 text-green-600 font-medium">
                         <CheckCircle className="w-4 h-4" />
-                        <span>+40% conversao</span>
+                        <span>+40% conversão</span>
                       </div>
                       <span className="text-slate-400">|</span>
                       <span className="text-slate-500">Ate 3 projetos com 5 fotos cada</span>
@@ -758,7 +769,7 @@ export default function ProfessionalDashboard() {
         <Tabs defaultValue="account" className="space-y-6">
           <TabsList className="bg-white shadow-sm border flex-wrap">
             <TabsTrigger value="account">Minha Conta</TabsTrigger>
-            <TabsTrigger value="quotes">Orcamentos</TabsTrigger>
+            <TabsTrigger value="quotes">Orçamentos</TabsTrigger>
             <TabsTrigger value="reviews">Avaliacoes</TabsTrigger>
             <TabsTrigger value="schedule">Agenda</TabsTrigger>
             <TabsTrigger value="opportunities">Oportunidades</TabsTrigger>
@@ -815,7 +826,7 @@ export default function ProfessionalDashboard() {
                   <div className="flex-1">
                     <h3 className="font-medium text-slate-900 mb-1">Foto de Perfil</h3>
                     <p className="text-sm text-muted-foreground mb-3">
-                      Esta foto aparece nos resultados de busca e no seu perfil público.
+                      Está foto aparece nos resultados de busca e no seu perfil público.
                       Recomendamos uma foto profissional com boa iluminação.
                     </p>
                     <div className="text-xs text-muted-foreground">
@@ -914,25 +925,25 @@ export default function ProfessionalDashboard() {
                 </div>
 
                 <div>
-                  <Label className="text-orange-700 font-semibold">Descricao Pessoal *</Label>
+                  <Label className="text-orange-700 font-semibold">Descrição Pessoal *</Label>
                   <Textarea
                     value={formData.personal_description}
                     onChange={(e) => setFormData({ ...formData, personal_description: e.target.value })}
-                    placeholder="Conte sobre voce, sua historia profissional, como voce trabalha e o que te motiva..."
+                    placeholder="Conte sobre você, sua história profissional, como você trabalha e o que te motiva..."
                     className="mt-1 min-h-[120px] border-orange-200 focus:border-orange-400"
                     required
                   />
                   <p className="text-xs text-orange-600 mt-1 font-medium">
-                    * Campo obrigatório - Esta descricao aparece em destaque no seu Portfolio para clientes conhecerem voce
+                    * Campo obrigatório - Está descrição aparece em destaque no seu Portfolio para clientes conhecerem voce
                   </p>
                 </div>
 
                 <div>
-                  <Label>Descricao do Servico</Label>
+                  <Label>Descrição do Serviço</Label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Descreva seus servicos, especializacoes e diferenciais tecnicos..."
+                    placeholder="Descreva seus serviços, especializações e diferenciais técnicos..."
                     className="mt-1 min-h-[100px]"
                   />
                 </div>
@@ -949,7 +960,7 @@ export default function ProfessionalDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-slate-600">
-                  Informe aos clientes sua disponibilidade atual. Isso ajuda a gerenciar expectativas.
+                  Informe aos clientes sua disponibilidade atual. Issó ajuda a gerenciar expectativas.
                 </p>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -980,7 +991,7 @@ export default function ProfessionalDashboard() {
                     <FileText className={`w-6 h-6 mx-auto mb-2 ${
                       professional.availability_status === 'quotes_only' ? 'text-blue-500' : 'text-slate-400'
                     }`} />
-                    <p className="text-sm font-medium">Somente Orcamento</p>
+                    <p className="text-sm font-medium">Somente Orçamento</p>
                   </button>
 
                   <button
@@ -1018,7 +1029,7 @@ export default function ProfessionalDashboard() {
                   <p className="text-sm text-slate-600">
                     <strong>Status atual:</strong>{' '}
                     {professional.availability_status === 'available_today' && 'Disponivel Hoje'}
-                    {professional.availability_status === 'quotes_only' && 'Somente Orcamento'}
+                    {professional.availability_status === 'quotes_only' && 'Somente Orçamento'}
                     {professional.availability_status === 'busy' && 'Ocupado'}
                     {professional.availability_status === 'returning_soon' && 'Retorno em Breve'}
                     {!professional.availability_status && 'Nao definido'}
@@ -1045,7 +1056,7 @@ export default function ProfessionalDashboard() {
                 {/* Box explicativo */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <p className="text-sm text-blue-800 font-medium mb-2">
-                    Para que serve esta foto?
+                    Para que serve está foto?
                   </p>
                   <ul className="text-sm text-blue-700 space-y-1">
                     <li className="flex items-start gap-2">
@@ -1112,7 +1123,7 @@ export default function ProfessionalDashboard() {
                 </div>
 
                 <p className="text-xs text-slate-500 mb-4">
-                  Formatos aceitos: JPG, PNG, GIF, WebP. Tamanho maximo: 10 MB por foto.
+                  Formatos aceitos: JPG, PNG, GIF, WebP. Tamanho máximo: 10 MB por foto.
                 </p>
 
                 {/* Nota sobre Portfolio Premium */}
@@ -1120,7 +1131,7 @@ export default function ProfessionalDashboard() {
                   <FolderOpen className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
                   <div className="text-sm">
                     <p className="text-slate-700">
-                      <strong>Quer mostrar projetos detalhados?</strong> Com o <span className="text-purple-600 font-medium">Portfolio Premium</span> voce pode cadastrar ate 3 projetos completos, cada um com descricao, valor cobrado e ate 5 fotos.
+                      <strong>Quer mostrar projetos detalhados?</strong> Com o <span className="text-purple-600 font-medium">Portfolio Premium</span> você pode cadastrar até 3 projetos completos, cada um com descrição, valor cobrado e até 5 fotos.
                     </p>
                     {professional?.plan_type === 'free' && (
                       <button
@@ -1130,7 +1141,7 @@ export default function ProfessionalDashboard() {
                         }}
                         className="text-purple-600 hover:text-purple-700 font-medium mt-1 inline-flex items-center gap-1"
                       >
-                        Ver planos disponiveis →
+                        Ver planos disponíveis →
                       </button>
                     )}
                   </div>
@@ -1141,7 +1152,7 @@ export default function ProfessionalDashboard() {
             {/* Botao Salvar */}
             {!formData.personal_description?.trim() && (
               <p className="text-sm text-red-500 mb-2 text-center">
-                Preencha a Descricao Pessoal para salvar seu perfil
+                Preencha a Descrição Pessoal para salvar seu perfil
               </p>
             )}
             <Button
@@ -1162,12 +1173,12 @@ export default function ProfessionalDashboard() {
           <TabsContent value="quotes">
             <Card>
               <CardContent className="p-6 text-center">
-                <p className="text-slate-600 mb-4">Responda pedidos de orcamento e ganhe mais clientes</p>
+                <p className="text-slate-600 mb-4">Responda pedidos de orçamento e ganhe mais clientes</p>
                 <Button
                   onClick={() => window.location.href = '/ProfessionalQuotes'}
                   className="bg-green-500 hover:bg-green-600"
                 >
-                  Ver Pedidos de Orcamento
+                  Ver Pedidos de Orçamento
                 </Button>
               </CardContent>
             </Card>
@@ -1176,7 +1187,7 @@ export default function ProfessionalDashboard() {
           <TabsContent value="reviews">
             <Card>
               <CardContent className="p-6 text-center">
-                <p className="text-slate-600 mb-4">Gerencie suas avaliacoes em uma pagina dedicada</p>
+                <p className="text-slate-600 mb-4">Gerencie suas avaliações em uma página dedicada</p>
                 <Button
                   onClick={() => window.location.href = '/ProfessionalReviews'}
                   className="bg-orange-500 hover:bg-orange-600"
@@ -1190,7 +1201,7 @@ export default function ProfessionalDashboard() {
           <TabsContent value="schedule">
             <Card>
               <CardContent className="p-6 text-center">
-                <p className="text-slate-600 mb-4">Gerencie sua agenda e solicitacoes de orcamento</p>
+                <p className="text-slate-600 mb-4">Gerencie sua agenda e solicitações de orçamento</p>
                 <Button
                   onClick={() => window.location.href = '/ProfessionalSchedule'}
                   className="bg-blue-500 hover:bg-blue-600"
@@ -1225,7 +1236,7 @@ export default function ProfessionalDashboard() {
                         <Gift className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <p className="text-sm text-purple-600 font-medium">Creditos Disponiveis</p>
+                        <p className="text-sm text-purple-600 font-medium">Créditos Disponiveis</p>
                         <p className="text-3xl font-bold text-purple-900">
                           {professional.referral_credits || 0}
                         </p>
@@ -1253,10 +1264,10 @@ export default function ProfessionalDashboard() {
                   <div className="bg-white rounded-xl border-2 border-dashed border-slate-200 p-6">
                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
                       <Share2 className="w-4 h-4" />
-                      Seu Link de Indicacao
+                      Seu Link de Indicação
                     </h3>
                     <p className="text-sm text-slate-600 mb-4">
-                      Compartilhe este link e ganhe 1 credito para cada pessoa que se cadastrar!
+                      Compartilhe este link e ganhe 1 crédito para cada pessoa que se cadastrar!
                     </p>
 
                     <div className="flex items-center gap-2 mb-4">
@@ -1283,7 +1294,7 @@ export default function ProfessionalDashboard() {
                       <Button
                         className="flex-1 bg-green-500 hover:bg-green-600"
                         onClick={() => {
-                          const text = `Ola! Estou usando o ConectPro para divulgar meus servicos. Cadastre-se tambem usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
+                          const text = `Ola! Estou usando o ConectPro para divulgar meus serviços. Cadastre-se também usando meu link: ${window.location.origin}/?ref=${professional.referral_code}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                         }}
                       >
@@ -1316,7 +1327,7 @@ export default function ProfessionalDashboard() {
                         1
                       </div>
                       <p className="text-slate-700">
-                        Compartilhe seu link de indicacao com amigos e colegas
+                        Compartilhe seu link de indicação com amigos e colegas
                       </p>
                     </div>
                     <div className="flex items-start gap-3">
@@ -1324,7 +1335,7 @@ export default function ProfessionalDashboard() {
                         2
                       </div>
                       <p className="text-slate-700">
-                        Quando eles se cadastrarem usando seu link, voce ganha 1 credito
+                        Quando eles se cadastrarem usando seu link, você ganha 1 crédito
                       </p>
                     </div>
                     <div className="flex items-start gap-3">
@@ -1332,7 +1343,7 @@ export default function ProfessionalDashboard() {
                         3
                       </div>
                       <p className="text-slate-700">
-                        Use seus creditos para responder orcamentos de graca!
+                        Use seus créditos para responder orçamentos de graca!
                       </p>
                     </div>
                   </div>
@@ -1345,10 +1356,10 @@ export default function ProfessionalDashboard() {
                       <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
                       <div>
                         <p className="font-semibold text-green-800">
-                          Voce tem {professional.referral_credits} credito{professional.referral_credits > 1 ? 's' : ''} disponivel{professional.referral_credits > 1 ? 'is' : ''}!
+                          Você tem {professional.referral_credits} crédito{professional.referral_credits > 1 ? 's' : ''} disponível{professional.referral_credits > 1 ? 'is' : ''}!
                         </p>
                         <p className="text-sm text-green-700">
-                          Use-os para responder orcamentos sem pagar a taxa.
+                          Use-os para responder orçamentos sem pagar a taxa.
                         </p>
                       </div>
                     </div>
@@ -1388,13 +1399,13 @@ export default function ProfessionalDashboard() {
 
                   {professional.plan_expires_at && (
                     <p className={`text-sm ${isPlanCancelled() ? 'text-amber-700' : 'text-slate-600'}`}>
-                      {isPlanCancelled() ? 'Acesso ate:' : 'Expira em:'} {new Date(professional.plan_expires_at).toLocaleDateString('pt-BR')}
+                      {isPlanCancelled() ? 'Acessó ate:' : 'Expira em:'} {new Date(professional.plan_expires_at).toLocaleDateString('pt-BR')}
                     </p>
                   )}
 
                   {isPlanCancelled() && (
                     <p className="text-xs text-amber-600 mt-2">
-                      Voce ainda pode usar o plano ate a data acima. Apos isso, os beneficios serao encerrados.
+                      Você ainda pode usar o plano até a data acima. Após isso, os benefícios serão encerrados.
                     </p>
                   )}
 
@@ -1536,6 +1547,14 @@ export default function ProfessionalDashboard() {
                   professional?.plan_type === 'portfolio_premium' ? 'Portfolio Premium' : 'Plano Iniciante'}
         expiresAt={professional?.plan_expires_at}
         isLoading={cancellingPlan}
+      />
+
+      {/* Buy Credits Modal */}
+      <BuyCreditsModal
+        isOpen={buyCreditsOpen}
+        onClose={() => setBuyCreditsOpen(false)}
+        professionalId={professional?.id}
+        currentBalance={professional?.credits_balance || 0}
       />
     </div>
   );

@@ -103,11 +103,10 @@ export default function AppointmentRequestForm({ professionalId, professionalNam
       client_name: formData.client_name || user.full_name || 'Cliente',
       client_phone: formData.client_phone,
       service_type: serviceType || 'Serviço não especificado',
-      description: formData.description,
+      description: `${formData.description}\n\nTipo de imóvel: ${formData.property_type || 'casa'}`,
       preferred_date: selectedDate.toISOString().split('T')[0],
       preferred_time: formData.preferred_time,
       address: formData.address,
-      property_type: formData.property_type || 'casa',
       status: 'pending'
     });
   };

@@ -7,6 +7,9 @@ import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import AuthCallback from '@/pages/AuthCallback';
+import ResetPassword from '@/pages/ResetPassword';
+import ForgotPassword from '@/pages/ForgotPassword';
 import UserNotRegisteredError from '@/componentes/UserNotRegisteredError';
 import ProtectedRoute, {
   isPublicRoute,
@@ -38,7 +41,7 @@ const LayoutWrapper = memo(({ children, currentPageName }) => {
 const LazyRoute = memo(({ Page, currentPageName }) => {
   const path = `/${currentPageName}`;
 
-  // Se é rota pública, renderizar diretamente
+  // Se e rota pública, renderizar diretamente
   if (isPublicRoute(path)) {
     return (
       <Suspense fallback={<PageLoader />}>
@@ -99,6 +102,30 @@ const AuthenticatedApp = memo(() => {
         element={
           <Suspense fallback={<PageLoader />}>
             <Login />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/auth/confirm"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <AuthCallback />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <ResetPassword />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <ForgotPassword />
           </Suspense>
         }
       />

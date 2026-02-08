@@ -73,9 +73,9 @@ export default function ProfessionalCard() {
             </div>
             <h2 className="text-xl font-bold text-slate-900 mb-2">Cartão Digital Premium</h2>
             <p className="text-slate-600 mb-4">
-              Este recurso está disponível apenas para profissionais com plano pago.
+              Este recursó está disponível apenas para profissionais com plano pago.
             </p>
-            <Badge className="bg-orange-500">Recurso Premium</Badge>
+            <Badge className="bg-orange-500">Recursó Premium</Badge>
           </CardContent>
         </Card>
       </div>

@@ -73,7 +73,7 @@ const Header = memo(function Header({
   }, []);
 
   const isAdmin = user?.role === 'admin';
-  // Admin não é tratado como profissional ou cliente - tem seu próprio menu
+  // Admin não e tratado como profissional ou cliente - tem seu próprio menu
   const isProfessional = !isAdmin && user?.user_type === 'profissional';
   const isClient = !isAdmin && user?.user_type === 'cliente';
 
@@ -106,10 +106,16 @@ const Header = memo(function Header({
               Buscar Profissionais
             </Link>
             <Link
-              to={createPageUrl("JobMarketplace")}
-              className={`text-sm font-medium transition-colors ${currentPageName === 'JobMarketplace' ? 'text-orange-600' : 'text-slate-600 hover:text-slate-900'}`}
+              to={createPageUrl("JobOpportunities")}
+              className={`text-sm font-medium transition-colors ${currentPageName === 'JobOpportunities' ? 'text-orange-600' : 'text-slate-600 hover:text-slate-900'}`}
             >
-              Oportunidades
+              Vagas de Trabalho
+            </Link>
+            <Link
+              to={createPageUrl("ServiceQuotes")}
+              className={`text-sm font-medium transition-colors ${currentPageName === 'ServiceQuotes' ? 'text-orange-600' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Orçamento Serviços
             </Link>
           </nav>
 
@@ -303,11 +309,18 @@ const Header = memo(function Header({
               Buscar Profissionais
             </Link>
             <Link
-              to={createPageUrl("JobMarketplace")}
+              to={createPageUrl("JobOpportunities")}
               onClick={closeMobileMenu}
               className="block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100"
             >
-              Oportunidades
+              Vagas de Trabalho
+            </Link>
+            <Link
+              to={createPageUrl("ServiceQuotes")}
+              onClick={closeMobileMenu}
+              className="block px-3 py-2 rounded-lg text-slate-700 hover:bg-slate-100"
+            >
+              Orçamento Serviços
             </Link>
             {isAuthenticated && (
               <Link
@@ -336,7 +349,8 @@ const Footer = memo(function Footer() {
   return (
     <footer className="bg-slate-900 text-white py-12 mt-16">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Logo e Descrição */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
@@ -345,10 +359,11 @@ const Footer = memo(function Footer() {
               <span className="font-bold text-xl">ConectPro</span>
             </div>
             <p className="text-slate-400 text-sm">
-              Conectando você aos melhores profissionais da construção e serviços.
+              Conectando você a profissionais locais de forma rápida, simples e inteligente.
             </p>
           </div>
 
+          {/* Links Rápidos */}
           <div>
             <h4 className="font-semibold mb-4">Links Rápidos</h4>
             <div className="space-y-2 text-sm text-slate-400">
@@ -358,19 +373,80 @@ const Footer = memo(function Footer() {
               <Link to={createPageUrl("SearchProfessionals")} className="block hover:text-white transition-colors">
                 Buscar Profissionais
               </Link>
-              <Link to={createPageUrl("JobMarketplace")} className="block hover:text-white transition-colors">
-                Oportunidades
+              <Link to={createPageUrl("JobOpportunities")} className="block hover:text-white transition-colors">
+                Vagas de Trabalho
+              </Link>
+              <Link to={createPageUrl("ServiceQuotes")} className="block hover:text-white transition-colors">
+                Orçamento Serviços
+              </Link>
+              <Link to={createPageUrl("Onboarding")} className="block hover:text-white transition-colors">
+                Sou Profissional
+              </Link>
+              <Link to={createPageUrl("RequestQuote")} className="block hover:text-white transition-colors">
+                Solicitar Orçamento
               </Link>
             </div>
           </div>
 
+          {/* Categorias Principais */}
           <div>
-            <h4 className="font-semibold mb-4">Categorias</h4>
+            <h4 className="font-semibold mb-4">Categorias Principais</h4>
             <div className="space-y-2 text-sm text-slate-400">
-              <p>Pintores</p>
-              <p>Pedreiros</p>
-              <p>Eletricistas</p>
-              <p>Encanadores</p>
+              <Link to={createPageUrl("SearchProfessionals?category=construção")} className="block hover:text-white transition-colors">
+                Construção & Reformas
+              </Link>
+              <Link to={createPageUrl("SearchProfessionals?category=eletrica")} className="block hover:text-white transition-colors">
+                Elétrica & Hidráulica
+              </Link>
+              <Link to={createPageUrl("SearchProfessionals?category=limpeza")} className="block hover:text-white transition-colors">
+                Limpeza & Manutenção
+              </Link>
+              <Link to={createPageUrl("OtherServices")} className="block hover:text-white transition-colors">
+                Automotivo
+              </Link>
+              <Link to={createPageUrl("OtherServices")} className="block hover:text-white transition-colors">
+                Beleza & Estética
+              </Link>
+              <Link to={createPageUrl("OtherServices")} className="block hover:text-white transition-colors">
+                Pets
+              </Link>
+              <Link to={createPageUrl("OtherServices")} className="block hover:text-white transition-colors">
+                Eventos & Mídia
+              </Link>
+              <Link to={createPageUrl("OtherServices")} className="block hover:text-white transition-colors">
+                Tecnologia
+              </Link>
+              <Link to={createPageUrl("OtherServices")} className="block hover:text-white transition-colors">
+                Educação
+              </Link>
+              <Link to={createPageUrl("OtherServices")} className="block hover:text-white transition-colors">
+                Outros Serviços
+              </Link>
+            </div>
+          </div>
+
+          {/* Contato */}
+          <div>
+            <h4 className="font-semibold mb-4">Contato</h4>
+            <div className="space-y-3 text-sm text-slate-400">
+              <a
+                href="https://wa.me/5500000000000"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-white transition-colors"
+              >
+                <span>📲</span>
+                <span>WhatsApp Atendimento<br /><span className="text-xs">(Assistente Virtual)</span></span>
+              </a>
+              <a
+                href="https://wa.me/5500000000000"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-white transition-colors"
+              >
+                <span>📞</span>
+                <span>WhatsApp Suporte / Ajuda</span>
+              </a>
             </div>
           </div>
         </div>

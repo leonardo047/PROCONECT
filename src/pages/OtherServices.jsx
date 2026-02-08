@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { ArrowLeft, Search, Wrench, Zap, Sparkles, Users, Loader2 } from "lucide-react";
 
-// Mapeamento de nomes de ícones para componentes
+// Mapeamento de nomês de ícones para componentes
 const iconMap = {
   Wrench, Zap, Sparkles, Users, Search
 };

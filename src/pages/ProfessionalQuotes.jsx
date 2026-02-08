@@ -131,12 +131,12 @@ export default function ProfessionalQuotes() {
           full_name: quoteRequest.client_name || clientProfile?.full_name || 'Cliente'
         });
       } else {
-        setChatQuoteRequest({ title: 'Orcamento', id: response.quote_request_id });
+        setChatQuoteRequest({ title: 'Orçamento', id: response.quote_request_id });
         setChatClient({ id: null, name: 'Cliente', full_name: 'Cliente' });
       }
       setChatResponse(response);
     } catch (error) {
-      setChatQuoteRequest({ title: 'Orcamento', id: response.quote_request_id });
+      setChatQuoteRequest({ title: 'Orçamento', id: response.quote_request_id });
       setChatClient({ id: null, name: 'Cliente', full_name: 'Cliente' });
       setChatResponse(response);
     }
@@ -297,7 +297,7 @@ export default function ProfessionalQuotes() {
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <h3 className="font-bold text-lg">Orcamento enviado</h3>
+                            <h3 className="font-bold text-lg">Orçamento enviado</h3>
                             <p className="text-2xl font-bold text-green-600 mt-2">
                               R$ {response.estimated_price?.toFixed(2)}
                             </p>
@@ -356,7 +356,7 @@ export default function ProfessionalQuotes() {
         <Dialog open={!!selectedQuote} onOpenChange={() => setSelectedQuote(null)}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader className="sr-only">
-              <DialogTitle>Responder Orcamento</DialogTitle>
+              <DialogTitle>Responder Orçamento</DialogTitle>
               <DialogDescription>Envie sua proposta</DialogDescription>
             </DialogHeader>
             {selectedQuote && professional && (
@@ -374,7 +374,7 @@ export default function ProfessionalQuotes() {
           <DialogContent className="max-w-2xl p-0">
             <DialogHeader className="sr-only">
               <DialogTitle>Chat com {chatClient?.name}</DialogTitle>
-              <DialogDescription>Converse sobre o orcamento</DialogDescription>
+              <DialogDescription>Converse sobre o orçamento</DialogDescription>
             </DialogHeader>
             {chatResponse && chatClient && professional && (
               <QuoteChat

@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";
-import { Slider } from "@/componentes/interface do usuário/slider";
 import { Calendar } from "@/componentes/interface do usuário/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/componentes/interface do usuário/popover";
 import { Button } from "@/componentes/interface do usuário/button";
@@ -27,7 +26,7 @@ const states = [
   { value: "GO", label: "Goiás" },
   { value: "MA", label: "Maranhão" },
   { value: "MT", label: "Mato Grosso" },
-  { value: "MS", label: "Mato Grosso do Sul" },
+  { value: "MS", label: "Mato Grossó do Sul" },
   { value: "MG", label: "Minas Gerais" },
   { value: "PA", label: "Pará" },
   { value: "PB", label: "Paraíba" },
@@ -77,7 +76,7 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
     });
 
     // Ordenar grupos - home primeiro, depois other_services
-    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+    const sortedGroupNamês = Object.keys(groups).sort((a, b) => {
       // Grupos de construção primeiro
       const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
       const aIsHome = homeGroups.some(g => a.includes(g));
@@ -87,7 +86,7 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
       return a.localeCompare(b);
     });
 
-    return sortedGroupNames.map(groupName => ({
+    return sortedGroupNamês.map(groupName => ({
       name: groupName,
       items: groups[groupName]
     }));
@@ -328,24 +327,6 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
             </Select>
           </div>
 
-          {/* Price Filter */}
-          <div className="md:col-span-2">
-            <Label className="mb-3 block">
-              Preço Máximo: R$ {filters.maxPrice || 500}
-            </Label>
-            <Slider
-              value={[filters.maxPrice || 500]}
-              onValueChange={(value) => onFilterChange({ ...filters, maxPrice: value[0] })}
-              min={50}
-              max={1000}
-              step={50}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-slate-500 mt-1">
-              <span>R$ 50</span>
-              <span>R$ 1000</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>

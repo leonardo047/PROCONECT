@@ -41,7 +41,7 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
       setReferralCredits(result.referral_credits || 0);
       setStatusMessage(result.reason || '');
 
-      // Se não pode responder e não é pay_per_quote, precisa de pagamento
+      // Se não pode responder e não e pay_per_quote, precisa de pagamento
       if (!result.can_respond && result.plan_type !== 'pay_per_quote') {
         setNeedsPayment(true);
       } else if (result.plan_type === 'pay_per_quote') {
@@ -52,7 +52,7 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
         setNeedsPayment(true);
       }
     } catch (error) {
-      // Fallback para verificação local em caso de erro
+      // Fallback para verificação local em casó de erro
       const isFree = professional.plan_type === 'free' || professional.plan_type === 'pay_per_quote';
       const freeUsed = professional.free_quotes_used || 0;
       setReferralCredits(professional?.referral_credits || 0);
@@ -85,7 +85,7 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
         type: 'quote_response',
         title: 'Novo Orçamento Recebido',
         message: `${professional.name} enviou um orçamento para "${quoteRequest.title}"`,
-        link: `/client-quotes?quote=${quoteRequest.id}`,
+        link: `/ClientQuotes?quote=${quoteRequest.id}`,
         priority: 'high'
       });
 
@@ -98,7 +98,7 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
       alert('Orçamento enviado com sucesso!');
     },
     onError: (error) => {
-      // Verificar se é erro de créditos insuficientes
+      // Verificar se e erro de créditos insuficientes
       if (error.message?.includes('policy') || error.message?.includes('credit')) {
         alert('Você não tem créditos suficientes para responder este orçamento. Por favor, assine um plano ou use créditos de indicação.');
       } else {
@@ -112,7 +112,7 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
 
     // Check if needs payment but not using referral credit
     if (needsPayment && !useReferralCredit) {
-      alert('Você atingiu o limite de 3 orçamentos gratuitos. Use um credito de indicacao, assine um plano ou pague por este orçamento individual.');
+      alert('Você atingiu o limite de 3 orçamentos gratuitos. Use um crédito de indicação, assine um plano ou pague por este orçamento individual.');
       return;
     }
 
@@ -182,8 +182,8 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
               <div className="flex items-center gap-3">
                 <Gift className="w-5 h-5 text-purple-600" />
                 <div>
-                  <p className="font-medium text-purple-900">Usar Credito de Indicacao</p>
-                  <p className="text-sm text-purple-700">Voce tem {referralCredits} credito{referralCredits > 1 ? 's' : ''} disponivel{referralCredits > 1 ? 'is' : ''}</p>
+                  <p className="font-medium text-purple-900">Usar Crédito de Indicação</p>
+                  <p className="text-sm text-purple-700">Você tem {referralCredits} crédito{referralCredits > 1 ? 's' : ''} disponível{referralCredits > 1 ? 'is' : ''}</p>
                 </div>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
@@ -193,7 +193,7 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
                   onChange={(e) => setUseReferralCredit(e.target.checked)}
                   className="w-5 h-5 text-purple-600 rounded border-purple-300 focus:ring-purple-500"
                 />
-                <span className="text-sm font-medium text-purple-800">Usar 1 credito</span>
+                <span className="text-sm font-medium text-purple-800">Usar 1 crédito</span>
               </label>
             </div>
           </div>
@@ -273,19 +273,19 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
               {useReferralCredit ? (
                 <>
                   <Gift className="w-4 h-4 mr-2" />
-                  {responseQuoteMutation.isLoading ? 'Enviando...' : 'Enviar com Credito de Indicacao'}
+                  {responseQuoteMutation.isLoading ? 'Enviando...' : 'Enviar com Crédito de Indicação'}
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4 mr-2" />
-                  {responseQuoteMutation.isLoading ? 'Enviando...' : 'Enviar Orcamento'}
+                  {responseQuoteMutation.isLoading ? 'Enviando...' : 'Enviar Orçamento'}
                 </>
               )}
             </Button>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-slate-600 text-center">
-                Para continuar respondendo orcamentos, assine um plano:
+                Para continuar respondendo orçamentos, assine um plano:
               </p>
               <Button
                 type="button"
@@ -309,14 +309,14 @@ export default function QuoteResponseForm({ quoteRequest, professional, onSucces
                 onClick={() => {
                   setSelectedPlan({
                     key: 'profissional_per_contact',
-                    name: 'Pagamento por Orcamento',
+                    name: 'Pagamento por Orçamento',
                     price: 5.00
                   });
                   setCheckoutOpen(true);
                 }}
               >
                 <CreditCard className="w-4 h-4 mr-2" />
-                Pagar por Este Orcamento - R$ 5,00
+                Pagar por Este Orçamento - R$ 5,00
               </Button>
             </div>
           )}

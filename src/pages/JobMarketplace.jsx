@@ -51,7 +51,7 @@ const ESTADOS = [
   { value: 'GO', label: 'Goias' },
   { value: 'MA', label: 'Maranhao' },
   { value: 'MT', label: 'Mato Grosso' },
-  { value: 'MS', label: 'Mato Grosso do Sul' },
+  { value: 'MS', label: 'Mato Grossó do Sul' },
   { value: 'MG', label: 'Minas Gerais' },
   { value: 'PA', label: 'Para' },
   { value: 'PB', label: 'Paraiba' },
@@ -78,7 +78,7 @@ const URGENCY_OPTIONS = [
   { value: 'flexivel', label: 'Flexivel', icon: '⚪' }
 ];
 
-// Faixas de orcamento
+// Faixas de orçamento
 const BUDGET_OPTIONS = [
   { value: 'all', label: 'Qualquer valor' },
   { value: 'ate_500', label: 'Ate R$ 500' },
@@ -120,7 +120,7 @@ const PageHeader = memo(() => (
         </div>
         <div>
           <h1 className="text-3xl font-bold text-white">Oportunidades de Trabalho</h1>
-          <p className="text-green-200">Encontre projetos e envie seu orcamento</p>
+          <p className="text-green-200">Encontre projetos e envie seu orçamento</p>
         </div>
       </div>
     </div>
@@ -141,7 +141,7 @@ const ResultsCounter = memo(({ total, showing, searchMode, userLocation, searchR
         <p className="text-sm text-slate-600">
           {searchMode === 'location' && userLocation
             ? `Em um raio de ${searchRadius} km`
-            : 'Oportunidades disponiveis'}
+            : 'Oportunidades disponíveis'}
         </p>
       </div>
     </div>
@@ -234,7 +234,7 @@ const OpportunityCard = memo(({ quote, onRespond, isProfessional, isClient, dist
             <Clock className="w-4 h-4" />
             {formatDate(quote.created_date || quote.created_at)}
           </span>
-          <span>{quote.responses_count || 0} orcamento(s) recebido(s)</span>
+          <span>{quote.responses_count || 0} orçamento(s) recebido(s)</span>
         </div>
 
         {isProfessional && (
@@ -245,7 +245,7 @@ const OpportunityCard = memo(({ quote, onRespond, isProfessional, isClient, dist
               onRespond(quote);
             }}
           >
-            Enviar Orcamento
+            Enviar Orçamento
           </Button>
         )}
 
@@ -257,13 +257,13 @@ const OpportunityCard = memo(({ quote, onRespond, isProfessional, isClient, dist
               onRespond(quote);
             }}
           >
-            Enviar Orcamento
+            Enviar Orçamento
           </Button>
         )}
 
         {isClient && (
           <div className="text-center text-sm text-slate-500 py-2 bg-slate-50 rounded-lg">
-            Voce e um cliente - apenas profissionais podem responder
+            Você e um cliente - apenas profissionais podem responder
           </div>
         )}
       </CardContent>
@@ -300,7 +300,7 @@ const Filters = memo(({ filters, onFilterChange, categories, hideLocationFields 
           </Select>
         </div>
 
-        {/* Estado - oculto no modo localizacao */}
+        {/* Estado - oculto no modo localização */}
         {!hideLocationFields && (
           <div>
             <Label className="text-sm text-slate-600 mb-1.5 block">Estado</Label>
@@ -320,7 +320,7 @@ const Filters = memo(({ filters, onFilterChange, categories, hideLocationFields 
           </div>
         )}
 
-        {/* Cidade - oculto no modo localizacao */}
+        {/* Cidade - oculto no modo localização */}
         {!hideLocationFields && (
           <div>
             <Label className="text-sm text-slate-600 mb-1.5 block">Cidade</Label>
@@ -353,7 +353,7 @@ const Filters = memo(({ filters, onFilterChange, categories, hideLocationFields 
           </Select>
         </div>
 
-        {/* Faixa de orcamento */}
+        {/* Faixa de orçamento */}
         <div>
           <Label className="text-sm text-slate-600 mb-1.5 block">Faixa de Valor</Label>
           <Select
@@ -391,7 +391,7 @@ const Filters = memo(({ filters, onFilterChange, categories, hideLocationFields 
   );
 });
 
-// Dialog de login necessario
+// Dialog de login necessário
 const LoginRequiredDialog = memo(({ isOpen, onClose, onLogin }) => (
   <Dialog open={isOpen} onOpenChange={onClose}>
     <DialogContent className="max-w-md">
@@ -401,12 +401,12 @@ const LoginRequiredDialog = memo(({ isOpen, onClose, onLogin }) => (
           Login Necessario
         </DialogTitle>
         <DialogDescription>
-          Para enviar um orcamento, voce precisa estar logado como profissional.
+          Para enviar um orçamento, você precisa estar logado como profissional.
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-4 pt-4">
         <p className="text-sm text-slate-600">
-          Se voce ainda nao tem uma conta profissional, cadastre-se agora e comece a receber oportunidades de trabalho!
+          Se você ainda não tem uma conta profissional, cadastre-se agora e comece a receber oportunidades de trabalho!
         </p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={onClose} className="flex-1">
@@ -438,7 +438,7 @@ export default function JobMarketplace() {
   const [respondDialogOpen, setRespondDialogOpen] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
 
-  // Estados para busca por localizacao
+  // Estados para busca por localização
   const [userLocation, setUserLocation] = useState(null);
   const [searchRadius, setSearchRadius] = useState(20);
   const [searchMode, setSearchMode] = useState('traditional');
@@ -481,7 +481,7 @@ export default function JobMarketplace() {
         filters: { status: 'open' },
         orderBy: { field: 'created_at', direction: 'desc' }
       });
-      // Tambem incluir os que tem status 'quotes_received' pois ainda aceitam orcamentos
+      // Tambem incluir os que tem status 'quotes_received' pois ainda aceitam orçamentos
       const quotesReceived = await QuoteRequest.filter({
         filters: { status: 'quotes_received' },
         orderBy: { field: 'created_at', direction: 'desc' }
@@ -509,7 +509,7 @@ export default function JobMarketplace() {
       results = results.filter(q => q.urgency === filters.urgency);
     }
 
-    // Filtrar por faixa de orcamento
+    // Filtrar por faixa de orçamento
     if (filters.budget !== 'all') {
       results = results.filter(q => q.budget_range === filters.budget);
     }
@@ -528,7 +528,7 @@ export default function JobMarketplace() {
 
       return results;
     } else {
-      // Modo localizacao - filtrar por distancia
+      // Modo localização - filtrar por distancia
       if (!userLocation) return results;
 
       // Calcular distancias e filtrar por raio
@@ -568,7 +568,7 @@ export default function JobMarketplace() {
     }
 
     if (isClient) {
-      return; // Clientes nao podem responder
+      return; // Clientes não podem responder
     }
 
     setSelectedQuote(quote);
@@ -667,7 +667,7 @@ export default function JobMarketplace() {
             </h3>
             <p className="text-slate-600 max-w-md">
               {searchMode === 'location'
-                ? 'Tente aumentar o raio de busca ou verificar sua localizacao.'
+                ? 'Tente aumentar o raio de busca ou verificar sua localização.'
                 : 'Nao encontramos oportunidades com os filtros selecionados. Tente ajustar os filtros ou volte mais tarde.'}
             </p>
             <Button
@@ -724,7 +724,7 @@ export default function JobMarketplace() {
         )}
       </div>
 
-      {/* Dialog para responder orcamento */}
+      {/* Dialog para responder orçamento */}
       {selectedQuote && professional && (
         <RespondQuoteDialog
           quoteRequest={selectedQuote}
@@ -737,7 +737,7 @@ export default function JobMarketplace() {
         />
       )}
 
-      {/* Dialog de login necessario */}
+      {/* Dialog de login necessário */}
       <LoginRequiredDialog
         isOpen={loginDialogOpen}
         onClose={() => setLoginDialogOpen(false)}

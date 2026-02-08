@@ -1,87 +1,100 @@
 import React from 'react';
 import { Badge } from "@/componentes/interface do usuário/badge";
-import { Clock, CheckCircle, AlertCircle, XCircle, Calendar, FileText, Briefcase } from "lucide-react";
+import { CheckCircle, Calendar, XCircle } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+// Profissoes que usam sistema de vagas diarias (slots)
+const SLOT_BASED_PROFESSIONS = ['marido_aluguel', 'chaveiro', 'montador_móveis'];
 
 export default function AvailabilityStatusBadge({ professional, showDetails = false }) {
+  const availabilityType = professional?.availability_type ||
+    (SLOT_BASED_PROFESSIONS.includes(professional?.profession) ? 'slots' : 'project');
+
   const getStatusConfig = () => {
     const status = professional?.availability_status || 'available_today';
+    const acceptsQuotes = professional?.accepts_quotes !== false;
+
+    // Para profissionais tipo 'project' (pintores, pedreiros, etc)
+    if (availabilityType === 'project') {
+      if (!acceptsQuotes || status === 'unavailable') {
+        return {
+          icon: XCircle,
+          label: 'Indisponível',
+          className: 'bg-gray-500 text-white',
+          color: 'gray'
+        };
+      }
+
+      if (professional?.next_work_start_date) {
+        const nextDate = new Date(professional.next_work_start_date);
+        const formattedDate = format(nextDate, "dd/MM", { locale: ptBR });
+        return {
+          icon: Calendar,
+          label: showDetails ? `Inicia em ${formattedDate}` : 'Disponivel',
+          className: 'bg-blue-500 text-white',
+          color: 'blue'
+        };
+      }
+
+      return {
+        icon: CheckCircle,
+        label: 'Disponivel para orçamentos',
+        className: 'bg-green-500 text-white',
+        color: 'green'
+      };
+    }
+
+    // Para profissionais tipo 'slots' (marido de aluguel, chaveiro, etc)
     const slotsLeft = (professional?.daily_slots || 5) - (professional?.slots_booked_today || 0);
 
     switch (status) {
       case 'available_today':
         if (slotsLeft === 0) {
           return {
-            icon: AlertCircle,
-            label: showDetails ? `Cheio Hoje (${professional?.daily_slots}/${professional?.daily_slots})` : 'Cheio Hoje',
+            icon: XCircle,
+            label: 'Cheio hoje',
             className: 'bg-red-500 text-white',
             color: 'red'
           };
         }
         if (slotsLeft <= 2) {
           return {
-            icon: Clock,
-            label: showDetails ? `${slotsLeft} vagas hoje` : 'Poucas Vagas',
+            icon: CheckCircle,
+            label: showDetails ? `${slotsLeft} vaga${slotsLeft > 1 ? 's' : ''}` : 'Poucas vagas',
             className: 'bg-yellow-500 text-white',
             color: 'yellow'
           };
         }
         return {
           icon: CheckCircle,
-          label: showDetails ? `${slotsLeft} vagas hoje` : 'Disponivel Hoje',
+          label: showDetails ? `${slotsLeft} vagas` : 'Disponivel hoje',
           className: 'bg-green-500 text-white',
           color: 'green'
         };
 
-      case 'quotes_only':
-        return {
-          icon: FileText,
-          label: 'Somente Orcamento',
-          className: 'bg-blue-500 text-white',
-          color: 'blue'
-        };
-
-      case 'busy':
-        return {
-          icon: Briefcase,
-          label: 'Ocupado',
-          className: 'bg-orange-500 text-white',
-          color: 'orange'
-        };
-
-      case 'returning_soon':
-        return {
-          icon: Calendar,
-          label: showDetails && professional?.available_from_date
-            ? `Retorno: ${new Date(professional.available_from_date).toLocaleDateString('pt-BR')}`
-            : 'Retorno em Breve',
-          className: 'bg-purple-500 text-white',
-          color: 'purple'
-        };
-
       case 'available_from_date':
+        if (professional?.available_from_date) {
+          const fromDate = new Date(professional.available_from_date);
+          const formattedDate = format(fromDate, "dd/MM", { locale: ptBR });
+          return {
+            icon: Calendar,
+            label: showDetails ? `A partir de ${formattedDate}` : 'Em breve',
+            className: 'bg-blue-500 text-white',
+            color: 'blue'
+          };
+        }
         return {
           icon: Calendar,
-          label: showDetails && professional?.available_from_date
-            ? `Disponivel a partir de ${new Date(professional.available_from_date).toLocaleDateString('pt-BR')}`
-            : 'Disponivel em Breve',
+          label: 'Em breve',
           className: 'bg-blue-500 text-white',
           color: 'blue'
-        };
-
-      case 'fully_booked':
-        return {
-          icon: AlertCircle,
-          label: professional?.next_available_date
-            ? `Proxima vaga: ${new Date(professional.next_available_date).toLocaleDateString('pt-BR')}`
-            : 'Agenda Cheia',
-          className: 'bg-orange-500 text-white',
-          color: 'orange'
         };
 
       case 'unavailable':
         return {
           icon: XCircle,
-          label: 'Indisponivel',
+          label: 'Indisponível',
           className: 'bg-gray-500 text-white',
           color: 'gray'
         };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QuoteRequest, QuoteResponse, Notification, ProfessionalService } from "@/lib/entities";
+import { QuoteRequest, QuoteResponse, Notification, ProfessionalService, CreditsService } from "@/lib/entities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/componentes/interface do usuário/dialog";
 import { Button } from "@/componentes/interface do usuário/button";
@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/componentes/interface do usuário/ale
 import {
   Loader2, Send, DollarSign, Lock, CheckCircle, Gift,
   MapPin, Clock, Calendar, User, FileText, ArrowLeft,
-  Image, AlertCircle
+  Image, AlertCircle, Infinity, Coins, ShoppingCart
 } from "lucide-react";
 
 export default function RespondQuoteDialog({ quoteRequest, professional, isOpen, onClose }) {
@@ -31,6 +31,9 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
   const [statusMessage, setStatusMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [paymentAmount] = useState(5);
+  const [hasUnlimitedCredits, setHasUnlimitedCredits] = useState(false);
+  const [creditsBalance, setCreditsBalance] = useState(0);
+  const [unlimitedExpiresAt, setUnlimitedExpiresAt] = useState(null);
   const queryClient = useQueryClient();
 
   // Reset step when dialog opens
@@ -56,35 +59,64 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
   const checkPaymentRequired = async () => {
     setLoading(true);
     try {
-      const result = await ProfessionalService.canRespondQuote(professional.id);
-      setCanRespond(result.can_respond);
-      setQuotesLeft(result.quotes_left || 0);
-      setReferralCredits(result.referral_credits || 0);
-      setStatusMessage(result.reason || '');
+      // Usar o novo CreditsService para verificar créditos
+      const creditStatus = await CreditsService.getStatus(professional.id);
 
-      if (!result.can_respond) {
-        setNeedsPayment(true);
-      } else if (result.plan_type === 'free' && result.quotes_left === 0) {
-        setNeedsPayment(result.referral_credits <= 0);
+      setCanRespond(creditStatus.can_respond);
+      setHasUnlimitedCredits(creditStatus.has_unlimited || false);
+      setCreditsBalance(creditStatus.credits_balance || 0);
+      setUnlimitedExpiresAt(creditStatus.unlimited_expires_at || null);
+      setReferralCredits(creditStatus.referral_credits || 0);
+      setStatusMessage(creditStatus.reason || '');
+
+      // Calcular quotesLeft
+      if (creditStatus.has_unlimited) {
+        setQuotesLeft(999999); // Infinito
       } else {
-        setNeedsPayment(false);
+        setQuotesLeft((creditStatus.credits_balance || 0) + (creditStatus.referral_credits || 0));
       }
+
+      // Precisa pagar se não pode responder
+      setNeedsPayment(!creditStatus.can_respond);
+
     } catch (error) {
-      const isFree = professional.plan_type === 'free';
-      const freeUsed = professional.free_quotes_used || 0;
-      setQuotesLeft(Math.max(0, 3 - freeUsed));
+      // Fallback: usar dados do professional diretamente
+      const hasUnlimited = professional.unlimited_credits &&
+        (!professional.unlimited_credits_expires_at ||
+         new Date(professional.unlimited_credits_expires_at) > new Date());
+
+      setHasUnlimitedCredits(hasUnlimited);
+      setCreditsBalance(professional.credits_balance || 0);
       setReferralCredits(professional.referral_credits || 0);
-      setNeedsPayment(isFree && freeUsed >= 3 && (professional.referral_credits || 0) <= 0);
-      setCanRespond(!needsPayment);
+
+      if (hasUnlimited) {
+        setCanRespond(true);
+        setNeedsPayment(false);
+        setQuotesLeft(999999);
+      } else {
+        const totalCredits = (professional.credits_balance || 0) + (professional.referral_credits || 0);
+        setCanRespond(totalCredits > 0);
+        setNeedsPayment(totalCredits <= 0);
+        setQuotesLeft(totalCredits);
+      }
     }
     setLoading(false);
   };
 
   const respondQuoteMutation = useMutation({
     mutationFn: async (data) => {
+      // Primeiro, criar a resposta
       const response = await QuoteResponse.create(data);
 
-      // Tentar atualizar contador (pode falhar por RLS, nao e critico)
+      // Usar o crédito (se não tiver infinito, vai debitar)
+      try {
+        await CreditsService.useCredit(professional.id, response.id);
+      } catch (err) {
+        // Se falhar ao usar crédito, não e critico pois a funcao SQL já valida
+        console.warn('Avisó ao usar crédito:', err.message);
+      }
+
+      // Tentar atualizar contador (pode falhar por RLS, não e critico)
       try {
         await QuoteRequest.update(quoteRequest.id, {
           responses_count: (quoteRequest.responses_count || 0) + 1
@@ -93,7 +125,7 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
         // Ignorar erro
       }
 
-      // Tentar criar notificacao (pode falhar, nao e critico)
+      // Tentar criar notificacao (pode falhar, não e critico)
       try {
         await Notification.create({
           user_id: quoteRequest.client_id,
@@ -114,11 +146,12 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
       queryClient.invalidateQueries(['quote-responses']);
       queryClient.invalidateQueries(['my-professional']);
       queryClient.invalidateQueries(['marketplace-quotes']);
+      queryClient.invalidateQueries(['credit-status']);
       onClose();
     },
     onError: (error) => {
       if (error.message?.includes('policy') || error.message?.includes('credit')) {
-        alert('Voce nao tem creditos suficientes para responder este orcamento.');
+        alert('Você não tem créditos suficientes para responder este orçamento.');
       } else {
         alert('Erro ao enviar proposta. Tente novamente.');
       }
@@ -128,7 +161,7 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (needsPayment && !useReferralCredit) {
-      alert('Voce precisa de creditos ou pagamento para responder este orcamento.');
+      alert('Você precisa de créditos ou pagamento para responder este orçamento.');
       return;
     }
 
@@ -196,19 +229,19 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-xl font-bold text-slate-900">{quoteRequest.title}</h2>
                 <Badge className="bg-blue-500 text-white shrink-0">
-                  {quoteRequest.status === 'open' ? 'Aberto' : 'Recebendo Orcamentos'}
+                  {quoteRequest.status === 'open' ? 'Aberto' : 'Recebendo Orçamentos'}
                 </Badge>
               </div>
             </div>
 
-            {/* Descricao Completa */}
+            {/* Descrição Completa */}
             <div className="bg-slate-50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="w-4 h-4 text-slate-600" />
-                <span className="font-semibold text-slate-700">Descricao do Servico</span>
+                <span className="font-semibold text-slate-700">Descrição do Serviço</span>
               </div>
               <p className="text-slate-600 whitespace-pre-wrap">
-                {quoteRequest.description || 'Sem descricao detalhada.'}
+                {quoteRequest.description || 'Sem descrição detalhada.'}
               </p>
             </div>
 
@@ -250,11 +283,11 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
                 )}
               </div>
 
-              {/* Orcamento Estimado */}
+              {/* Orçamento Estimado */}
               <div className="bg-slate-50 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign className="w-4 h-4 text-green-600" />
-                  <span className="font-semibold text-slate-700">Orcamento do Cliente</span>
+                  <span className="font-semibold text-slate-700">Orçamento do Cliente</span>
                 </div>
                 <p className="text-slate-600">
                   {budgetLabels[quoteRequest.budget_range] || quoteRequest.budget_range || 'A negociar'}
@@ -268,7 +301,7 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
                 <User className="w-4 h-4 text-purple-600" />
                 <span className="font-semibold text-slate-700">Cliente</span>
               </div>
-              <p className="text-slate-600">{quoteRequest.client_name || 'Nome nao informado'}</p>
+              <p className="text-slate-600">{quoteRequest.client_name || 'Nome não informado'}</p>
             </div>
 
             {/* Fotos (se houver) */}
@@ -276,7 +309,7 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
               <div className="bg-slate-50 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Image className="w-4 h-4 text-slate-600" />
-                  <span className="font-semibold text-slate-700">Fotos do Servico</span>
+                  <span className="font-semibold text-slate-700">Fotos do Serviço</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {quoteRequest.photos.map((photo, index) => (
@@ -331,40 +364,63 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
               <p className="text-sm text-green-600">{quoteRequest.city}, {quoteRequest.state}</p>
             </div>
 
-            {/* Status de creditos */}
-            {!needsPayment && quotesLeft > 0 && quotesLeft < 999999 && (
-              <Alert className="border-blue-500 bg-blue-50">
-                <CheckCircle className="w-4 h-4 text-blue-600" />
-                <AlertDescription className="text-blue-800">
-                  <strong>Creditos Disponiveis: {quotesLeft}</strong>
-                  {statusMessage && <p className="text-sm mt-1">{statusMessage}</p>}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Aviso de pagamento */}
-            {needsPayment && (
-              <Alert className="border-orange-500 bg-orange-50">
-                <Lock className="w-4 h-4 text-orange-600" />
-                <AlertDescription className="text-orange-800">
-                  <strong>Resposta Paga</strong>
+            {/* Status de créditos infinitos */}
+            {hasUnlimitedCredits && (
+              <Alert className="border-purple-500 bg-purple-50">
+                <Infinity className="w-4 h-4 text-purple-600" />
+                <AlertDescription className="text-purple-800">
+                  <strong>Créditos Infinitos Ativos!</strong>
                   <p className="text-sm mt-1">
-                    {statusMessage || `Voce utilizou suas respostas gratuitas. Pagamento de R$ ${paymentAmount},00 necessario.`}
+                    Responda quantas cotações quiser.
+                    {unlimitedExpiresAt && (
+                      <span className="ml-1">
+                        Valido até {new Date(unlimitedExpiresAt).toLocaleDateString('pt-BR')}.
+                      </span>
+                    )}
                   </p>
                 </AlertDescription>
               </Alert>
             )}
 
-            {/* Opcao de credito de indicacao */}
+            {/* Status de créditos avulsos */}
+            {!hasUnlimitedCredits && !needsPayment && quotesLeft > 0 && (
+              <Alert className="border-green-500 bg-green-50">
+                <Coins className="w-4 h-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  <strong>Créditos Disponiveis: {creditsBalance + referralCredits}</strong>
+                  {creditsBalance > 0 && referralCredits > 0 && (
+                    <p className="text-sm mt-1">
+                      {creditsBalance} avulso{creditsBalance !== 1 ? 's' : ''} + {referralCredits} de indicação
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Avisó de sem créditos */}
+            {needsPayment && (
+              <Alert className="border-orange-500 bg-orange-50">
+                <ShoppingCart className="w-4 h-4 text-orange-600" />
+                <AlertDescription className="text-orange-800">
+                  <strong>Sem Créditos Disponiveis</strong>
+                  <p className="text-sm mt-1">
+                    Você precisa comprar créditos para responder cotações.
+                    Acesse seu painel para comprar créditos ou assinar um plano.
+                  </p>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Opcao de crédito de indicação */}
             {needsPayment && referralCredits > 0 && (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Gift className="w-5 h-5 text-purple-600" />
                     <div>
-                      <p className="font-medium text-purple-900">Usar Credito de Indicacao</p>
+                      <p className="font-medium text-purple-900">Usar Crédito de Indicação</p>
                       <p className="text-sm text-purple-700">
-                        Voce tem {referralCredits} credito{referralCredits > 1 ? 's' : ''}
+                        Você tem {referralCredits} crédito{referralCredits > 1 ? 's' : ''}
                       </p>
                     </div>
                   </div>
@@ -388,7 +444,7 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
                 <Textarea
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  placeholder="Descreva como voce pode ajudar, sua experiencia com este tipo de servico..."
+                  placeholder="Descreva como você pode ajudar, sua experiência com este tipo de serviço..."
                   rows={4}
                   required
                 />
@@ -396,7 +452,7 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Preco Estimado (R$)</Label>
+                  <Label>Preço Estimado (R$)</Label>
                   <Input
                     type="number"
                     min="0"
@@ -444,23 +500,34 @@ export default function RespondQuoteDialog({ quoteRequest, professional, isOpen,
                 </Button>
                 <Button
                   type="submit"
-                  className={`${useReferralCredit ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500 hover:bg-green-600'}`}
-                  disabled={respondQuoteMutation.isPending || (needsPayment && !useReferralCredit)}
+                  className={`${
+                    hasUnlimitedCredits
+                      ? 'bg-purple-500 hover:bg-purple-600'
+                      : useReferralCredit
+                        ? 'bg-purple-500 hover:bg-purple-600'
+                        : 'bg-green-500 hover:bg-green-600'
+                  }`}
+                  disabled={respondQuoteMutation.isPending || needsPayment}
                 >
                   {respondQuoteMutation.isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Enviando...
                     </>
+                  ) : needsPayment ? (
+                    <>
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Comprar Créditos
+                    </>
+                  ) : hasUnlimitedCredits ? (
+                    <>
+                      <Infinity className="w-4 h-4 mr-2" />
+                      Enviar (Créditos Infinitos)
+                    </>
                   ) : useReferralCredit ? (
                     <>
                       <Gift className="w-4 h-4 mr-2" />
-                      Enviar com Credito
-                    </>
-                  ) : needsPayment ? (
-                    <>
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      Pagar e Enviar (R$ {paymentAmount})
+                      Enviar com Crédito de Indicação
                     </>
                   ) : (
                     <>

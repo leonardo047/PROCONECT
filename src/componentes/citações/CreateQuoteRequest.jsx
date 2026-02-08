@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from "react-router-dom";
 import { QuoteRequest, Professional, Notification, Category } from "@/lib/entities";
 import { useAuth } from "@/lib/AuthContext";
 import { uploadFile } from "@/lib/storage";
+import { createPageUrl } from "@/utils";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -10,7 +12,7 @@ import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
 import { Badge } from "@/componentes/interface do usuário/badge";
-import { Upload, X, Loader2, CheckCircle, Send } from "lucide-react";
+import { Upload, X, Loader2, CheckCircle, Send, Search, AlertCircle } from "lucide-react";
 import { addDays } from "date-fns";
 
 export default function CreateQuoteRequest({ onSuccess }) {
@@ -20,11 +22,12 @@ export default function CreateQuoteRequest({ onSuccess }) {
     title: '',
     description: '',
     city: '',
+    neighborhood: '',
     state: '',
-    address: '',
-    budget_range: '',
-    urgency: 'medium',
-    preferred_date: '',
+    urgency: 'this_week',
+    accepts_visit: true,
+    phone: user?.phone || '',
+    accept_contact: false,
     auto_match: true
   });
   const [photos, setPhotos] = useState([]);
@@ -61,7 +64,7 @@ export default function CreateQuoteRequest({ onSuccess }) {
     });
 
     // Ordenar grupos - construção primeiro
-    const sortedGroupNames = Object.keys(groups).sort((a, b) => {
+    const sortedGroupNamês = Object.keys(groups).sort((a, b) => {
       const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
       const aIsHome = homeGroups.some(g => a.includes(g));
       const bIsHome = homeGroups.some(g => b.includes(g));
@@ -71,7 +74,7 @@ export default function CreateQuoteRequest({ onSuccess }) {
     });
 
     // Adicionar cada grupo com header
-    sortedGroupNames.forEach(groupName => {
+    sortedGroupNamês.forEach(groupName => {
       // Adicionar header do grupo (disabled)
       const emoji = groupName.match(/^[^\w\s]/)?.[0] || '📁';
       const cleanName = groupName.replace(/^[^\w\s]\s*/, '');
@@ -166,14 +169,30 @@ export default function CreateQuoteRequest({ onSuccess }) {
       return;
     }
 
+    // Mapear urgência para formato legível
+    const urgencyMap = {
+      'today': 'urgent',
+      'this_week': 'high',
+      'next_week': 'medium',
+      'no_rush': 'low'
+    };
+
     const quoteData = {
-      ...formData,
+      category: formData.category,
+      title: `${formData.category} - ${formData.city}`,
+      description: formData.description,
+      city: formData.city,
+      state: formData.state,
+      address: formData.neighborhood || '',
+      urgency: urgencyMap[formData.urgency] || 'medium',
+      accepts_visit: formData.accepts_visit,
       client_id: user.id,
       client_name: user.full_name,
-      client_phone: user.phone || '',
+      client_phone: formData.phone || user.phone || '',
       photos: photos,
       expires_at: addDays(new Date(), 7).toISOString(),
-      status: 'open'
+      status: 'open',
+      auto_match: formData.auto_match
     };
 
     await createQuoteMutation.mutateAsync(quoteData);
@@ -181,22 +200,39 @@ export default function CreateQuoteRequest({ onSuccess }) {
 
   const states = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
+  const urgencyOptions = [
+    { value: 'today', label: 'Hoje' },
+    { value: 'this_week', label: 'Essa semana' },
+    { value: 'next_week', label: 'Próxima semana' },
+    { value: 'no_rush', label: 'Sem urgência' }
+  ];
+
   if (createQuoteMutation.isSuccess) {
     return (
       <Card className="border-green-200 bg-green-50">
-        <CardContent className="p-6 text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-green-900 mb-2">
-            Pedido Enviado com Sucesso!
+        <CardContent className="p-8 text-center">
+          <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
+          <h3 className="text-2xl font-bold text-green-900 mb-3">
+            Solicitação publicada com sucesso!
           </h3>
-          <p className="text-green-700 mb-4">
-            {formData.auto_match
-              ? 'Seu pedido foi enviado para até 3 profissionais na sua região.'
-              : 'Profissionais poderão visualizar e responder seu pedido.'}
+          <p className="text-green-700 mb-6 text-lg">
+            Em breve profissionais poderão entrar em contato.
           </p>
-          <Button onClick={() => window.location.reload()}>
-            Criar Novo Pedido
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link to={createPageUrl("SearchProfessionals")}>
+              <Button size="lg" className="bg-green-600 hover:bg-green-700">
+                <Search className="w-4 h-4 mr-2" />
+                Ver Profissionais Agora
+              </Button>
+            </Link>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => window.location.reload()}
+            >
+              Criar Nova Solicitação
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -204,30 +240,31 @@ export default function CreateQuoteRequest({ onSuccess }) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Solicitar Orçamento</CardTitle>
-        <p className="text-sm text-slate-600">
-          Descreva o serviço que precisa e receba propostas de profissionais qualificados
+      <CardHeader className="pb-2">
+        <CardTitle className="text-2xl">Solicitar Orçamento</CardTitle>
+        <p className="text-slate-600">
+          Descreva rapidamente o serviço que você precisa e profissionais da sua região poderão entrar em contato.
         </p>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Tipo de Serviço */}
           <div>
-            <Label>Categoria do Serviço *</Label>
+            <Label className="text-base font-medium">Tipo de serviço *</Label>
             <Select
               value={formData.category}
               onValueChange={(value) => setFormData({ ...formData, category: value })}
               disabled={loadingCategories}
               required
             >
-              <SelectTrigger>
+              <SelectTrigger className="mt-1.5">
                 {loadingCategories ? (
                   <div className="flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Carregando...
                   </div>
                 ) : (
-                  <SelectValue placeholder="Selecione..." />
+                  <SelectValue placeholder="Selecione o tipo de serviço..." />
                 )}
               </SelectTrigger>
               <SelectContent>
@@ -245,37 +282,40 @@ export default function CreateQuoteRequest({ onSuccess }) {
             </Select>
           </div>
 
+          {/* Descrição do Serviço */}
           <div>
-            <Label>Título do Pedido *</Label>
-            <Input
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Ex: Pintura de casa 3 quartos"
-              required
-            />
-          </div>
-
-          <div>
-            <Label>Descrição Detalhada *</Label>
+            <Label className="text-base font-medium">Descrição do serviço *</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descreva o serviço que precisa..."
+              placeholder="Precisó pintar uma casa de 2 quartos, paredes internas."
               rows={4}
+              className="mt-1.5"
               required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Localização */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label>Estado *</Label>
+              <Label className="text-base font-medium">Cidade *</Label>
+              <Input
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="Nome da cidade"
+                className="mt-1.5"
+                required
+              />
+            </div>
+            <div>
+              <Label className="text-base font-medium">Estado *</Label>
               <Select
                 value={formData.state}
                 onValueChange={(value) => setFormData({ ...formData, state: value })}
                 required
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="UF" />
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
                   {states.map(st => (
@@ -284,77 +324,67 @@ export default function CreateQuoteRequest({ onSuccess }) {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Cidade *</Label>
-              <Input
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder="Nome da cidade"
-                required
-              />
-            </div>
           </div>
 
           <div>
-            <Label>Endereço (Opcional)</Label>
+            <Label className="text-base font-medium">Bairro</Label>
             <Input
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="Rua, número, bairro"
+              value={formData.neighborhood}
+              onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+              placeholder="Nome do bairro (opcional)"
+              className="mt-1.5"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Orçamento Estimado</Label>
-              <Select
-                value={formData.budget_range}
-                onValueChange={(value) => setFormData({ ...formData, budget_range: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ate_500">Até R$ 500</SelectItem>
-                  <SelectItem value="500_1000">R$ 500 - R$ 1.000</SelectItem>
-                  <SelectItem value="1000_3000">R$ 1.000 - R$ 3.000</SelectItem>
-                  <SelectItem value="3000_5000">R$ 3.000 - R$ 5.000</SelectItem>
-                  <SelectItem value="acima_5000">Acima de R$ 5.000</SelectItem>
-                  <SelectItem value="nao_sei">Não sei estimar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Urgência</Label>
-              <Select
-                value={formData.urgency}
-                onValueChange={(value) => setFormData({ ...formData, urgency: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Baixa</SelectItem>
-                  <SelectItem value="medium">Média</SelectItem>
-                  <SelectItem value="high">Alta</SelectItem>
-                  <SelectItem value="urgent">Urgente</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Urgência */}
+          <div>
+            <Label className="text-base font-medium">Pra quando precisa do serviço? *</Label>
+            <Select
+              value={formData.urgency}
+              onValueChange={(value) => setFormData({ ...formData, urgency: value })}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {urgencyOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Visita para orçamento */}
+          <div>
+            <Label className="text-base font-medium">Pode receber visita para orçamento?</Label>
+            <div className="flex gap-4 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="accepts_visit"
+                  checked={formData.accepts_visit === true}
+                  onChange={() => setFormData({ ...formData, accepts_visit: true })}
+                  className="w-4 h-4 text-orange-500"
+                />
+                <span>Sim</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="accepts_visit"
+                  checked={formData.accepts_visit === false}
+                  onChange={() => setFormData({ ...formData, accepts_visit: false })}
+                  className="w-4 h-4 text-orange-500"
+                />
+                <span>Não</span>
+              </label>
             </div>
           </div>
 
+          {/* Fotos/Vídeos */}
           <div>
-            <Label>Data Preferida</Label>
-            <Input
-              type="date"
-              value={formData.preferred_date}
-              onChange={(e) => setFormData({ ...formData, preferred_date: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <Label>Fotos (Opcional)</Label>
-            <div className="space-y-2">
+            <Label className="text-base font-medium">Enviar fotos ou vídeos (opcional)</Label>
+            <div className="space-y-2 mt-1.5">
               <div className="flex flex-wrap gap-2">
                 {photos.map((photo, idx) => (
                   <div key={idx} className="relative w-20 h-20">
@@ -376,13 +406,13 @@ export default function CreateQuoteRequest({ onSuccess }) {
                   ) : (
                     <>
                       <Upload className="w-6 h-6 mx-auto text-slate-400 mb-2" />
-                      <span className="text-sm text-slate-600">Adicionar Fotos</span>
+                      <span className="text-sm text-slate-600">Clique para adicionar fotos ou vídeos</span>
                     </>
                   )}
                 </div>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/*"
                   multiple
                   onChange={handlePhotoUpload}
                   className="hidden"
@@ -391,32 +421,55 @@ export default function CreateQuoteRequest({ onSuccess }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 p-4 bg-blue-50 rounded-lg">
+          {/* Telefone/WhatsApp */}
+          <div>
+            <Label className="text-base font-medium">Telefone / WhatsApp *</Label>
+            <Input
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="(00) 00000-0000"
+              className="mt-1.5"
+              required
+            />
+          </div>
+
+          {/* Avisó informativo */}
+          <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-700">
+              Profissionais da sua região poderão entrar em contato diretamente com você.
+            </p>
+          </div>
+
+          {/* Checkbox de aceite */}
+          <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
             <input
               type="checkbox"
-              checked={formData.auto_match}
-              onChange={(e) => setFormData({ ...formData, auto_match: e.target.checked })}
-              className="w-4 h-4"
+              checked={formData.accept_contact}
+              onChange={(e) => setFormData({ ...formData, accept_contact: e.target.checked })}
+              className="w-5 h-5 mt-0.5 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+              required
             />
-            <Label className="text-sm">
-              Enviar automaticamente para até 3 profissionais na minha região
+            <Label className="text-sm text-slate-700 cursor-pointer" onClick={() => setFormData({ ...formData, accept_contact: !formData.accept_contact })}>
+              Aceito receber contato de profissionais interessados em realizar o serviço solicitado.
             </Label>
           </div>
 
           <Button
             type="submit"
-            className="w-full bg-orange-500 hover:bg-orange-600"
-            disabled={createQuoteMutation.isPending}
+            size="lg"
+            className="w-full bg-orange-500 hover:bg-orange-600 py-6 text-lg"
+            disabled={createQuoteMutation.isPending || !formData.accept_contact}
           >
             {createQuoteMutation.isPending ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Enviando...
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Publicando...
               </>
             ) : (
               <>
-                <Send className="w-4 h-4 mr-2" />
-                Enviar Pedido
+                <Send className="w-5 h-5 mr-2" />
+                Publicar Solicitação
               </>
             )}
           </Button>

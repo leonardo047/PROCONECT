@@ -68,7 +68,7 @@ export default function SavedSearches({ currentFilters, onLoadSearch, userId }) 
         className="w-full border-2 border-blue-300 text-blue-600 hover:bg-blue-50"
       >
         <Save className="w-4 h-4 mr-2" />
-        Salvar Esta Busca
+        Salvar Está Busca
       </Button>
 
       {/* Saved Searches List */}
