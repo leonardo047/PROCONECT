@@ -177,12 +177,12 @@ export default function CreateQuoteRequest({ onSuccess }) {
       return;
     }
 
-    // Mapear urgência para formato legível
+    // Mapear urgência para formato do banco
     const urgencyMap = {
-      'today': 'urgent',
-      'this_week': 'high',
-      'next_week': 'medium',
-      'no_rush': 'low'
+      'today': 'urgente',
+      'this_week': 'esta_semana',
+      'next_week': 'este_mes',
+      'no_rush': 'flexivel'
     };
 
     const quoteData = {
@@ -193,7 +193,7 @@ export default function CreateQuoteRequest({ onSuccess }) {
       city: formData.city,
       state: formData.state,
       address: formData.neighborhood || '',
-      urgency: urgencyMap[formData.urgency] || 'medium',
+      urgency: urgencyMap[formData.urgency] || 'flexivel',
       client_id: user.id,
       client_name: user.full_name || 'Cliente',
       client_phone: formData.phone || user.phone || '',
