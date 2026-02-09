@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Message, Notification } from "@/lib/entities";
 import { uploadFile } from "@/lib/storage";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useChatMessages } from "@/hooks/useChatMessages";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
-import { Textarea } from "@/componentes/interface do usuário/textarea";
-import { ScrollArea } from "@/componentes/interface do usuário/scroll-area";
-import { Send, Paperclip, Loader2, X, MessageCircle } from "lucide-react";
+import { Send, Paperclip, Loader2, MessageCircle, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { showToast } from "@/utils/showToast";
@@ -14,20 +13,23 @@ import { showToast } from "@/utils/showToast";
 export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
-  const scrollRef = useRef(null);
   const queryClient = useQueryClient();
 
-  const { data: messages = [], isLoading } = useQuery({
-    queryKey: ['messages', appointmentId],
-    queryFn: async () => {
-      const results = await Message.filter(
-        { appointment_id: appointmentId },
-        'created_date',
-        100
-      );
-      return results;
-    },
-    refetchInterval: 3000, // Atualiza a cada 3 segundos
+  // Usar o novo hook com paginacao e realtime
+  const {
+    messages,
+    isLoading,
+    hasOlderMessages,
+    isLoadingOlder,
+    loadOlderMessages,
+    scrollToBottom,
+    containerRef,
+    addOptimisticMessage,
+    removeOptimisticMessage
+  } = useChatMessages({
+    type: 'appointment',
+    conversationId: appointmentId,
+    currentUserId: currentUser?.id,
     enabled: !!appointmentId
   });
 
@@ -35,7 +37,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
     mutationFn: async (data) => {
       const newMessage = await Message.create(data);
 
-      // Criar notificação para o outro usuário
+      // Criar notificacao para o outro usuario
       if (otherUser?.id) {
         try {
           await Notification.create({
@@ -47,34 +49,46 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
             priority: 'high'
           });
         } catch (notifError) {
-          console.error('Erro ao criar notificação:', notifError);
+          console.error('Erro ao criar notificacao:', notifError);
         }
       }
 
       return newMessage;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', appointmentId] });
-      setMessage('');
-    },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Remover mensagem otimistica em caso de erro
+      if (context?.tempId) {
+        removeOptimisticMessage(context.tempId);
+      }
       showToast.error('Erro ao enviar mensagem', 'Tente novamente.');
     }
   });
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (!message.trim()) return;
 
     const senderType = currentUser.user_type === 'profissional' ? 'professional' : 'client';
 
-    sendMutation.mutate({
+    const messageData = {
       appointment_id: appointmentId,
       sender_id: currentUser.id,
       sender_name: currentUser.full_name,
       sender_type: senderType,
       message: message.trim()
+    };
+
+    // Adicionar mensagem otimistica
+    const optimisticMsg = addOptimisticMessage(messageData);
+
+    setMessage('');
+
+    // Scroll para o final
+    setTimeout(() => scrollToBottom(), 50);
+
+    sendMutation.mutate(messageData, {
+      context: { tempId: optimisticMsg.id }
     });
-  };
+  }, [message, currentUser, appointmentId, addOptimisticMessage, scrollToBottom, sendMutation]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -86,36 +100,62 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
 
       const senderType = currentUser.user_type === 'profissional' ? 'professional' : 'client';
 
-      await sendMutation.mutateAsync({
+      const messageData = {
         appointment_id: appointmentId,
         sender_id: currentUser.id,
         sender_name: currentUser.full_name,
         sender_type: senderType,
         message: 'Arquivo anexado',
         attachment_url: file_url
+      };
+
+      const optimisticMsg = addOptimisticMessage(messageData);
+
+      await sendMutation.mutateAsync(messageData, {
+        context: { tempId: optimisticMsg.id }
       });
+
+      setTimeout(() => scrollToBottom(), 50);
     } catch (error) {
       showToast.error('Erro ao enviar arquivo', error.message || 'Tente novamente.');
     }
     setUploading(false);
   };
 
+  // Scroll para o final quando mudar de conversa ou quando mensagens carregarem
+  const prevAppointmentId = useRef(null);
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (
+      appointmentId &&
+      messages.length > 0 &&
+      !isLoading &&
+      prevAppointmentId.current !== appointmentId
+    ) {
+      scrollToBottom('auto');
+      prevAppointmentId.current = appointmentId;
     }
-  }, [messages]);
+  }, [appointmentId, messages.length, isLoading, scrollToBottom]);
 
   // Marcar mensagens como lidas
   useEffect(() => {
     const unreadMessages = messages.filter(
-      m => m.sender_id !== currentUser.id && !m.is_read
+      m => m.sender_id !== currentUser.id && !m.is_read && !m._isOptimistic
     );
 
     unreadMessages.forEach(async (msg) => {
       await Message.update(msg.id, { is_read: true });
     });
   }, [messages, currentUser.id]);
+
+  // Handler para scroll - carregar mensagens antigas
+  const handleScroll = useCallback((e) => {
+    const { scrollTop } = e.target;
+
+    // Se esta proximo do topo, carregar mensagens antigas
+    if (scrollTop < 100 && hasOlderMessages && !isLoadingOlder) {
+      loadOlderMessages();
+    }
+  }, [hasOlderMessages, isLoadingOlder, loadOlderMessages]);
 
   if (isLoading) {
     return (
@@ -139,7 +179,31 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto p-4"
+        onScroll={handleScroll}
+      >
+        {/* Botao para carregar mais */}
+        {hasOlderMessages && (
+          <div className="flex justify-center mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadOlderMessages}
+              disabled={isLoadingOlder}
+              className="text-slate-500 hover:text-slate-700"
+            >
+              {isLoadingOlder ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <ChevronUp className="w-4 h-4 mr-2" />
+              )}
+              Carregar mensagens anteriores
+            </Button>
+          </div>
+        )}
+
         <div className="space-y-4">
           {messages.length === 0 ? (
             <div className="text-center text-slate-400 py-8">
@@ -153,7 +217,9 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
               return (
                 <div
                   key={msg.id}
-                  className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${
+                    msg._isOptimistic ? 'opacity-70' : ''
+                  }`}
                 >
                   <div className={`max-w-[70%] ${isMe ? 'order-2' : 'order-1'}`}>
                     <div
@@ -187,16 +253,19 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
                         isMe ? 'text-right' : 'text-left'
                       }`}
                     >
-                      {format(new Date(msg.created_date), 'dd/MM HH:mm', { locale: ptBR })}
+                      {msg._isOptimistic ? (
+                        'Enviando...'
+                      ) : (
+                        format(new Date(msg.created_date || msg.created_at), 'dd/MM HH:mm', { locale: ptBR })
+                      )}
                     </p>
                   </div>
                 </div>
               );
             })
           )}
-          <div ref={scrollRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
       <div className="border-t p-4">
@@ -227,7 +296,7 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
             placeholder="Digite sua mensagem..."
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => {
+            onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 handleSend();

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { QuoteMessage, QuoteMessageService, Notification } from "@/lib/entities";
 import { uploadFile } from "@/lib/storage";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useChatMessages } from "@/hooks/useChatMessages";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
-import { ScrollArea } from "@/componentes/interface do usuário/scroll-area";
-import { Send, Paperclip, Loader2, MessageCircle, DollarSign } from "lucide-react";
+import { Send, Paperclip, Loader2, MessageCircle, DollarSign, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -18,16 +18,23 @@ export default function QuoteChat({
 }) {
   const [message, setMessage] = useState('');
   const [uploading, setUploading] = useState(false);
-  const scrollRef = useRef(null);
   const queryClient = useQueryClient();
 
-  // Buscar mensagens
-  const { data: messages = [], isLoading } = useQuery({
-    queryKey: ['quote-messages', quoteResponseId],
-    queryFn: async () => {
-      return await QuoteMessageService.getByQuoteResponse(quoteResponseId);
-    },
-    refetchInterval: 3000,
+  // Usar o novo hook com paginacao e realtime
+  const {
+    messages,
+    isLoading,
+    hasOlderMessages,
+    isLoadingOlder,
+    loadOlderMessages,
+    scrollToBottom,
+    containerRef,
+    addOptimisticMessage,
+    removeOptimisticMessage
+  } = useChatMessages({
+    type: 'quote',
+    conversationId: quoteResponseId,
+    currentUserId: currentUser?.id,
     enabled: !!quoteResponseId
   });
 
@@ -36,13 +43,13 @@ export default function QuoteChat({
     mutationFn: async (data) => {
       const newMessage = await QuoteMessage.create(data);
 
-      // Criar notificação para o outro usuário
+      // Criar notificacao para o outro usuario
       if (otherUser?.id) {
         try {
           await Notification.create({
             user_id: otherUser.id,
             type: 'quote_message',
-            title: 'Nova Mensagem no Orçamento',
+            title: 'Nova Mensagem no Orcamento',
             message: `${currentUser.full_name || currentUser.name} enviou uma mensagem sobre "${quoteRequest?.title}"`,
             link: currentUser.user_type === 'profissional'
               ? `/ClientQuotes?response=${quoteResponseId}`
@@ -50,34 +57,47 @@ export default function QuoteChat({
             priority: 'high'
           });
         } catch (err) {
-          console.error('Erro ao criar notificação:', err);
+          console.error('Erro ao criar notificacao:', err);
         }
       }
 
       return newMessage;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['quote-messages', quoteResponseId] });
+    onError: (error, variables, context) => {
+      // Remover mensagem otimistica em caso de erro
+      if (context?.tempId) {
+        removeOptimisticMessage(context.tempId);
+      }
     }
   });
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage || sendMutation.isPending) return;
 
-    // Limpar input imediatamente
-    setMessage('');
-
     const senderType = currentUser.user_type === 'profissional' ? 'professional' : 'client';
 
-    sendMutation.mutate({
+    const messageData = {
       quote_response_id: quoteResponseId,
       sender_id: currentUser.id,
       sender_name: currentUser.full_name || currentUser.name,
       sender_type: senderType,
       message: trimmedMessage
+    };
+
+    // Adicionar mensagem otimistica
+    const optimisticMsg = addOptimisticMessage(messageData);
+
+    // Limpar input imediatamente
+    setMessage('');
+
+    // Scroll para o final
+    setTimeout(() => scrollToBottom(), 50);
+
+    sendMutation.mutate(messageData, {
+      context: { tempId: optimisticMsg.id }
     });
-  };
+  }, [message, currentUser, quoteResponseId, addOptimisticMessage, scrollToBottom, sendMutation]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -89,42 +109,67 @@ export default function QuoteChat({
 
       const senderType = currentUser.user_type === 'profissional' ? 'professional' : 'client';
 
-      await sendMutation.mutateAsync({
+      const messageData = {
         quote_response_id: quoteResponseId,
         sender_id: currentUser.id,
         sender_name: currentUser.full_name || currentUser.name,
         sender_type: senderType,
         message: 'Arquivo anexado',
         attachment_url: file_url
+      };
+
+      const optimisticMsg = addOptimisticMessage(messageData);
+
+      await sendMutation.mutateAsync(messageData, {
+        context: { tempId: optimisticMsg.id }
       });
+
+      setTimeout(() => scrollToBottom(), 50);
     } catch (error) {
       // Ignorar erro
     }
     setUploading(false);
   };
 
-  // Scroll para a ultima mensagem
+  // Scroll para o final quando mudar de conversa ou quando mensagens carregarem
+  const prevQuoteResponseId = useRef(null);
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (
+      quoteResponseId &&
+      messages.length > 0 &&
+      !isLoading &&
+      prevQuoteResponseId.current !== quoteResponseId
+    ) {
+      scrollToBottom('auto');
+      prevQuoteResponseId.current = quoteResponseId;
     }
-  }, [messages]);
+  }, [quoteResponseId, messages.length, isLoading, scrollToBottom]);
 
   // Marcar mensagens como lidas
   useEffect(() => {
     const markAsRead = async () => {
       const unreadMessages = messages.filter(
-        m => m.sender_id !== currentUser.id && !m.is_read
+        m => m.sender_id !== currentUser.id && !m.is_read && !m._isOptimistic
       );
 
       if (unreadMessages.length > 0) {
         await QuoteMessageService.markAsRead(quoteResponseId, currentUser.id);
-        queryClient.invalidateQueries({ queryKey: ['quote-messages', quoteResponseId] });
+        queryClient.invalidateQueries({ queryKey: ['user-conversations'] });
       }
     };
 
     markAsRead();
   }, [messages, currentUser.id, quoteResponseId, queryClient]);
+
+  // Handler para scroll - carregar mensagens antigas
+  const handleScroll = useCallback((e) => {
+    const { scrollTop } = e.target;
+
+    // Se esta proximo do topo, carregar mensagens antigas
+    if (scrollTop < 100 && hasOlderMessages && !isLoadingOlder) {
+      loadOlderMessages();
+    }
+  }, [hasOlderMessages, isLoadingOlder, loadOlderMessages]);
 
   if (isLoading) {
     return (
@@ -158,13 +203,37 @@ export default function QuoteChat({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto p-4"
+        onScroll={handleScroll}
+      >
+        {/* Botao para carregar mais */}
+        {hasOlderMessages && (
+          <div className="flex justify-center mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadOlderMessages}
+              disabled={isLoadingOlder}
+              className="text-slate-500 hover:text-slate-700"
+            >
+              {isLoadingOlder ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <ChevronUp className="w-4 h-4 mr-2" />
+              )}
+              Carregar mensagens anteriores
+            </Button>
+          </div>
+        )}
+
         <div className="space-y-4">
           {messages.length === 0 ? (
             <div className="text-center text-slate-400 py-8">
               <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>Nenhuma mensagem ainda</p>
-              <p className="text-sm">Inicie a conversa sobre este orçamento!</p>
+              <p className="text-sm">Inicie a conversa sobre este orcamento!</p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -172,7 +241,9 @@ export default function QuoteChat({
               return (
                 <div
                   key={msg.id}
-                  className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${
+                    msg._isOptimistic ? 'opacity-70' : ''
+                  }`}
                 >
                   <div className={`max-w-[70%] ${isMe ? 'order-2' : 'order-1'}`}>
                     <div
@@ -206,16 +277,19 @@ export default function QuoteChat({
                         isMe ? 'text-right' : 'text-left'
                       }`}
                     >
-                      {format(new Date(msg.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                      {msg._isOptimistic ? (
+                        'Enviando...'
+                      ) : (
+                        format(new Date(msg.created_at), 'dd/MM HH:mm', { locale: ptBR })
+                      )}
                     </p>
                   </div>
                 </div>
               );
             })
           )}
-          <div ref={scrollRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
       <div className="border-t p-4">

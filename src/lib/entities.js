@@ -1268,6 +1268,35 @@ export const MessageService = {
     return data;
   },
 
+  // Get messages with pagination (cursor-based)
+  async getByAppointmentPaginated(appointmentId, { limit = 30, cursor = null } = {}) {
+    let query = supabase
+      .from('messages')
+      .select('*')
+      .eq('appointment_id', appointmentId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (cursor) {
+      query = query.lt('created_at', cursor);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    // Reverse to get chronological order
+    const messages = (data || []).reverse();
+    const hasMore = data?.length === limit;
+    const nextCursor = data?.length > 0 ? data[data.length - 1].created_at : null;
+
+    return {
+      messages,
+      hasMore,
+      nextCursor
+    };
+  },
+
   // Mark messages as read
   async markAsRead(appointmentId, userId) {
     const { error } = await supabase
@@ -1378,6 +1407,35 @@ export const QuoteMessageService = {
     return data || [];
   },
 
+  // Get messages for a quote response with pagination (cursor-based)
+  async getByQuoteResponsePaginated(quoteResponseId, { limit = 30, cursor = null } = {}) {
+    let query = supabase
+      .from('quote_messages')
+      .select('*')
+      .eq('quote_response_id', quoteResponseId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (cursor) {
+      query = query.lt('created_at', cursor);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    // Reverse to get chronological order
+    const messages = (data || []).reverse();
+    const hasMore = data?.length === limit;
+    const nextCursor = data?.length > 0 ? data[data.length - 1].created_at : null;
+
+    return {
+      messages,
+      hasMore,
+      nextCursor
+    };
+  },
+
   // Get messages for a direct conversation
   async getByDirectConversation(directConversationId) {
     const { data, error } = await supabase
@@ -1388,6 +1446,35 @@ export const QuoteMessageService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  // Get messages for a direct conversation with pagination (cursor-based)
+  async getByDirectConversationPaginated(directConversationId, { limit = 30, cursor = null } = {}) {
+    let query = supabase
+      .from('quote_messages')
+      .select('*')
+      .eq('direct_conversation_id', directConversationId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (cursor) {
+      query = query.lt('created_at', cursor);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    // Reverse to get chronological order
+    const messages = (data || []).reverse();
+    const hasMore = data?.length === limit;
+    const nextCursor = data?.length > 0 ? data[data.length - 1].created_at : null;
+
+    return {
+      messages,
+      hasMore,
+      nextCursor
+    };
   },
 
   // Mark messages as read (supports both types)

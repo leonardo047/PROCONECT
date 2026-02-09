@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { QuoteMessageService, QuoteMessage, Notification, DirectConversationService, ProfessionalService, CreditsService } from "@/lib/entities";
 import { uploadFile } from "@/lib/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useChatMessages } from "@/hooks/useChatMessages";
+import { useConversationList } from "@/hooks/useConversationList";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Alert, AlertDescription } from "@/componentes/interface do usuário/alert";
 import {
   MessageCircle, Loader2, User, Search, Send, Paperclip,
-  ArrowLeft, Check, CheckCheck, MoreVertical, AlertCircle, Coins, Phone, Lock
+  ArrowLeft, Check, CheckCheck, MoreVertical, AlertCircle, Coins, Phone, Lock, ChevronUp
 } from "lucide-react";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/componentes/interface do usuário/dialog";
@@ -32,7 +34,6 @@ export default function Conversations() {
   const [otherUserWhatsapp, setOtherUserWhatsapp] = useState(null);
   const [loadingContact, setLoadingContact] = useState(false);
   const [contactUnlocked, setContactUnlocked] = useState(false);
-  const messagesContainerRef = useRef(null);
   const queryClient = useQueryClient();
 
   // Check if user is a professional
@@ -62,6 +63,40 @@ export default function Conversations() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Usar hook de lista de conversas com realtime
+  const {
+    conversations,
+    isLoading: loadingConversations,
+    totalUnread,
+    markAsRead: markConversationAsRead,
+    refetch: refetchConversations
+  } = useConversationList({
+    userId: user?.id,
+    userType: user?.user_type,
+    enabled: !!user?.id
+  });
+
+  // Determinar tipo de conversa para o hook de mensagens
+  const conversationType = selectedConversation?.conversation_type === 'direct' ? 'direct' : 'quote';
+
+  // Usar hook de mensagens com realtime e paginacao
+  const {
+    messages,
+    isLoading: loadingMessages,
+    hasOlderMessages,
+    isLoadingOlder,
+    loadOlderMessages,
+    scrollToBottom,
+    containerRef,
+    addOptimisticMessage,
+    removeOptimisticMessage
+  } = useChatMessages({
+    type: conversationType,
+    conversationId: selectedConversation?.id,
+    currentUserId: user?.id,
+    enabled: !!selectedConversation?.id
+  });
 
   // Detectar parametro start_chat_with na URL (para iniciar conversa direta)
   useEffect(() => {
@@ -104,7 +139,7 @@ export default function Conversations() {
       window.history.replaceState({}, '', '/Conversations');
 
       // Recarregar lista de conversas
-      queryClient.invalidateQueries({ queryKey: ['user-conversations'] });
+      refetchConversations();
     } catch (error) {
       // Ignorar erro
     }
@@ -157,6 +192,23 @@ export default function Conversations() {
     setOtherUserWhatsapp(null);
     setContactUnlocked(false);
   }, [selectedConversation?.id]);
+
+  // Scroll para o final quando mudar de conversa ou quando mensagens carregarem
+  const prevConversationId = useRef(null);
+  useEffect(() => {
+    // Scroll apenas quando:
+    // 1. A conversa mudou E as mensagens carregaram
+    // 2. Ou quando as mensagens carregaram pela primeira vez para a conversa atual
+    if (
+      selectedConversation?.id &&
+      messages.length > 0 &&
+      !loadingMessages &&
+      prevConversationId.current !== selectedConversation?.id
+    ) {
+      scrollToBottom('auto');
+      prevConversationId.current = selectedConversation?.id;
+    }
+  }, [selectedConversation?.id, messages.length, loadingMessages, scrollToBottom]);
 
   // Funcao para abrir modal de contato
   const handleOpenContactModal = async () => {
@@ -239,30 +291,6 @@ export default function Conversations() {
     setLoadingContact(false);
   };
 
-  // Buscar conversas
-  const { data: conversations = [], isLoading: loadingConversations, refetch } = useQuery({
-    queryKey: ['user-conversations', user?.id, user?.user_type],
-    queryFn: async () => {
-      return await QuoteMessageService.getConversationsForUser(user.id, user.user_type);
-    },
-    enabled: !!user?.id,
-    refetchInterval: 10000,
-    staleTime: 5000
-  });
-
-  // Buscar mensagens da conversa selecionada (suporta quote e direct)
-  const { data: messages = [], isLoading: loadingMessages } = useQuery({
-    queryKey: ['conversation-messages', selectedConversation?.id, selectedConversation?.conversation_type],
-    queryFn: async () => {
-      if (selectedConversation.conversation_type === 'direct') {
-        return await QuoteMessageService.getByDirectConversation(selectedConversation.id);
-      }
-      return await QuoteMessageService.getByQuoteResponse(selectedConversation.id);
-    },
-    refetchInterval: 3000,
-    enabled: !!selectedConversation?.id
-  });
-
   // Mutation para enviar mensagem (suporta quote e direct)
   const sendMutation = useMutation({
     mutationFn: async (data) => {
@@ -273,7 +301,7 @@ export default function Conversations() {
         await DirectConversationService.updateLastMessage(selectedConversation.id);
       }
 
-      // Criar notificação para o outro usuário
+      // Criar notificacao para o outro usuario
       if (selectedConversation.other_user_id) {
         try {
           await Notification.create({
@@ -285,53 +313,33 @@ export default function Conversations() {
             priority: 'high'
           });
         } catch (err) {
-          console.error('Erro ao criar notificação:', err);
+          console.error('Erro ao criar notificacao:', err);
         }
-      } else {
-        console.warn('other_user_id não definido para a conversa:', selectedConversation.id);
       }
 
       return newMessage;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversation-messages', selectedConversation?.id] });
-      queryClient.invalidateQueries({ queryKey: ['user-conversations'] });
+    onError: (error, variables, context) => {
+      if (context?.tempId) {
+        removeOptimisticMessage(context.tempId);
+      }
     }
   });
 
   // Marcar como lido (suporta quote e direct)
   useEffect(() => {
     if (selectedConversation && messages.length > 0) {
-      const unread = messages.filter(m => m.sender_id !== user?.id && !m.is_read);
+      const unread = messages.filter(m => m.sender_id !== user?.id && !m.is_read && !m._isOptimistic);
       if (unread.length > 0) {
         const isDirect = selectedConversation.conversation_type === 'direct';
         QuoteMessageService.markAsRead(selectedConversation.id, user.id, isDirect);
-        queryClient.invalidateQueries({ queryKey: ['user-conversations'] });
+        markConversationAsRead(selectedConversation.id);
         queryClient.invalidateQueries({ queryKey: ['unread-messages'] });
       }
     }
-  }, [messages, selectedConversation, user?.id, queryClient]);
+  }, [messages, selectedConversation, user?.id, queryClient, markConversationAsRead]);
 
-  // Scroll para ultima mensagem - usando scrollTop no container (nao afeta a pagina)
-  const shouldScrollRef = useRef(false);
-
-  // Marcar para scroll quando mudar de conversa
-  useEffect(() => {
-    if (selectedConversation?.id) {
-      shouldScrollRef.current = true;
-    }
-  }, [selectedConversation?.id]);
-
-  // Executar scroll apenas quando marcado - usando scrollTop ao inves de scrollIntoView
-  useEffect(() => {
-    if (shouldScrollRef.current && messagesContainerRef.current && messages.length > 0) {
-      const container = messagesContainerRef.current;
-      container.scrollTop = container.scrollHeight;
-      shouldScrollRef.current = false;
-    }
-  }, [messages]);
-
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage || sendMutation.isPending || !selectedConversation) return;
 
@@ -353,8 +361,8 @@ export default function Conversations() {
 
           if (!status.can_respond) {
             showToast.error(
-              'Sem créditos',
-              'Você precisa de créditos para iniciar esta conversa. Compre créditos no seu painel.'
+              'Sem creditos',
+              'Voce precisa de creditos para iniciar esta conversa. Compre creditos no seu painel.'
             );
             return;
           }
@@ -365,7 +373,7 @@ export default function Conversations() {
             queryClient.invalidateQueries({ queryKey: ['credit-status'] });
             queryClient.invalidateQueries({ queryKey: ['my-professional'] });
           } catch (creditError) {
-            showToast.error('Erro', 'Não foi possível usar o crédito. Tente novamente.');
+            showToast.error('Erro', 'Nao foi possivel usar o credito. Tente novamente.');
             return;
           }
         }
@@ -373,9 +381,6 @@ export default function Conversations() {
         console.error('Error checking credit status:', error);
       }
     }
-
-    setMessage('');
-    shouldScrollRef.current = true; // Marcar para scroll após enviar
 
     const messageData = {
       sender_id: user.id,
@@ -391,8 +396,18 @@ export default function Conversations() {
       messageData.quote_response_id = selectedConversation.id;
     }
 
-    sendMutation.mutate(messageData);
-  };
+    // Adicionar mensagem otimistica
+    const optimisticMsg = addOptimisticMessage(messageData);
+
+    setMessage('');
+
+    // Scroll para o final
+    setTimeout(() => scrollToBottom(), 50);
+
+    sendMutation.mutate(messageData, {
+      context: { tempId: optimisticMsg.id }
+    });
+  }, [message, user, selectedConversation, isProfessional, professional?.id, addOptimisticMessage, scrollToBottom, sendMutation, queryClient]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -414,8 +429,8 @@ export default function Conversations() {
 
           if (!status.can_respond) {
             showToast.error(
-              'Sem créditos',
-              'Você precisa de créditos para iniciar esta conversa.'
+              'Sem creditos',
+              'Voce precisa de creditos para iniciar esta conversa.'
             );
             return;
           }
@@ -426,7 +441,7 @@ export default function Conversations() {
             queryClient.invalidateQueries({ queryKey: ['credit-status'] });
             queryClient.invalidateQueries({ queryKey: ['my-professional'] });
           } catch (creditError) {
-            showToast.error('Erro', 'Não foi possível usar o crédito.');
+            showToast.error('Erro', 'Nao foi possivel usar o credito.');
             return;
           }
         }
@@ -453,12 +468,28 @@ export default function Conversations() {
         messageData.quote_response_id = selectedConversation.id;
       }
 
-      await sendMutation.mutateAsync(messageData);
+      const optimisticMsg = addOptimisticMessage(messageData);
+
+      await sendMutation.mutateAsync(messageData, {
+        context: { tempId: optimisticMsg.id }
+      });
+
+      setTimeout(() => scrollToBottom(), 50);
     } catch (error) {
       // Ignorar erro
     }
     setUploading(false);
   };
+
+  // Handler para scroll - carregar mensagens antigas
+  const handleScroll = useCallback((e) => {
+    const { scrollTop } = e.target;
+
+    // Se esta proximo do topo, carregar mensagens antigas
+    if (scrollTop < 100 && hasOlderMessages && !isLoadingOlder) {
+      loadOlderMessages();
+    }
+  }, [hasOlderMessages, isLoadingOlder, loadOlderMessages]);
 
   // Filtrar conversas
   const filteredConversations = conversations.filter(conv => {
@@ -492,8 +523,6 @@ export default function Conversations() {
     });
     return groups;
   };
-
-  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
 
   if (isLoadingAuth) {
     return (
@@ -561,7 +590,7 @@ export default function Conversations() {
                     : 'bg-[#2a3942] text-[#8696a0] hover:bg-[#3b4a54]'
                 }`}
               >
-                Não lidas
+                Nao lidas
               </button>
             </div>
           </div>
@@ -650,7 +679,7 @@ export default function Conversations() {
               <p className="text-xs text-[#8696a0]">
                 {selectedConversation?.conversation_type === 'direct'
                   ? 'Conversa direta'
-                  : selectedConversation?.quote_request_title || 'Orçamento'}
+                  : selectedConversation?.quote_request_title || 'Orcamento'}
               </p>
             </div>
             {/* Botao de contato WhatsApp - so aparece se ja tem mensagens */}
@@ -670,13 +699,34 @@ export default function Conversations() {
 
           {/* Mensagens */}
           <div
-            ref={messagesContainerRef}
+            ref={containerRef}
             className="flex-1 overflow-y-auto p-4"
+            onScroll={handleScroll}
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23182229' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
               backgroundColor: '#0b141a'
             }}
           >
+            {/* Botao para carregar mais */}
+            {hasOlderMessages && (
+              <div className="flex justify-center mb-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadOlderMessages}
+                  disabled={isLoadingOlder}
+                  className="text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                >
+                  {isLoadingOlder ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 mr-2" />
+                  )}
+                  Carregar mensagens anteriores
+                </Button>
+              </div>
+            )}
+
             {loadingMessages ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-6 h-6 text-[#00a884] animate-spin" />
@@ -708,7 +758,9 @@ export default function Conversations() {
                       return (
                         <div
                           key={msg.id}
-                          className={`flex mb-1 ${isMe ? 'justify-end' : 'justify-start'}`}
+                          className={`flex mb-1 ${isMe ? 'justify-end' : 'justify-start'} ${
+                            msg._isOptimistic ? 'opacity-70' : ''
+                          }`}
                         >
                           <div
                             className={`max-w-[65%] rounded-lg px-3 py-2 ${
@@ -730,9 +782,9 @@ export default function Conversations() {
                             )}
                             <div className={`flex items-center justify-end gap-1 mt-1 ${isMe ? '' : 'text-right'}`}>
                               <span className="text-[10px] text-[#8696a0]">
-                                {format(new Date(msg.created_at), 'HH:mm')}
+                                {msg._isOptimistic ? 'Enviando...' : format(new Date(msg.created_at), 'HH:mm')}
                               </span>
-                              {isMe && (
+                              {isMe && !msg._isOptimistic && (
                                 msg.is_read
                                   ? <CheckCheck className="w-4 h-4 text-[#53bdeb]" />
                                   : <Check className="w-4 h-4 text-[#8696a0]" />
@@ -754,7 +806,7 @@ export default function Conversations() {
               <Alert className="bg-orange-900/30 border-orange-500/50 py-2">
                 <AlertCircle className="w-4 h-4 text-orange-400" />
                 <AlertDescription className="text-orange-200 text-sm">
-                  <strong>Sem créditos!</strong> Compre créditos para responder esta conversa.
+                  <strong>Sem creditos!</strong> Compre creditos para responder esta conversa.
                 </AlertDescription>
               </Alert>
             </div>
@@ -765,7 +817,7 @@ export default function Conversations() {
             <div className="px-3 py-2 bg-[#182229] border-t border-[#222d34]">
               <div className="flex items-center gap-2 text-sm text-[#8696a0]">
                 <Coins className="w-4 h-4 text-[#00a884]" />
-                <span>1 crédito será usado ao enviar a primeira mensagem</span>
+                <span>1 credito sera usado ao enviar a primeira mensagem</span>
               </div>
             </div>
           )}
@@ -788,7 +840,7 @@ export default function Conversations() {
               </label>
 
               <Input
-                placeholder={needsCredit ? "Compre créditos para enviar mensagens" : "Mensagem"}
+                placeholder={needsCredit ? "Compre creditos para enviar mensagens" : "Mensagem"}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => {
@@ -827,8 +879,8 @@ export default function Conversations() {
                 ConectPro Chat
               </h2>
               <p className="text-[#8696a0]">
-                Converse com profissionais e clientes sobre orçamentos.
-                Selecione uma conversa para começar.
+                Converse com profissionais e clientes sobre orcamentos.
+                Selecione uma conversa para comecar.
               </p>
             </div>
           </div>
