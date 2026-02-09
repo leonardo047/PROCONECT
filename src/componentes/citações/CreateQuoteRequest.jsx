@@ -101,14 +101,12 @@ export default function CreateQuoteRequest({ onSuccess }) {
     mutationFn: async (data) => {
       const quote = await QuoteRequest.create(data);
 
-      // Se auto_match está ativo, buscar profissionais
-      if (data.auto_match) {
-        try {
-          await matchProfessionals(quote);
-        } catch (e) {
-          // Ignorar erro de match, o importante é que o orçamento foi criado
-          console.warn('Erro ao fazer match:', e);
-        }
+      // Tentar fazer match com profissionais
+      try {
+        await matchProfessionals(quote);
+      } catch (e) {
+        // Ignorar erro de match, o importante é que o orçamento foi criado
+        console.warn('Erro ao fazer match:', e);
       }
 
       return quote;
@@ -189,21 +187,19 @@ export default function CreateQuoteRequest({ onSuccess }) {
 
     const quoteData = {
       category: formData.category,
-      profession: formData.category, // Compatibilidade com campo profession
+      profession: formData.category,
       title: formData.title || `${formData.category} - ${formData.city}`,
       description: formData.description,
       city: formData.city,
       state: formData.state,
       address: formData.neighborhood || '',
       urgency: urgencyMap[formData.urgency] || 'medium',
-      accepts_visit: formData.accepts_visit,
       client_id: user.id,
       client_name: user.full_name || 'Cliente',
       client_phone: formData.phone || user.phone || '',
       photos: photos || [],
       expires_at: addDays(new Date(), 7).toISOString(),
-      status: 'open',
-      auto_match: formData.auto_match
+      status: 'open'
     };
 
     await createQuoteMutation.mutateAsync(quoteData);

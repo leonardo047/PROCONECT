@@ -8,7 +8,7 @@ import { Badge } from "@/componentes/interface do usuário/badge";
 import { Alert, AlertDescription } from "@/componentes/interface do usuário/alert";
 import {
   MessageCircle, Loader2, User, Search, Send, Paperclip,
-  ArrowLeft, Check, CheckCheck, MoreVertical, AlertCircle, Coins, Phone, Lock, X
+  ArrowLeft, Check, CheckCheck, MoreVertical, AlertCircle, Coins, Phone, Lock
 } from "lucide-react";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/componentes/interface do usuário/dialog";
