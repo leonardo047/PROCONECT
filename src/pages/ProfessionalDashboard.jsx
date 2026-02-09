@@ -206,6 +206,14 @@ export default function ProfessionalDashboard() {
     }
   }, [professional, effectiveLoading, user]);
 
+  // Função para atualizar status de disponibilidade com feedback imediato
+  const updateAvailabilityStatus = (newStatus) => {
+    // Atualiza estado local imediatamente para feedback visual
+    setFormData(prev => ({ ...prev, availability_status: newStatus }));
+    // Salva no banco
+    saveMutation.mutate({ ...formData, availability_status: newStatus });
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       let avatarUrl = data.avatar_url;
@@ -967,60 +975,60 @@ export default function ProfessionalDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <button
                     type="button"
-                    onClick={() => saveMutation.mutate({ ...formData, availability_status: 'available_today' })}
+                    onClick={() => updateAvailabilityStatus('available_today')}
                     className={`p-4 rounded-xl border-2 transition-all ${
-                      professional.availability_status === 'available_today'
+                      formData.availability_status === 'available_today'
                         ? 'border-green-500 bg-green-50'
                         : 'border-slate-200 hover:border-green-300'
                     }`}
                   >
                     <CheckCircle className={`w-6 h-6 mx-auto mb-2 ${
-                      professional.availability_status === 'available_today' ? 'text-green-500' : 'text-slate-400'
+                      formData.availability_status === 'available_today' ? 'text-green-500' : 'text-slate-400'
                     }`} />
                     <p className="text-sm font-medium">Disponivel Hoje</p>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => saveMutation.mutate({ ...formData, availability_status: 'quotes_only' })}
+                    onClick={() => updateAvailabilityStatus('quotes_only')}
                     className={`p-4 rounded-xl border-2 transition-all ${
-                      professional.availability_status === 'quotes_only'
+                      formData.availability_status === 'quotes_only'
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-slate-200 hover:border-blue-300'
                     }`}
                   >
                     <FileText className={`w-6 h-6 mx-auto mb-2 ${
-                      professional.availability_status === 'quotes_only' ? 'text-blue-500' : 'text-slate-400'
+                      formData.availability_status === 'quotes_only' ? 'text-blue-500' : 'text-slate-400'
                     }`} />
                     <p className="text-sm font-medium">Somente Orçamento</p>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => saveMutation.mutate({ ...formData, availability_status: 'busy' })}
+                    onClick={() => updateAvailabilityStatus('busy')}
                     className={`p-4 rounded-xl border-2 transition-all ${
-                      professional.availability_status === 'busy'
+                      formData.availability_status === 'busy'
                         ? 'border-orange-500 bg-orange-50'
                         : 'border-slate-200 hover:border-orange-300'
                     }`}
                   >
                     <Briefcase className={`w-6 h-6 mx-auto mb-2 ${
-                      professional.availability_status === 'busy' ? 'text-orange-500' : 'text-slate-400'
+                      formData.availability_status === 'busy' ? 'text-orange-500' : 'text-slate-400'
                     }`} />
                     <p className="text-sm font-medium">Ocupado</p>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => saveMutation.mutate({ ...formData, availability_status: 'returning_soon' })}
+                    onClick={() => updateAvailabilityStatus('returning_soon')}
                     className={`p-4 rounded-xl border-2 transition-all ${
-                      professional.availability_status === 'returning_soon'
+                      formData.availability_status === 'returning_soon'
                         ? 'border-purple-500 bg-purple-50'
                         : 'border-slate-200 hover:border-purple-300'
                     }`}
                   >
                     <Calendar className={`w-6 h-6 mx-auto mb-2 ${
-                      professional.availability_status === 'returning_soon' ? 'text-purple-500' : 'text-slate-400'
+                      formData.availability_status === 'returning_soon' ? 'text-purple-500' : 'text-slate-400'
                     }`} />
                     <p className="text-sm font-medium">Retorno em Breve</p>
                   </button>
@@ -1029,11 +1037,11 @@ export default function ProfessionalDashboard() {
                 <div className="bg-slate-50 rounded-lg p-3 mt-4">
                   <p className="text-sm text-slate-600">
                     <strong>Status atual:</strong>{' '}
-                    {professional.availability_status === 'available_today' && 'Disponivel Hoje'}
-                    {professional.availability_status === 'quotes_only' && 'Somente Orçamento'}
-                    {professional.availability_status === 'busy' && 'Ocupado'}
-                    {professional.availability_status === 'returning_soon' && 'Retorno em Breve'}
-                    {!professional.availability_status && 'Nao definido'}
+                    {formData.availability_status === 'available_today' && 'Disponivel Hoje'}
+                    {formData.availability_status === 'quotes_only' && 'Somente Orçamento'}
+                    {formData.availability_status === 'busy' && 'Ocupado'}
+                    {formData.availability_status === 'returning_soon' && 'Retorno em Breve'}
+                    {!formData.availability_status && 'Nao definido'}
                   </p>
                 </div>
               </CardContent>
