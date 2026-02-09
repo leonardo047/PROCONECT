@@ -62,8 +62,8 @@ const levelBadges = {
 };
 
 export default function ProfessionalCard({ professional, distance }) {
-  // Usar avatar_url como foto principal se disponível, senão a primeira foto do array
-  const mainPhoto = professional.avatar_url || professional.photos?.[0] || `https://via.placeholder.com/400x300/1e293b/ffffff?text=${encodeURIComponent(professional.profession)}`;
+  // Usar avatar_url como foto principal
+  const mainPhoto = professional.avatar_url || `https://via.placeholder.com/400x300/1e293b/ffffff?text=${encodeURIComponent(professional.profession)}`;
   const avatarUrl = professional.avatar_url;
   const level = professional.level || 1;
 
@@ -129,18 +129,6 @@ export default function ProfessionalCard({ professional, distance }) {
               {professionLabels[professional.profession] || professional.profession}
             </Badge>
           </div>
-          
-          {/* Photos Count */}
-          {professional.photos?.length > 0 && (
-            <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-semibold">
-              <div className="flex -space-x-1">
-                <div className="w-4 h-4 bg-orange-400 rounded-full border border-white" />
-                <div className="w-4 h-4 bg-orange-500 rounded-full border border-white" />
-                <div className="w-4 h-4 bg-orange-600 rounded-full border border-white" />
-              </div>
-              {professional.photos.length} fotos
-            </div>
-          )}
           
           {/* Info at Bottom */}
           <div className="absolute bottom-3 left-3 right-3">

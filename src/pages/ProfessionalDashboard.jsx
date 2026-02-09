@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/lib/AuthContext";
 import { Professional, PlanConfig, ProfessionalService, ProfessionalPlanService, Category } from "@/lib/entities";
-import { uploadFile, replaceFile, deleteFile, BUCKETS } from "@/lib/storage";
+import { replaceFile, deleteFile, BUCKETS } from "@/lib/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -19,8 +19,8 @@ import {
   DialogTitle,
 } from "@/componentes/interface do usuário/dialog";
 import {
-  User, Camera, Save, Loader2, AlertCircle, CheckCircle,
-  X, CreditCard, Clock, ImagePlus, Sparkles,
+  User, Save, Loader2, AlertCircle, CheckCircle,
+  CreditCard, Clock, Sparkles,
   Gift, Users, Share2, Copy, MessageCircle, Briefcase,
   FileText, Calendar, FolderOpen, Pencil, XCircle
 } from "lucide-react";
@@ -32,8 +32,6 @@ import AvatarUpload from "@/componentes/comum/AvatarUpload";
 import CreditStatusCard from "@/componentes/profissional/CreditStatusCard";
 import BuyCreditsModal from "@/componentes/profissional/BuyCreditsModal";
 import { showToast } from "@/utils/showToast";
-
-const PHOTO_LIMITS = { MIN: 1, MAX: 1 };
 
 const states = [
   { value: "AC", label: "Acre" }, { value: "AL", label: "Alagoas" },
@@ -57,7 +55,6 @@ export default function ProfessionalDashboard() {
   const navigate = useNavigate();
   const { user, isLoadingAuth, isAuthenticated, navigateToLogin, professional: authProfessional } = useAuth();
   const [formData, setFormData] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [portfolioDialogOpen, setPortfolioDialogOpen] = useState(false);
@@ -184,7 +181,6 @@ export default function ProfessionalDashboard() {
         personal_description: professional.personal_description || '',
         whatsapp: professional.whatsapp || '',
         instagram: professional.instagram || '',
-        photos: professional.photos || [],
         video_url: professional.video_url || '',
         availability_status: professional.availability_status || 'available_today',
         avatar_url: professional.avatar_url || null
@@ -200,7 +196,6 @@ export default function ProfessionalDashboard() {
         personal_description: '',
         whatsapp: '',
         instagram: '',
-        photos: [],
         video_url: '',
         availability_status: 'available_today',
         avatar_url: null
@@ -231,7 +226,7 @@ export default function ProfessionalDashboard() {
       }
 
       const isComplete = data.name && data.profession && data.city &&
-        data.state && data.whatsapp && data.photos?.length >= 1;
+        data.state && data.whatsapp;
 
       await Professional.update(professional.id, {
         ...data,
@@ -244,65 +239,6 @@ export default function ProfessionalDashboard() {
       queryClient.invalidateQueries({ queryKey: ['my-professional'] });
     }
   });
-
-  const handlePhotoUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    const currentCount = formData.photos?.length || 0;
-    const remainingSlots = PHOTO_LIMITS.MAX - currentCount;
-
-    if (remainingSlots <= 0) {
-      showToast.warning(`Limite de ${PHOTO_LIMITS.MAX} foto atingido`, 'Remova a foto atual para adicionar outra.');
-      return;
-    }
-
-    const filesToUpload = files.slice(0, remainingSlots);
-
-    setUploading(true);
-
-    try {
-      const uploadedUrls = [];
-      for (const file of filesToUpload) {
-        const fileUrl = await uploadFile(file);
-        uploadedUrls.push(fileUrl);
-      }
-
-      setFormData({
-        ...formData,
-        photos: [...(formData.photos || []), ...uploadedUrls]
-      });
-    } catch (error) {
-      showToast.error('Erro ao fazer upload', error.message || 'Erro desconhecido');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const removePhoto = async (index) => {
-    const photoUrl = formData.photos[index];
-    const newPhotos = formData.photos.filter((_, i) => i !== index);
-
-    // Atualizar estado local imediatamente
-    setFormData({ ...formData, photos: newPhotos });
-
-    // Deletar a foto do storage
-    if (photoUrl) {
-      try {
-        await deleteFile(photoUrl, BUCKETS.PHOTOS);
-      } catch (error) {
-        // Ignorar erro de deleção
-      }
-    }
-
-    // Salvar no banco de dados automaticamente para manter sincronizado
-    try {
-      await Professional.update(professional.id, { photos: newPhotos });
-      queryClient.invalidateQueries({ queryKey: ['my-professional'] });
-    } catch (error) {
-      // Ignorar erro
-    }
-  };
 
   const handleSave = () => {
     saveMutation.mutate(formData);
@@ -402,11 +338,11 @@ export default function ProfessionalDashboard() {
   }
 
   const profPlan = plans.find(p =>
-    p.plan_key === (professional.photos?.length >= 10 ? 'profissional_completo' : 'profissional_iniciante')
+    p.plan_key === (professional.plan_type === 'completo' ? 'profissional_completo' : 'profissional_iniciante')
   );
 
   const isProfileComplete = formData.name && formData.profession && formData.city &&
-    formData.state && formData.whatsapp && formData.photos?.length >= 1;
+    formData.state && formData.whatsapp;
 
   return (
     <div className="min-h-screen bg-slate-50 py-8">
@@ -770,7 +706,7 @@ export default function ProfessionalDashboard() {
               <div>
                 <p className="font-semibold text-amber-800">Complete seu perfil para aparecer nas buscas</p>
                 <p className="text-sm text-amber-700 mt-1">
-                  Adicione uma foto do seu trabalho para que clientes possam te encontrar na plataforma.
+                  Preencha todos os campos obrigatórios para que clientes possam te encontrar na plataforma.
                 </p>
               </div>
             </div>
@@ -1045,117 +981,6 @@ export default function ProfessionalDashboard() {
                     {formData.availability_status === 'returning_soon' && 'Retorno em Breve'}
                     {!formData.availability_status && 'Nao definido'}
                   </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Foto do Perfil */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Camera className="w-5 h-5" />
-                    Foto do Perfil
-                    <Badge variant="outline" className="text-xs font-normal">Obrigatorio</Badge>
-                  </div>
-                  <Badge variant={(formData.photos?.length || 0) >= PHOTO_LIMITS.MIN ? "default" : "destructive"}>
-                    {(formData.photos?.length || 0) >= 1 ? 'Adicionada' : 'Pendente'}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Box explicativo */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-800 font-medium mb-2">
-                    Para que serve está foto?
-                  </p>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-0.5">•</span>
-                      <span>Aparece quando clientes buscam profissionais na plataforma</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-0.5">•</span>
-                      <span>E exibida no seu cartao de visita digital</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-500 mt-0.5">•</span>
-                      <span>Sera sua foto principal de destaque</span>
-                    </li>
-                  </ul>
-                  <p className="text-xs text-blue-600 mt-3 pt-3 border-t border-blue-200">
-                    <strong>Dica:</strong> Escolha uma foto que represente bem o seu trabalho!
-                  </p>
-                </div>
-
-                {(formData.photos?.length || 0) >= PHOTO_LIMITS.MAX && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <span className="text-green-800 font-medium">Foto do perfil adicionada!</span>
-                  </div>
-                )}
-
-                <div className="flex gap-4 mb-4">
-                  {formData.photos?.map((photo, index) => (
-                    <div key={index} className="relative w-40 h-40 rounded-xl overflow-hidden group">
-                      <img
-                        src={photo}
-                        alt="Foto do perfil"
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        onClick={() => removePhoto(index)}
-                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {(formData.photos?.length || 0) < PHOTO_LIMITS.MAX && (
-                    <label className="w-40 h-40 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-colors">
-                      {uploading ? (
-                        <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
-                      ) : (
-                        <>
-                          <ImagePlus className="w-8 h-8 text-slate-400 mb-2" />
-                          <span className="text-sm text-slate-500">Adicionar Foto</span>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/gif,image/webp"
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                        disabled={uploading}
-                      />
-                    </label>
-                  )}
-                </div>
-
-                <p className="text-xs text-slate-500 mb-4">
-                  Formatos aceitos: JPG, PNG, GIF, WebP. Tamanho máximo: 10 MB por foto.
-                </p>
-
-                {/* Nota sobre Portfolio Premium */}
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-start gap-3">
-                  <FolderOpen className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm">
-                    <p className="text-slate-700">
-                      <strong>Quer mostrar projetos detalhados?</strong> Com o <span className="text-purple-600 font-medium">Portfolio Premium</span> você pode cadastrar até 3 projetos completos, cada um com descrição, valor cobrado e até 5 fotos.
-                    </p>
-                    {professional?.plan_type === 'free' && (
-                      <button
-                        onClick={() => {
-                          const tabElement = document.querySelector('[value="plan"]');
-                          if (tabElement) tabElement.click();
-                        }}
-                        className="text-purple-600 hover:text-purple-700 font-medium mt-1 inline-flex items-center gap-1"
-                      >
-                        Ver planos disponíveis →
-                      </button>
-                    )}
-                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -9,10 +9,9 @@ import { Badge } from "@/componentes/interface do usuário/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import {
   MapPin, Instagram, ArrowLeft, Loader2,
-  Camera, Video, CheckCircle, Star, MessageSquare, Lock, MessageCircle
+  Video, CheckCircle, Star, MessageSquare, Lock, MessageCircle
 } from "lucide-react";
 import WhatsAppButton from "@/componentes/interface do usuário/WhatsAppButton";
-import PhotoGallery from "@/componentes/interface do usuário/PhotoGallery";
 import ReviewForm from "@/componentes/avaliações/ReviewForm";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
@@ -112,8 +111,8 @@ export default function ProfessionalProfile() {
     );
   }
 
-  // Usar avatar_url como foto principal se disponível, senão a primeira foto do array
-  const mainPhoto = professional.avatar_url || professional.photos?.[0] || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=400&fit=crop";
+  // Usar avatar_url como foto principal do perfil
+  const mainPhoto = professional.avatar_url || "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=400&fit=crop";
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -253,19 +252,6 @@ export default function ProfessionalProfile() {
                 </div>
               )}
             </div>
-
-            {/* Photos - Sempre visível */}
-            {professional.photos && professional.photos.length > 0 && (
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <Camera className="w-5 h-5 text-slate-600" />
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Trabalhos Realizados ({professional.photos.length})
-                  </h2>
-                </div>
-                <PhotoGallery photos={professional.photos} />
-              </div>
-            )}
 
             {/* Video */}
             {professional.video_url && (

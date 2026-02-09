@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import {
   MapPin, Star, Instagram, Share2,
-  ExternalLink, CheckCircle, Camera,
+  ExternalLink, CheckCircle,
   ChevronLeft, ChevronRight, X, MessageSquare, User, DollarSign, Sparkles, Lock, FileText
 } from "lucide-react";
 import PublicAvailabilityView from "@/componentes/profissional/PublicAvailabilityView";
@@ -334,9 +334,9 @@ export default function Portfolio() {
           <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Foto do perfil */}
             <div className="flex-shrink-0">
-              {(professional.avatar_url || (professional.photos && professional.photos.length > 0)) ? (
+              {professional.avatar_url ? (
                 <img
-                  src={professional.avatar_url || professional.photos[0]}
+                  src={professional.avatar_url}
                   alt={professional.name}
                   className="w-32 h-32 rounded-2xl object-cover border-4 border-white/30 shadow-lg"
                   onError={(e) => {
@@ -347,7 +347,7 @@ export default function Portfolio() {
               ) : null}
               <div
                 className="w-32 h-32 bg-white/20 rounded-2xl items-center justify-center text-5xl font-bold border-4 border-white/30"
-                style={{ display: (professional.avatar_url || professional.photos?.length > 0) ? 'none' : 'flex' }}
+                style={{ display: professional.avatar_url ? 'none' : 'flex' }}
               >
                 {professional.name?.[0]?.toUpperCase() || '?'}
               </div>
@@ -464,21 +464,6 @@ export default function Portfolio() {
 
             {/* Serviços que Realiza */}
             <ServicesList professional={professional} />
-
-            {/* Galeria de Trabalhos */}
-            {professional.photos && professional.photos.length > 0 && (
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Camera className="w-5 h-5 text-orange-500" />
-                    Galeria de Trabalhos
-                  </h2>
-                  <PortfolioGallery
-                    photos={professional.photos.map((url, i) => ({ id: i, photo_url: url }))}
-                  />
-                </CardContent>
-              </Card>
-            )}
 
             {/* Trabalhos Realizados (Portfolio Premium) */}
             {isPremium && portfolioItems.length > 0 ? (

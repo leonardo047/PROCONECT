@@ -102,9 +102,9 @@ export default function ProfessionalCard() {
         <Card className="overflow-hidden border-0 shadow-2xl">
           {/* Banner com Foto de Capa */}
           <div className="relative h-64 bg-gradient-to-r from-orange-500 to-orange-600">
-            {professional.photos?.[0] && (
+            {professional.avatar_url && (
               <img
-                src={professional.photos[0]}
+                src={professional.avatar_url}
                 alt="Capa"
                 className="w-full h-full object-cover opacity-50"
               />
@@ -113,9 +113,9 @@ export default function ProfessionalCard() {
             {/* Foto de Perfil */}
             <div className="absolute -bottom-16 left-8">
               <div className="w-32 h-32 rounded-full border-4 border-white bg-white shadow-xl overflow-hidden">
-                {professional.photos?.[0] ? (
+                {professional.avatar_url ? (
                   <img
-                    src={professional.photos[0]}
+                    src={professional.avatar_url}
                     alt={professional.name}
                     className="w-full h-full object-cover"
                   />
@@ -167,24 +167,6 @@ export default function ProfessionalCard() {
                     <Badge key={i} variant="outline" className="bg-orange-50 border-orange-200 text-orange-700">
                       {spec}
                     </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Galeria de Fotos */}
-            {professional.photos && professional.photos.length > 0 && (
-              <div className="mb-6">
-                <h3 className="font-bold text-slate-900 mb-3">Galeria de Trabalhos</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {professional.photos.map((photo, i) => (
-                    <div key={i} className="aspect-square rounded-lg overflow-hidden">
-                      <img
-                        src={photo}
-                        alt={`Trabalho ${i + 1}`}
-                        className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                      />
-                    </div>
                   ))}
                 </div>
               </div>

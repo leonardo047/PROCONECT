@@ -9,7 +9,6 @@ import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
-import { Checkbox } from "@/componentes/interface do usuário/checkbox";
 import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Hammer, ArrowLeft, CheckCircle, Loader2, Briefcase } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,40 +16,6 @@ import { useQuery } from "@tanstack/react-query";
 const BRAZILIAN_STATES = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
-];
-
-const specializations = [
-  "Reformas Residenciais",
-  "Reformas Comerciais",
-  "Construção Nova",
-  "Reparos Rápidos",
-  "Manutenção Predial",
-  "Manutenção Industrial",
-  "Obras Públicas",
-  "Instalações Elétricas",
-  "Instalações Hidráulicas",
-  "Acabamento Fino",
-  "Pintura Texturizada",
-  "Pintura de Fachadas",
-  "Limpeza Pós-Obra",
-  "Limpeza Profunda",
-  "Paisagismo",
-  "Manutenção de Jardins",
-  "Alvenaria Estrutural",
-  "Alvenaria de Blocos",
-  "Reboco e Emboço",
-  "Instalação de Forros",
-  "Instalação de Divisórias",
-  "Móveis sob Medida",
-  "Restauração de Móveis",
-  "Portas e Janelas",
-  "Revestimento de Parede",
-  "Revestimento de Piso",
-  "Instalação de Persianas",
-  "Instalação de Cortinas",
-  "Manutenção Preventiva",
-  "Manutenção Corretiva",
-  "Orçamento Gratuito"
 ];
 
 export default function BecomeProfessional() {
@@ -120,7 +85,6 @@ export default function BecomeProfessional() {
     cnpj: '',
     cpf: '',
     profession: '',
-    specializations: [],
     address: '',
     years_experience: '',
     google_maps_link: '',
@@ -210,11 +174,8 @@ export default function BecomeProfessional() {
 
       // Construir descrição com informações adicionais
       let description = '';
-      if (formData.specializations.length > 0) {
-        description = `Especializado em: ${formData.specializations.join(', ')}`;
-      }
       if (formData.years_experience) {
-        description += description ? ` | ${formData.years_experience} anos de experiência` : `${formData.years_experience} anos de experiência`;
+        description = `${formData.years_experience} anos de experiência`;
       }
       if (formData.address) {
         description += description ? ` | Endereço: ${formData.address}` : `Endereço: ${formData.address}`;
@@ -222,6 +183,15 @@ export default function BecomeProfessional() {
       if (formData.business_hours) {
         description += description ? ` | Horário: ${formData.business_hours}` : `Horário: ${formData.business_hours}`;
       }
+
+      // Verificar se o perfil está completo (tem todos os campos obrigatórios)
+      const isProfileComplete = !!(
+        user.full_name &&
+        formData.profession &&
+        formData.city &&
+        formData.state &&
+        user.phone
+      );
 
       // Criar perfil profissional
       const professionalData = {
@@ -238,7 +208,7 @@ export default function BecomeProfessional() {
         plan_active: true,
         is_approved: true,
         is_blocked: false,
-        profile_complete: false,
+        profile_complete: isProfileComplete,
         referral_code: referralCode,
         referral_credits: 0,
         total_referrals: 0
@@ -491,38 +461,6 @@ export default function BecomeProfessional() {
                 </p>
               </div>
 
-              <div>
-                <Label className="mb-3 block">Especializações (Selecione todas que se aplicam)</Label>
-                <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3">
-                  {specializations.map((spec) => (
-                    <div key={spec} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={spec}
-                        checked={formData.specializations.includes(spec)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData({
-                              ...formData,
-                              specializations: [...formData.specializations, spec]
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              specializations: formData.specializations.filter(s => s !== spec)
-                            });
-                          }
-                        }}
-                      />
-                      <label
-                        htmlFor={spec}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {spec}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
 
             <div className="flex gap-3">

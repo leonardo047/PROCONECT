@@ -10,7 +10,6 @@ import {
 import PublicAvailabilityView from "@/componentes/profissional/PublicAvailabilityView";
 import AvailabilityStatusBadge from "@/componentes/profissional/AvailabilityStatusBadge";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
-import PhotoGallery from "@/componentes/interface do usuário/PhotoGallery";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
 
 export default function PublicProfile() {
@@ -128,9 +127,9 @@ export default function PublicProfile() {
               <div className="flex flex-col lg:flex-row gap-6">
                 {/* Profile Photo */}
                 <div className="flex-shrink-0">
-                  {professional.photos && professional.photos.length > 0 ? (
+                  {professional.avatar_url ? (
                     <img
-                      src={professional.photos[0]}
+                      src={professional.avatar_url}
                       alt={professional.name}
                       className="w-32 h-32 rounded-xl object-cover"
                     />
@@ -219,16 +218,6 @@ export default function PublicProfile() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Photos */}
-            {professional.photos && professional.photos.length > 0 && (
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">Galeria de Trabalhos</h2>
-                  <PhotoGallery photos={professional.photos} />
-                </CardContent>
-              </Card>
-            )}
-
             {/* Reviews */}
             {reviews.length > 0 && (
               <Card>
