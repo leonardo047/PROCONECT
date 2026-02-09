@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, Review, ContactRequest, ClientSubscription } from "@/lib/entities";
+import { Professional, Review } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -9,13 +9,12 @@ import { Badge } from "@/componentes/interface do usuário/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import {
   MapPin, Instagram, ArrowLeft, Loader2,
-  Lock, Camera, Video, CheckCircle, Star, MessageSquare
+  Camera, Video, CheckCircle, Star, MessageSquare, Lock, MessageCircle
 } from "lucide-react";
 import WhatsAppButton from "@/componentes/interface do usuário/WhatsAppButton";
 import PhotoGallery from "@/componentes/interface do usuário/PhotoGallery";
 import ReviewForm from "@/componentes/avaliações/ReviewForm";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
-import ContactPaymentModal from "@/componentes/profissional/ContactPaymentModal";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
 import { showToast } from "@/utils/showToast";
 
@@ -58,60 +57,7 @@ export default function ProfessionalProfile() {
   const professionalId = urlParams.get('id');
 
   const { user, isAuthenticated, navigateToLogin, isLoadingAuth } = useAuth();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [canViewContact, setCanViewContact] = useState(false);
-  const [loadingAccess, setLoadingAccess] = useState(true);
-
-  useEffect(() => {
-    if (!isLoadingAuth && user && professionalId) {
-      checkContactAccess(user);
-    } else if (!isLoadingAuth) {
-      setLoadingAccess(false);
-    }
-  }, [user, professionalId, isLoadingAuth]);
-
-  const checkContactAccess = async (userData) => {
-    if (!userData || !professionalId) {
-      setLoadingAccess(false);
-      return;
-    }
-
-    try {
-      // Check if already has contact access
-      const contactRequests = await ContactRequest.filter({
-        client_id: userData.id,
-        professional_id: professionalId,
-        contact_revealed: true
-      });
-
-      if (contactRequests.length > 0) {
-        setCanViewContact(true);
-        setLoadingAccess(false);
-        return;
-      }
-
-      // Check if has active subscription
-      const subscriptions = await ClientSubscription.filter({
-        user_id: userData.id,
-        is_active: true
-      });
-
-      if (subscriptions.length > 0) {
-        const sub = subscriptions[0];
-        if (sub.plan_type === 'vitalicio' ||
-            (sub.expires_at && new Date(sub.expires_at) > new Date())) {
-          setCanViewContact(true);
-          setLoadingAccess(false);
-          return;
-        }
-      }
-
-      setCanViewContact(false);
-    } catch (error) {
-      // Ignorar erro
-    }
-    setLoadingAccess(false);
-  };
+  const [activeTab, setActiveTab] = useState('reviews');
 
   const { data: professional, isLoading } = useQuery({
     queryKey: ['professional', professionalId],
@@ -140,9 +86,14 @@ export default function ProfessionalProfile() {
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : 0;
 
+  // Verificar se o PROFISSIONAL é pagante (tem créditos, créditos ilimitados ou plano ativo)
+  const isProfessionalPaid = professional && (
+    (professional.credits_balance && professional.credits_balance > 0) ||
+    professional.has_unlimited_credits ||
+    professional.plan_active
+  );
 
-
-  if (isLoading || isLoadingAuth || loadingAccess) {
+  if (isLoading || isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
@@ -213,7 +164,7 @@ export default function ProfessionalProfile() {
               </div>
 
               <div className="flex flex-col gap-2">
-                {professional.plan_active && (
+                {isProfessionalPaid && (
                   <div className="flex items-center gap-1 text-green-600 text-sm">
                     <CheckCircle className="w-4 h-4" />
                     Perfil Verificado
@@ -236,32 +187,8 @@ export default function ProfessionalProfile() {
             <div className="bg-slate-50 rounded-xl p-6 mb-8">
               <h2 className="text-lg font-semibold text-slate-900 mb-4">Contato</h2>
 
-              {!canViewContact ? (
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-300 rounded-xl p-6 text-center">
-                  <Lock className="w-12 h-12 text-orange-500 mx-auto mb-3" />
-                  <h3 className="font-bold text-lg text-slate-900 mb-2">
-                    Ver Contato do Profissional
-                  </h3>
-                  <p className="text-slate-600 mb-1">
-                    3 contatos gratuitos para começar!
-                  </p>
-                  <p className="text-sm text-slate-500 mb-4">
-                    Depois, apenas R$ 3,69 por dia
-                  </p>
-                  <Button
-                    onClick={() => {
-                      if (!user) {
-                        navigateToLogin();
-                      } else {
-                        setShowPaymentModal(true);
-                      }
-                    }}
-                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 w-full"
-                  >
-                    Revelar Contato
-                  </Button>
-                </div>
-              ) : (
+              {isProfessionalPaid ? (
+                // Profissional é pagante - mostra WhatsApp e Instagram
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row gap-3">
                     <WhatsAppButton
@@ -284,10 +211,50 @@ export default function ProfessionalProfile() {
                     )}
                   </div>
                 </div>
+              ) : (
+                // Profissional NÃO é pagante - mostra apenas opções de contato via plataforma
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-200 rounded-xl p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Lock className="w-6 h-6 text-slate-500" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg text-slate-900 mb-2">
+                        Contato via Plataforma
+                      </h3>
+                      <p className="text-slate-600 text-sm mb-4">
+                        Este profissional ainda não ativou o contato direto.
+                        Você pode entrar em contato através da nossa plataforma:
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <Button
+                          onClick={() => setActiveTab('schedule')}
+                          className="bg-orange-500 hover:bg-orange-600 flex-1"
+                        >
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Solicitar Orçamento
+                        </Button>
+                        {user ? (
+                          <Link to={createPageUrl("Conversations") + `?professionalId=${professionalId}`}>
+                            <Button variant="outline" className="w-full">
+                              <MessageCircle className="w-4 h-4 mr-2" />
+                              Chat da Plataforma
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Button variant="outline" onClick={navigateToLogin}>
+                            <MessageCircle className="w-4 h-4 mr-2" />
+                            Fazer Login para Chat
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* Photos */}
+            {/* Photos - Sempre visível */}
             {professional.photos && professional.photos.length > 0 && (
               <div className="mb-8">
                 <div className="flex items-center gap-2 mb-4">
@@ -319,7 +286,7 @@ export default function ProfessionalProfile() {
 
             {/* Reviews Section */}
             <div>
-              <Tabs defaultValue="reviews" className="w-full">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
                   <TabsTrigger
                     value="reviews"
@@ -398,20 +365,6 @@ export default function ProfessionalProfile() {
           </div>
         </div>
       </div>
-
-      {/* Payment Modal */}
-      <ContactPaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        professionalId={professionalId}
-        professionalName={professional?.name}
-        onContactRevealed={() => {
-          setCanViewContact(true);
-          if (user) {
-            checkContactAccess(user);
-          }
-        }}
-      />
     </div>
   );
 }

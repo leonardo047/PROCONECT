@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { QuoteMessageService, QuoteMessage, Notification, DirectConversationService, ProfessionalService } from "@/lib/entities";
+import { QuoteMessageService, QuoteMessage, Notification, DirectConversationService, ProfessionalService, CreditsService } from "@/lib/entities";
 import { uploadFile } from "@/lib/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Badge } from "@/componentes/interface do usuário/badge";
+import { Alert, AlertDescription } from "@/componentes/interface do usuário/alert";
 import {
   MessageCircle, Loader2, User, Search, Send, Paperclip,
-  ArrowLeft, Check, CheckCheck, MoreVertical
+  ArrowLeft, Check, CheckCheck, MoreVertical, AlertCircle, Coins
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { showToast } from "@/utils/showToast";
 
 export default function Conversations() {
   const { user, isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
@@ -22,8 +24,23 @@ export default function Conversations() {
   const [uploading, setUploading] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [startChatPending, setStartChatPending] = useState(false);
+  const [creditStatus, setCreditStatus] = useState(null);
+  const [needsCredit, setNeedsCredit] = useState(false);
   const messagesContainerRef = useRef(null);
   const queryClient = useQueryClient();
+
+  // Check if user is a professional
+  const isProfessional = user?.user_type === 'profissional';
+
+  // Fetch professional data if user is professional
+  const { data: professional } = useQuery({
+    queryKey: ['my-professional', user?.id],
+    queryFn: async () => {
+      const result = await ProfessionalService.findByUserId(user.id);
+      return result;
+    },
+    enabled: !!user?.id && isProfessional
+  });
 
   useEffect(() => {
     if (!isLoadingAuth && !isAuthenticated && !redirecting) {
@@ -87,6 +104,46 @@ export default function Conversations() {
     }
     setStartChatPending(false);
   };
+
+  // Check credit status when professional selects a direct conversation
+  useEffect(() => {
+    const checkCreditRequirement = async () => {
+      if (!isProfessional || !professional?.id || !selectedConversation) {
+        setNeedsCredit(false);
+        setCreditStatus(null);
+        return;
+      }
+
+      // Only check for direct conversations
+      if (selectedConversation.conversation_type !== 'direct') {
+        setNeedsCredit(false);
+        return;
+      }
+
+      try {
+        // Check if professional has already responded in this conversation
+        const hasResponded = await DirectConversationService.hasProfessionalResponded(
+          selectedConversation.id,
+          user.id
+        );
+
+        if (hasResponded) {
+          setNeedsCredit(false);
+          return;
+        }
+
+        // Professional hasn't responded yet, check credits
+        const status = await CreditsService.getStatus(professional.id);
+        setCreditStatus(status);
+        setNeedsCredit(!status.can_respond);
+      } catch (error) {
+        console.error('Error checking credit requirement:', error);
+        setNeedsCredit(false);
+      }
+    };
+
+    checkCreditRequirement();
+  }, [selectedConversation?.id, isProfessional, professional?.id, user?.id]);
 
   // Buscar conversas
   const { data: conversations = [], isLoading: loadingConversations, refetch } = useQuery({
@@ -175,14 +232,51 @@ export default function Conversations() {
     }
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage || sendMutation.isPending || !selectedConversation) return;
 
+    const isDirect = selectedConversation.conversation_type === 'direct';
+    const senderType = user.user_type === 'profissional' ? 'professional' : 'client';
+
+    // Check if professional needs to pay for this conversation
+    if (isProfessional && isDirect && professional?.id) {
+      try {
+        // Check if professional has already responded
+        const hasResponded = await DirectConversationService.hasProfessionalResponded(
+          selectedConversation.id,
+          user.id
+        );
+
+        if (!hasResponded) {
+          // First message - need to check and use credit
+          const status = await CreditsService.getStatus(professional.id);
+
+          if (!status.can_respond) {
+            showToast.error(
+              'Sem créditos',
+              'Você precisa de créditos para iniciar esta conversa. Compre créditos no seu painel.'
+            );
+            return;
+          }
+
+          // Use credit before sending
+          try {
+            await CreditsService.useCredit(professional.id);
+            queryClient.invalidateQueries({ queryKey: ['credit-status'] });
+            queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+          } catch (creditError) {
+            showToast.error('Erro', 'Não foi possível usar o crédito. Tente novamente.');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking credit status:', error);
+      }
+    }
+
     setMessage('');
     shouldScrollRef.current = true; // Marcar para scroll após enviar
-    const senderType = user.user_type === 'profissional' ? 'professional' : 'client';
-    const isDirect = selectedConversation.conversation_type === 'direct';
 
     const messageData = {
       sender_id: user.id,
@@ -205,11 +299,46 @@ export default function Conversations() {
     const file = e.target.files[0];
     if (!file || !selectedConversation) return;
 
+    const isDirect = selectedConversation.conversation_type === 'direct';
+    const senderType = user.user_type === 'profissional' ? 'professional' : 'client';
+
+    // Check if professional needs to pay for this conversation
+    if (isProfessional && isDirect && professional?.id) {
+      try {
+        const hasResponded = await DirectConversationService.hasProfessionalResponded(
+          selectedConversation.id,
+          user.id
+        );
+
+        if (!hasResponded) {
+          const status = await CreditsService.getStatus(professional.id);
+
+          if (!status.can_respond) {
+            showToast.error(
+              'Sem créditos',
+              'Você precisa de créditos para iniciar esta conversa.'
+            );
+            return;
+          }
+
+          // Use credit before sending
+          try {
+            await CreditsService.useCredit(professional.id);
+            queryClient.invalidateQueries({ queryKey: ['credit-status'] });
+            queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+          } catch (creditError) {
+            showToast.error('Erro', 'Não foi possível usar o crédito.');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking credit status:', error);
+      }
+    }
+
     setUploading(true);
     try {
       const { file_url } = await uploadFile(file);
-      const senderType = user.user_type === 'profissional' ? 'professional' : 'client';
-      const isDirect = selectedConversation.conversation_type === 'direct';
 
       const messageData = {
         sender_id: user.id,
@@ -510,6 +639,28 @@ export default function Conversations() {
             )}
           </div>
 
+          {/* Credit Warning for Professionals */}
+          {isProfessional && needsCredit && selectedConversation?.conversation_type === 'direct' && (
+            <div className="px-3 py-2 bg-[#182229] border-t border-[#222d34]">
+              <Alert className="bg-orange-900/30 border-orange-500/50 py-2">
+                <AlertCircle className="w-4 h-4 text-orange-400" />
+                <AlertDescription className="text-orange-200 text-sm">
+                  <strong>Sem créditos!</strong> Compre créditos para responder esta conversa.
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          {/* Credit Info for first message */}
+          {isProfessional && !needsCredit && creditStatus?.can_respond && messages.length === 0 && selectedConversation?.conversation_type === 'direct' && (
+            <div className="px-3 py-2 bg-[#182229] border-t border-[#222d34]">
+              <div className="flex items-center gap-2 text-sm text-[#8696a0]">
+                <Coins className="w-4 h-4 text-[#00a884]" />
+                <span>1 crédito será usado ao enviar a primeira mensagem</span>
+              </div>
+            </div>
+          )}
+
           {/* Input */}
           <div className="p-3 bg-[#202c33]">
             <div className="flex items-center gap-2">
@@ -518,7 +669,7 @@ export default function Conversations() {
                   type="file"
                   className="hidden"
                   onChange={handleFileUpload}
-                  disabled={uploading}
+                  disabled={uploading || needsCredit}
                 />
                 {uploading ? (
                   <Loader2 className="w-6 h-6 text-[#8696a0] animate-spin" />
@@ -528,21 +679,22 @@ export default function Conversations() {
               </label>
 
               <Input
-                placeholder="Mensagem"
+                placeholder={needsCredit ? "Compre créditos para enviar mensagens" : "Mensagem"}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !sendMutation.isPending) {
+                  if (e.key === 'Enter' && !e.shiftKey && !sendMutation.isPending && !needsCredit) {
                     e.preventDefault();
                     handleSend();
                   }
                 }}
-                className="flex-1 bg-[#2a3942] border-0 text-[#e9edef] placeholder:text-[#8696a0] focus-visible:ring-0 rounded-lg"
+                disabled={needsCredit}
+                className="flex-1 bg-[#2a3942] border-0 text-[#e9edef] placeholder:text-[#8696a0] focus-visible:ring-0 rounded-lg disabled:opacity-50"
               />
 
               <button
                 onClick={handleSend}
-                disabled={!message.trim() || sendMutation.isPending}
+                disabled={!message.trim() || sendMutation.isPending || needsCredit}
                 className="p-2 hover:bg-[#2a3942] rounded-full disabled:opacity-50"
               >
                 {sendMutation.isPending ? (

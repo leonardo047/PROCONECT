@@ -1337,6 +1337,28 @@ export const DirectConversationService = {
       .from('direct_conversations')
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', conversationId);
+  },
+
+  // Check if professional has already responded in this conversation
+  async hasProfessionalResponded(conversationId, professionalUserId) {
+    const { count, error } = await supabase
+      .from('quote_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('direct_conversation_id', conversationId)
+      .eq('sender_id', professionalUserId);
+
+    if (error) throw error;
+    return (count || 0) > 0;
+  },
+
+  // Mark conversation as professional has paid/responded
+  async markProfessionalResponded(conversationId) {
+    const { error } = await supabase
+      .from('direct_conversations')
+      .update({ professional_responded: true })
+      .eq('id', conversationId);
+
+    if (error) throw error;
   }
 };
 

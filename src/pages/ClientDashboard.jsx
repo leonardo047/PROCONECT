@@ -1,36 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { ClientSubscription, ClientSubscriptionService, PlanConfig, User, generateReferralCode, CreditsService } from "@/lib/entities";
+import { User, generateReferralCode } from "@/lib/entities";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/componentes/interface do usuário/card";
-import { Badge } from "@/componentes/interface do usuário/badge";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";
 import {
-  CreditCard, CheckCircle, Clock, Search,
-  Loader2, Star, Calendar, User as UserIcon, Save,
-  Share2, Gift, Copy, MessageCircle, Users, XCircle,
-  Infinity, Sparkles, Briefcase
+  CheckCircle, Search,
+  Loader2, Calendar, User as UserIcon, Save,
+  Share2, Gift, Copy, MessageCircle, Users, Briefcase
 } from "lucide-react";
-import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
-import CancelSubscriptionDialog from "@/componentes/assinatura/CancelSubscriptionDialog";
 import AvatarUpload from "@/componentes/comum/AvatarUpload";
 import { replaceFile, deleteFile, BUCKETS } from "@/lib/storage";
 import { showToast } from "@/utils/showToast";
 
 export default function ClientDashboard() {
   const { user, isLoadingAuth, isAuthenticated, navigateToLogin, refreshUserData } = useAuth();
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
-
-  // Estado local para subscription - carregado via useEffect (não React Query)
-  const [subscription, setSubscription] = useState(null);
-  const [loadingSub, setLoadingSub] = useState(true);
-  const [plans, setPlans] = useState([]);
 
   // Estado para perfil
   const [profileData, setProfileData] = useState({
@@ -44,33 +32,6 @@ export default function ClientDashboard() {
   // Estado local para referral_code (evita piscar durante recarregamentos)
   const [localReferralCode, setLocalReferralCode] = useState(null);
 
-  // Estado para status de créditos (infinitos concedidos pelo admin)
-  const [creditStatus, setCreditStatus] = useState(null);
-  const [loadingCreditStatus, setLoadingCreditStatus] = useState(true);
-
-  // Helper: verifica se tem créditos infinitos ativos
-  const hasUnlimitedCredits = creditStatus?.has_unlimited === true;
-
-  // Helper: verifica se está próximo da expiração (menos de 7 dias)
-  const isNearExpiration = () => {
-    if (!hasUnlimitedCredits || !creditStatus?.unlimited_expires_at) return false;
-    const expiresAt = new Date(creditStatus.unlimited_expires_at);
-    const now = new Date();
-    const diffDays = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
-    return diffDays <= 7 && diffDays > 0;
-  };
-
-  // Helper: calcula dias restantes
-  const getDaysRemaining = () => {
-    if (!creditStatus?.unlimited_expires_at) return null;
-    const expiresAt = new Date(creditStatus.unlimited_expires_at);
-    const now = new Date();
-    return Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
-  };
-
-  // Mostrar seções de planos apenas se não tem créditos infinitos OU se está próximo de expirar
-  const shouldShowPlans = !hasUnlimitedCredits || isNearExpiration();
-
   useEffect(() => {
     // Só redirecionar se: não está carregando, não está autenticado, e não está já redirecionando
     if (!isLoadingAuth && !isAuthenticated && !redirecting) {
@@ -82,43 +43,6 @@ export default function ClientDashboard() {
       return () => clearTimeout(timer);
     }
   }, [isLoadingAuth, isAuthenticated, navigateToLogin, redirecting]);
-
-  // Carregar subscription diretamente quando user estiver disponível
-  useEffect(() => {
-    const loadSubscription = async () => {
-      if (!user?.id) {
-        setLoadingSub(false);
-        return;
-      }
-
-      try {
-        const results = await ClientSubscription.filter({
-          filters: { user_id: user.id, is_active: true }
-        });
-        setSubscription(results[0] || null);
-      } catch (error) {
-        setSubscription(null);
-      } finally {
-        setLoadingSub(false);
-      }
-    };
-
-    // Sempre chamar loadSubscription - ela vai verificar se tem user.id
-    loadSubscription();
-  }, [user?.id]);
-
-  // Carregar planos (não depende de user)
-  useEffect(() => {
-    const loadPlans = async () => {
-      try {
-        const plansData = await PlanConfig.list();
-        setPlans(plansData || []);
-      } catch (error) {
-        setPlans([]);
-      }
-    };
-    loadPlans();
-  }, []);
 
   // Carregar dados do perfil
   useEffect(() => {
@@ -133,27 +57,6 @@ export default function ClientDashboard() {
       }
     }
   }, [user]);
-
-  // Carregar status de créditos do cliente (créditos infinitos concedidos pelo admin)
-  useEffect(() => {
-    const loadCreditStatus = async () => {
-      if (!user?.id) {
-        setLoadingCreditStatus(false);
-        return;
-      }
-
-      try {
-        const status = await CreditsService.getClientStatus(user.id);
-        setCreditStatus(status);
-      } catch {
-        setCreditStatus(null);
-      } finally {
-        setLoadingCreditStatus(false);
-      }
-    };
-
-    loadCreditStatus();
-  }, [user?.id]);
 
   // Gerar código de referral se não existir (para usuários antigos)
   useEffect(() => {
@@ -218,50 +121,6 @@ export default function ClientDashboard() {
     }
   };
 
-  const isSubscriptionValid = () => {
-    if (!subscription) return false;
-    if (subscription.plan_type === 'vitalicio') return true;
-    if (subscription.expires_at && new Date(subscription.expires_at) > new Date()) return true;
-    return false;
-  };
-
-  const isSubscriptionCancelled = () => {
-    return subscription?.cancelled_at !== null && subscription?.cancelled_at !== undefined;
-  };
-
-  const handleCancelSubscription = async ({ reason, feedback }) => {
-    if (!subscription?.id) return;
-
-    setCancellingSubscription(true);
-    try {
-      await ClientSubscriptionService.cancelSubscription(subscription.id, { reason, feedback });
-      // Recarregar subscription
-      const results = await ClientSubscription.filter({
-        filters: { user_id: user.id, is_active: true }
-      });
-      setSubscription(results[0] || null);
-    } catch (error) {
-      throw error;
-    } finally {
-      setCancellingSubscription(false);
-    }
-  };
-
-  const handleReactivateSubscription = async () => {
-    if (!subscription?.id) return;
-
-    try {
-      await ClientSubscriptionService.reactivateSubscription(subscription.id);
-      // Recarregar subscription
-      const results = await ClientSubscription.filter({
-        filters: { user_id: user.id, is_active: true }
-      });
-      setSubscription(results[0] || null);
-    } catch (error) {
-      showToast.error('Erro ao reativar assinatura', 'Tente novamente.');
-    }
-  };
-
   // Mostrar loading APENAS enquanto verifica autenticação inicial
   if (isLoadingAuth) {
     return (
@@ -286,7 +145,7 @@ export default function ClientDashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Minha Conta</h1>
-          <p className="text-slate-600">Gerencie sua assinatura e acessó aos profissionais</p>
+          <p className="text-slate-600">Gerencie seu perfil e encontre profissionais</p>
         </div>
 
         {/* Profile Section */}
@@ -383,212 +242,83 @@ export default function ClientDashboard() {
           </CardContent>
         </Card>
 
-        {/* Créditos Infinitos (concedidos pelo admin) */}
-        {hasUnlimitedCredits && (
-          <Card className={`mb-8 border-2 shadow-lg ${
-            isNearExpiration()
-              ? 'border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50'
-              : 'border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50'
-          }`}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                    isNearExpiration()
-                      ? 'bg-gradient-to-br from-amber-500 to-orange-500'
-                      : 'bg-gradient-to-br from-purple-500 to-pink-500'
-                  }`}>
-                    <Infinity className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className={`text-lg font-bold ${isNearExpiration() ? 'text-amber-800' : 'text-purple-800'}`}>
-                        Créditos Infinitos
-                      </p>
-                      <Sparkles className={`w-5 h-5 ${isNearExpiration() ? 'text-orange-500' : 'text-yellow-500'}`} />
-                    </div>
-                    <p className={`text-3xl font-bold ${isNearExpiration() ? 'text-amber-700' : 'text-purple-700'}`}>
-                      ∞
-                    </p>
-                    {creditStatus?.unlimited_expires_at && (
-                      <p className={`text-sm mt-1 flex items-center gap-1 ${
-                        isNearExpiration() ? 'text-amber-600 font-semibold' : 'text-purple-600'
-                      }`}>
-                        <Clock className="w-4 h-4" />
-                        {isNearExpiration()
-                          ? `Expira em ${getDaysRemaining()} dia${getDaysRemaining() !== 1 ? 's' : ''}!`
-                          : `Válido até: ${new Date(creditStatus.unlimited_expires_at).toLocaleDateString('pt-BR')}`
-                        }
-                      </p>
-                    )}
-                    {!creditStatus?.unlimited_expires_at && (
-                      <p className="text-sm text-purple-600 mt-1">
-                        Acessó permanente
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Badge className={`text-white border-0 px-4 py-2 text-sm ${
-                  isNearExpiration()
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500'
-                    : 'bg-gradient-to-r from-purple-500 to-pink-500'
-                }`}>
-                  <Sparkles className="w-4 h-4 mr-1" />
-                  {isNearExpiration() ? 'Expirando' : 'Ativo'}
-                </Badge>
+        {/* Acesso Gratuito Info */}
+        <Card className="mb-8 border-2 border-green-300 bg-gradient-to-br from-green-50 to-white">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-6 h-6 text-white" />
               </div>
-              <div className={`mt-4 rounded-lg p-3 border ${
-                isNearExpiration()
-                  ? 'bg-amber-100/60 border-amber-200'
-                  : 'bg-white/60 border-purple-200'
-              }`}>
-                <p className={`text-sm ${isNearExpiration() ? 'text-amber-700' : 'text-purple-700'}`}>
-                  {isNearExpiration()
-                    ? '⚠️ Seu período de créditos infinitos está acabando! Aproveite para contratar um plano.'
-                    : '🎉 Você tem acessó ilimitado! Entre em contato com quantos profissionais quiser.'
-                  }
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Acesso Gratuito</h3>
+                <p className="text-slate-600 mb-4">
+                  Você tem acesso completo à plataforma! Busque profissionais, veja portfólios e entre em contato sem nenhum custo.
                 </p>
+                <ul className="space-y-2 text-slate-700">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Busca ilimitada de profissionais
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Visualização de portfólios completos
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Contato direto via WhatsApp ou plataforma
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    Solicitação de orçamentos gratuita
+                  </li>
+                </ul>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Free Contacts Status - só mostra se NÃO tem créditos infinitos */}
-        {!hasUnlimitedCredits && (
-          <Card className="mb-8 border-2 border-green-300 bg-gradient-to-br from-green-50 to-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center bg-green-100">
-                    <Star className="w-7 h-7 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Contatos Gratuitos</p>
-                    <p className="text-3xl font-bold text-green-700">
-                      {(user?.free_contacts_limit || 3) - (user?.free_contacts_used || 0)} / {user?.free_contacts_limit || 3}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      {(user?.free_contacts_used || 0) >= (user?.free_contacts_limit || 3)
-                        ? 'Contatos gratuitos esgotados'
-                        : 'Restantes para usar'}
-                    </p>
-                  </div>
-                </div>
-                <Badge className="bg-green-500">Grátis</Badge>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Current Status - só mostra se NÃO tem créditos infinitos */}
-        {!hasUnlimitedCredits && (
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                    isSubscriptionValid() ? 'bg-green-100' : 'bg-slate-100'
-                  }`}>
-                    {isSubscriptionValid() ? (
-                      <CheckCircle className="w-7 h-7 text-green-600" />
-                    ) : (
-                      <Clock className="w-7 h-7 text-slate-400" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Plano Pago Ativo</p>
-                    <p className="text-xl font-bold text-slate-900">
-                      {loadingSub || loadingCreditStatus
-                        ? 'Carregando...'
-                        : isSubscriptionValid()
-                          ? 'Acessó Ilimitado'
-                          : 'Nenhum'}
-                    </p>
-                    {subscription?.plan_type === 'diário' && subscription?.expires_at && (
-                      <p className="text-sm text-slate-500 mt-1">
-                        Expira em: {new Date(subscription.expires_at).toLocaleString('pt-BR')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {isSubscriptionValid() && (
-                  <Badge className="bg-green-500">Ativo</Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Info Box - só mostra se não tem créditos infinitos ou se está próximo de expirar */}
-        {shouldShowPlans && (
-          <Card className="mb-8 border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-white">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Como Funciona</h3>
-              <ul className="space-y-2 text-slate-700">
-                <li className="flex items-start gap-2">
-                  <span className="font-bold text-green-600 mt-1">1.</span>
-                  <span>Você tem <strong>3 contatos gratuitos</strong> para testar</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="font-bold text-orange-600 mt-1">2.</span>
-                  <span>Depois, pague <strong>R$ 3,69 por 24 horas</strong> de acessó ilimitado</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="font-bold text-blue-600 mt-1">3.</span>
-                  <span>Busque, compare e entre em contato com quantos profissionais quiser!</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Seus Links - Seção de Indicação */}
         {(localReferralCode || user?.referral_code) && (
-          <Card className="mb-8 border-2 border-green-300 bg-gradient-to-br from-green-50 to-white">
+          <Card className="mb-8 border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-white">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
                   <Share2 className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Seus Links</h3>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Indique Amigos</h3>
                   <p className="text-slate-600 mb-4">
-                    Indique amigos e ganhe créditos para usar na plataforma!
+                    Compartilhe a plataforma com amigos que precisam de profissionais de obra!
                   </p>
 
                   {/* Stats */}
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="bg-white rounded-lg p-3 border border-green-200">
+                    <div className="bg-white rounded-lg p-3 border border-blue-200">
                       <div className="flex items-center gap-2">
-                        <Gift className="w-5 h-5 text-green-500" />
+                        <Gift className="w-5 h-5 text-blue-500" />
                         <div>
-                          <p className="text-xs text-slate-500">Créditos</p>
-                          <p className="text-xl font-bold text-green-600">{user?.referral_credits || 0}</p>
+                          <p className="text-xs text-slate-500">Indicações</p>
+                          <p className="text-xl font-bold text-blue-600">{user?.total_referrals || 0}</p>
                         </div>
                       </div>
                     </div>
-                    <div className="bg-white rounded-lg p-3 border border-blue-200">
+                    <div className="bg-white rounded-lg p-3 border border-green-200">
                       <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-blue-500" />
+                        <Users className="w-5 h-5 text-green-500" />
                         <div>
-                          <p className="text-xs text-slate-500">Indicacoes</p>
-                          <p className="text-xl font-bold text-blue-600">{user?.total_referrals || 0}</p>
+                          <p className="text-xs text-slate-500">Cadastrados</p>
+                          <p className="text-xl font-bold text-green-600">{user?.total_referrals || 0}</p>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Link de Indicação */}
-                  <div className="bg-white rounded-lg p-4 border border-green-200">
+                  <div className="bg-white rounded-lg p-4 border border-blue-200">
                     <div className="flex items-center gap-2 mb-2">
-                      <Gift className="w-4 h-4 text-green-500" />
-                      <p className="text-sm text-slate-700 font-semibold">Link de Indicação</p>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+1 crédito</span>
+                      <Gift className="w-4 h-4 text-blue-500" />
+                      <p className="text-sm text-slate-700 font-semibold">Seu Link de Indicação</p>
                     </div>
-                    <p className="text-xs text-slate-500 mb-3">
-                      Compartilhe e ganhe 1 crédito para cada pessoa que se cadastrar!
-                    </p>
                     <div className="flex items-center gap-2 mb-3">
                       <input
                         type="text"
@@ -603,7 +333,7 @@ export default function ClientDashboard() {
                           navigator.clipboard.writeText(`${window.location.origin}/?ref=${localReferralCode || user?.referral_code}`);
                           showToast.success('Link copiado!');
                         }}
-                        className="bg-green-500 hover:bg-green-600"
+                        className="bg-blue-500 hover:bg-blue-600"
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
@@ -611,10 +341,10 @@ export default function ClientDashboard() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full text-green-600 border-green-300 hover:bg-green-50"
+                      className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
                       onClick={() => {
                         const code = localReferralCode || user?.referral_code;
-                        const text = `Ola! Estou usando o ConectPro para encontrar profissionais de obra e reforma. Cadastre-se também usando meu link e ganhe contatos gratuitos: ${window.location.origin}/?ref=${code}`;
+                        const text = `Olá! Estou usando o ConectPro para encontrar profissionais de obra e reforma. Cadastre-se também: ${window.location.origin}/?ref=${code}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                       }}
                     >
@@ -622,220 +352,10 @@ export default function ClientDashboard() {
                       Compartilhar no WhatsApp
                     </Button>
                   </div>
-
-                  {/* Como funciona */}
-                  <div className="mt-4 bg-slate-50 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-slate-700 mb-2">Como funciona:</p>
-                    <ul className="text-xs text-slate-600 space-y-1">
-                      <li>• Compartilhe seu link com amigos</li>
-                      <li>• Quando eles se cadastrarem, você ganha 1 crédito</li>
-                      <li>• Use créditos para ganhar contatos gratuitos extras!</li>
-                    </ul>
-                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Plans - só mostra se não tem créditos infinitos ou se está próximo de expirar */}
-        {shouldShowPlans && (
-          <>
-            <h2 className="text-xl font-bold text-slate-900 mb-4">
-              {isNearExpiration()
-                ? 'Renove seu Acesso'
-                : (loadingSub && user?.id)
-                  ? 'Carregando...'
-                  : isSubscriptionValid()
-                    ? 'Seu Plano'
-                    : 'Planos Disponíveis'}
-            </h2>
-            {isNearExpiration() && (
-              <Card className="mb-4 border-2 border-amber-400 bg-amber-50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                      <Clock className="w-5 h-5 text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-amber-800">
-                        Seu período de créditos infinitos expira em {getDaysRemaining()} dia{getDaysRemaining() !== 1 ? 's' : ''}!
-                      </p>
-                      <p className="text-sm text-amber-600">
-                        Contrate um plano para continuar com acessó ilimitado.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
-              {/* Loading State - só mostra se tem user e está carregando */}
-              {(loadingSub && user?.id) ? (
-                <Card className="border-2 border-slate-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
-                      <span className="ml-3 text-slate-600">Verificando seu plano...</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-              /* Daily Plan */
-              <Card className={`border-2 transition-colors ${isSubscriptionValid() ? 'border-green-400 bg-green-50/30' : 'border-orange-300 hover:border-orange-500'}`}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-2xl font-bold text-slate-900">
-                      {subscription?.plan_type === 'vitalicio' ? 'Acessó Vitalício' : 'Acessó de 1 Dia'}
-                    </h3>
-                    {isSubscriptionValid() && (
-                      <span className="px-3 py-1 bg-green-500 text-white text-sm font-semibold rounded-full">
-                        ATIVO
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-slate-600">
-                    {subscription?.plan_type === 'vitalicio'
-                      ? 'Contatos ilimitados para sempre'
-                      : 'Contatos ilimitados por 24 horas'
-                    }
-                  </p>
-                </div>
-                <div className="text-right">
-                  {isSubscriptionValid() ? (
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-10 h-10 text-green-500" />
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-4xl font-bold text-orange-600">R$ 3,69</p>
-                      <p className="text-sm text-slate-500">por 24 horas</p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {isSubscriptionValid() ? (
-                <>
-                  {/* Informações do plano ativo */}
-                  <div className={`rounded-lg p-4 mb-4 ${isSubscriptionCancelled() ? 'bg-amber-100' : 'bg-green-100'}`}>
-                    <div className={`flex items-center gap-2 mb-2 ${isSubscriptionCancelled() ? 'text-amber-800' : 'text-green-800'}`}>
-                      {isSubscriptionCancelled() ? (
-                        <>
-                          <XCircle className="w-5 h-5" />
-                          <span className="font-semibold">Cancelamento agendado</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-5 h-5" />
-                          <span className="font-semibold">Plano ativo!</span>
-                        </>
-                      )}
-                    </div>
-                    {subscription?.plan_type === 'diário' && subscription?.expires_at && (
-                      <p className={`text-sm ${isSubscriptionCancelled() ? 'text-amber-700' : 'text-green-700'}`}>
-                        <Clock className="w-4 h-4 inline mr-1" />
-                        {isSubscriptionCancelled() ? 'Acessó ate:' : 'Valido ate:'} {new Date(subscription.expires_at).toLocaleString('pt-BR')}
-                      </p>
-                    )}
-                    {subscription?.plan_type === 'vitalicio' && (
-                      <p className="text-sm text-green-700">
-                        Acessó permanente - sem data de expiração
-                      </p>
-                    )}
-                    {isSubscriptionCancelled() && (
-                      <p className="text-xs text-amber-600 mt-2">
-                        Você ainda pode usar o plano até a data acima. Após isso, o acessó será encerrado.
-                      </p>
-                    )}
-                  </div>
-
-                  <ul className="space-y-3 mb-6">
-                    <li className="flex items-center gap-2 text-green-700">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      Contatos ilimitados {subscription?.plan_type === 'vitalicio' ? 'para sempre' : 'por 24h'}
-                    </li>
-                    <li className="flex items-center gap-2 text-green-700">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      WhatsApp direto dos profissionais
-                    </li>
-                    <li className="flex items-center gap-2 text-green-700">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      Busca e filtros avançados
-                    </li>
-                  </ul>
-
-                  <div className="space-y-3">
-                    <Link to={createPageUrl("SearchProfessionals")}>
-                      <Button
-                        className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg font-semibold"
-                      >
-                        <Search className="w-5 h-5 mr-2" />
-                        Buscar Profissionais Agora
-                      </Button>
-                    </Link>
-
-                    {/* Botao de cancelar/reativar - apenas para planos não vitalicios */}
-                    {subscription?.plan_type !== 'vitalicio' && (
-                      isSubscriptionCancelled() ? (
-                        <Button
-                          variant="outline"
-                          className="w-full text-green-600 border-green-300 hover:bg-green-50"
-                          onClick={handleReactivateSubscription}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Reativar Assinatura
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          className="w-full text-slate-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setCancelDialogOpen(true)}
-                        >
-                          <XCircle className="w-4 h-4 mr-2" />
-                          Cancelar Assinatura
-                        </Button>
-                      )
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <ul className="space-y-3 mb-6">
-                    <li className="flex items-center gap-2 text-slate-700">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      Contatos ilimitados por 24h
-                    </li>
-                    <li className="flex items-center gap-2 text-slate-700">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      WhatsApp direto dos profissionais
-                    </li>
-                    <li className="flex items-center gap-2 text-slate-700">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      Sem compromissó ou renovação automática
-                    </li>
-                    <li className="flex items-center gap-2 text-slate-700">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      Acessó imediato após pagamento
-                    </li>
-                  </ul>
-
-                  <Button
-                    className="w-full bg-orange-500 hover:bg-orange-600 h-12 text-lg font-semibold"
-                    onClick={() => setCheckoutOpen(true)}
-                  >
-                    <CreditCard className="w-5 h-5 mr-2" />
-                    Ativar Acessó por 24h
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-              )}
-            </div>
-          </>
         )}
 
         {/* Quick Actions */}
@@ -887,39 +407,6 @@ export default function ClientDashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Checkout Modal */}
-      <MercadoPagoCheckout
-        isOpen={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
-        planKey="cliente_diário"
-        planName="Acessó de 1 Dia - Contatos Ilimitados"
-        planPrice={3.69}
-        onSuccess={async () => {
-          // Recarregar subscription após pagamento bem-sucedido
-          if (user?.id) {
-            try {
-              const results = await ClientSubscription.filter({
-                filters: { user_id: user.id, is_active: true }
-              });
-              setSubscription(results[0] || null);
-            } catch (error) {
-              // Ignorar erro
-            }
-          }
-        }}
-      />
-
-      {/* Cancel Subscription Dialog */}
-      <CancelSubscriptionDialog
-        isOpen={cancelDialogOpen}
-        onClose={() => setCancelDialogOpen(false)}
-        onConfirm={handleCancelSubscription}
-        subscriptionType="client"
-        planName={subscription?.plan_type === 'vitalicio' ? 'Acessó Vitalicio' : 'Acessó de 1 Dia'}
-        expiresAt={subscription?.expires_at}
-        isLoading={cancellingSubscription}
-      />
     </div>
   );
 }
