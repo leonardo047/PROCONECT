@@ -13,6 +13,36 @@ import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Hammer, ArrowLeft, CheckCircle, Loader2, Briefcase } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
+const BRAZILIAN_STATES = [
+  { value: 'AC', label: 'Acre' },
+  { value: 'AL', label: 'Alagoas' },
+  { value: 'AP', label: 'Amapá' },
+  { value: 'AM', label: 'Amazonas' },
+  { value: 'BA', label: 'Bahia' },
+  { value: 'CE', label: 'Ceará' },
+  { value: 'DF', label: 'Distrito Federal' },
+  { value: 'ES', label: 'Espírito Santo' },
+  { value: 'GO', label: 'Goiás' },
+  { value: 'MA', label: 'Maranhão' },
+  { value: 'MT', label: 'Mato Grosso' },
+  { value: 'MS', label: 'Mato Grosso do Sul' },
+  { value: 'MG', label: 'Minas Gerais' },
+  { value: 'PA', label: 'Pará' },
+  { value: 'PB', label: 'Paraíba' },
+  { value: 'PR', label: 'Paraná' },
+  { value: 'PE', label: 'Pernambuco' },
+  { value: 'PI', label: 'Piauí' },
+  { value: 'RJ', label: 'Rio de Janeiro' },
+  { value: 'RN', label: 'Rio Grande do Norte' },
+  { value: 'RS', label: 'Rio Grande do Sul' },
+  { value: 'RO', label: 'Rondônia' },
+  { value: 'RR', label: 'Roraima' },
+  { value: 'SC', label: 'Santa Catarina' },
+  { value: 'SP', label: 'São Paulo' },
+  { value: 'SE', label: 'Sergipe' },
+  { value: 'TO', label: 'Tocantins' }
+];
+
 
 export default function BecomeProfessional() {
   const navigate = useNavigate();
@@ -81,6 +111,8 @@ export default function BecomeProfessional() {
     cnpj: '',
     cpf: '',
     profession: '',
+    city: '',
+    state: '',
     address: '',
     years_experience: '',
     google_maps_link: '',
@@ -128,6 +160,16 @@ export default function BecomeProfessional() {
       return;
     }
 
+    if (!formData.state) {
+      showToast.error('Erro', 'Selecione seu estado.');
+      return;
+    }
+
+    if (!formData.city?.trim()) {
+      showToast.error('Erro', 'Informe sua cidade.');
+      return;
+    }
+
     if (!formData.personal_description?.trim()) {
       showToast.error('Erro', 'Preencha sua descrição pessoal.');
       return;
@@ -156,8 +198,8 @@ export default function BecomeProfessional() {
       const isProfileComplete = !!(
         user.full_name &&
         formData.profession &&
-        user.city &&
-        user.state &&
+        formData.city &&
+        formData.state &&
         user.phone
       );
 
@@ -166,8 +208,8 @@ export default function BecomeProfessional() {
         user_id: user.id,
         name: user.full_name,
         profession: formData.profession || 'outros',
-        city: user.city,
-        state: user.state,
+        city: formData.city,
+        state: formData.state,
         whatsapp: user.phone,
         description: description,
         personal_description: formData.personal_description || '',
@@ -338,6 +380,37 @@ export default function BecomeProfessional() {
                 </p>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Estado *</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => setFormData({ ...formData, state: value, city: '' })}
+                  >
+                    <SelectTrigger className="h-12 mt-1">
+                      <SelectValue placeholder="Selecione o estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BRAZILIAN_STATES.map(state => (
+                        <SelectItem key={state.value} value={state.value}>
+                          {state.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Cidade *</Label>
+                  <Input
+                    placeholder="Digite sua cidade"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="h-12 mt-1"
+                  />
+                </div>
+              </div>
+
               <div>
                 <Label>Endereço Completo</Label>
                 <Input
@@ -420,6 +493,8 @@ export default function BecomeProfessional() {
                 }}
                 disabled={
                   !formData.profession ||
+                  !formData.state ||
+                  !formData.city?.trim() ||
                   !formData.personal_description?.trim() ||
                   saving ||
                   (formData.profession === 'empresa_local' && !formData.cnpj && !formData.cpf) ||
