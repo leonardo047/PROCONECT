@@ -294,8 +294,18 @@ export default function ProfessionalDashboard() {
   }
 
   // Se não tem professional e não está carregando, redirecionar para BecomeProfessional
-  if (!professional && !loadingProfessional && !effectiveLoading) {
+  // Mas só se o usuário também não estiver marcado como profissional (evita loop)
+  if (!professional && !loadingProfessional && !effectiveLoading && !user?.is_professional) {
     window.location.href = '/BecomeProfessional';
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // Se o usuário é profissional mas ainda não carregou os dados, aguardar
+  if (!professional && user?.is_professional) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
