@@ -5244,8 +5244,6 @@ export default function AdminDashboard() {
               const formData = new FormData(e.target);
 
               const data = {
-                plan_key: formData.get('plan_key'),
-                plan_type: editingPricingPlan?.plan_type || 'credits',
                 name: formData.get('name'),
                 description: formData.get('description') || null,
                 price: parseFloat(formData.get('price')),
@@ -5254,7 +5252,14 @@ export default function AdminDashboard() {
                 display_order: parseInt(formData.get('display_order') || '0')
               };
 
-              if (data.plan_type === 'credits') {
+              // Só incluir plan_key e plan_type ao criar (não ao editar)
+              if (!editingPricingPlan?.id) {
+                data.plan_key = formData.get('plan_key');
+                data.plan_type = editingPricingPlan?.plan_type || 'credits';
+              }
+
+              const planType = editingPricingPlan?.plan_type || 'credits';
+              if (planType === 'credits') {
                 data.credits = parseInt(formData.get('credits') || '0');
                 data.price_per_credit = data.credits > 0 ? parseFloat((data.price / data.credits).toFixed(2)) : 0;
                 data.discount_percentage = formData.get('discount_percentage') ? parseInt(formData.get('discount_percentage')) : null;
