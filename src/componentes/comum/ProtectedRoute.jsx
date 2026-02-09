@@ -47,14 +47,14 @@ export const PROFESSIONAL_ROUTES = [
 export const CLIENT_ROUTES = [
   '/ClientDashboard',
   '/ClientAppointments',
-  '/ClientQuotes',
-  '/RequestQuote'
+  '/ClientQuotes'
 ];
 
 // Rotas que requerem autenticação mas são acessíveis a qualquer tipo de usuário
 export const AUTHENTICATED_ROUTES = [
   '/BecomeProfessional',
-  '/Conversations'
+  '/Conversations',
+  '/RequestQuote' // Qualquer usuário pode solicitar orçamento
 ];
 
 // Loading spinner simples
