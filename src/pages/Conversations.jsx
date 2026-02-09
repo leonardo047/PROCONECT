@@ -8,8 +8,10 @@ import { Badge } from "@/componentes/interface do usuário/badge";
 import { Alert, AlertDescription } from "@/componentes/interface do usuário/alert";
 import {
   MessageCircle, Loader2, User, Search, Send, Paperclip,
-  ArrowLeft, Check, CheckCheck, MoreVertical, AlertCircle, Coins
+  ArrowLeft, Check, CheckCheck, MoreVertical, AlertCircle, Coins, Phone, Lock, X
 } from "lucide-react";
+import { Button } from "@/componentes/interface do usuário/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/componentes/interface do usuário/dialog";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { showToast } from "@/utils/showToast";
@@ -26,6 +28,10 @@ export default function Conversations() {
   const [startChatPending, setStartChatPending] = useState(false);
   const [creditStatus, setCreditStatus] = useState(null);
   const [needsCredit, setNeedsCredit] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [otherUserWhatsapp, setOtherUserWhatsapp] = useState(null);
+  const [loadingContact, setLoadingContact] = useState(false);
+  const [contactUnlocked, setContactUnlocked] = useState(false);
   const messagesContainerRef = useRef(null);
   const queryClient = useQueryClient();
 
@@ -144,6 +150,94 @@ export default function Conversations() {
 
     checkCreditRequirement();
   }, [selectedConversation?.id, isProfessional, professional?.id, user?.id]);
+
+  // Reset contact modal state when conversation changes
+  useEffect(() => {
+    setShowContactModal(false);
+    setOtherUserWhatsapp(null);
+    setContactUnlocked(false);
+  }, [selectedConversation?.id]);
+
+  // Funcao para abrir modal de contato
+  const handleOpenContactModal = async () => {
+    if (!selectedConversation) return;
+
+    setShowContactModal(true);
+    setLoadingContact(true);
+
+    try {
+      // Verificar se ja tem mensagens (conversa ativa)
+      const hasMessages = messages.length > 0;
+
+      if (!hasMessages) {
+        // Conversa nao iniciada, nao pode ver contato
+        setLoadingContact(false);
+        return;
+      }
+
+      // Se for profissional, verificar creditos antes de mostrar
+      if (isProfessional && professional?.id) {
+        // Verificar se ja respondeu (ja usou credito para esta conversa)
+        const hasResponded = await DirectConversationService.hasProfessionalResponded(
+          selectedConversation.id,
+          user.id
+        );
+
+        if (hasResponded) {
+          // Ja pagou, pode ver o contato
+          setContactUnlocked(true);
+        } else {
+          // Precisa verificar creditos
+          const status = await CreditsService.getStatus(professional.id);
+          setContactUnlocked(status.can_respond);
+        }
+      } else {
+        // Cliente pode ver contato do profissional se ja esta conversando
+        setContactUnlocked(true);
+      }
+
+      // Buscar WhatsApp do outro usuario
+      if (selectedConversation.professional_id) {
+        // Buscar dados do profissional
+        const prof = await ProfessionalService.get(selectedConversation.professional_id);
+        if (prof?.whatsapp) {
+          setOtherUserWhatsapp(prof.whatsapp);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching contact:', error);
+    }
+
+    setLoadingContact(false);
+  };
+
+  // Funcao para usar credito e desbloquear contato
+  const handleUnlockContact = async () => {
+    if (!professional?.id) return;
+
+    setLoadingContact(true);
+
+    try {
+      const status = await CreditsService.getStatus(professional.id);
+
+      if (!status.can_respond) {
+        showToast.error('Sem creditos', 'Voce precisa de creditos para ver este contato.');
+        setLoadingContact(false);
+        return;
+      }
+
+      await CreditsService.useCredit(professional.id);
+      queryClient.invalidateQueries({ queryKey: ['credit-status'] });
+      queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+
+      setContactUnlocked(true);
+      showToast.success('Contato liberado!', '1 credito foi utilizado.');
+    } catch (error) {
+      showToast.error('Erro', 'Nao foi possivel desbloquear o contato.');
+    }
+
+    setLoadingContact(false);
+  };
 
   // Buscar conversas
   const { data: conversations = [], isLoading: loadingConversations, refetch } = useQuery({
@@ -554,6 +648,16 @@ export default function Conversations() {
                   : selectedConversation?.quote_request_title || 'Orçamento'}
               </p>
             </div>
+            {/* Botao de contato WhatsApp - so aparece se ja tem mensagens */}
+            {messages.length > 0 && (
+              <button
+                onClick={handleOpenContactModal}
+                className="p-2 hover:bg-[#2a3942] rounded-full"
+                title="Ver contato"
+              >
+                <Phone className="w-5 h-5 text-[#00a884]" />
+              </button>
+            )}
             <button className="p-2 hover:bg-[#2a3942] rounded-full">
               <MoreVertical className="w-5 h-5 text-[#8696a0]" />
             </button>
@@ -725,6 +829,118 @@ export default function Conversations() {
           </div>
         )
       )}
+
+      {/* Modal de Contato WhatsApp */}
+      <Dialog open={showContactModal} onOpenChange={setShowContactModal}>
+        <DialogContent className="bg-[#202c33] border-[#3b4a54] text-[#e9edef] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#e9edef] flex items-center gap-2">
+              <Phone className="w-5 h-5 text-[#00a884]" />
+              Contato WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {loadingContact ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 text-[#00a884] animate-spin" />
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-6">
+                <MessageCircle className="w-12 h-12 text-[#3b4a54] mx-auto mb-3" />
+                <p className="text-[#8696a0]">
+                  Inicie uma conversa primeiro para poder ver o contato.
+                </p>
+              </div>
+            ) : contactUnlocked ? (
+              // Contato liberado
+              <div className="bg-[#182229] rounded-xl p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-[#00a884] flex items-center justify-center">
+                    <Phone className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-[#e9edef]">
+                      {selectedConversation?.other_user_name}
+                    </p>
+                    {otherUserWhatsapp ? (
+                      <p className="text-[#00a884] font-semibold">{otherUserWhatsapp}</p>
+                    ) : (
+                      <p className="text-[#8696a0] text-sm">WhatsApp nao informado</p>
+                    )}
+                  </div>
+                </div>
+
+                {otherUserWhatsapp && (
+                  <Button
+                    onClick={() => {
+                      const phone = otherUserWhatsapp.replace(/\D/g, '');
+                      window.open(`https://wa.me/55${phone}`, '_blank');
+                    }}
+                    className="w-full bg-[#00a884] hover:bg-[#00966d] text-white"
+                  >
+                    <Phone className="w-4 h-4 mr-2" />
+                    Abrir WhatsApp
+                  </Button>
+                )}
+              </div>
+            ) : (
+              // Contato bloqueado - precisa de creditos
+              <div className="bg-[#182229] rounded-xl p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-[#3b4a54] flex items-center justify-center">
+                    <Lock className="w-6 h-6 text-[#8696a0]" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-[#e9edef]">
+                      {selectedConversation?.other_user_name}
+                    </p>
+                    <p className="text-[#8696a0] blur-sm select-none">
+                      (11) 9****-****
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-orange-900/30 border border-orange-500/50 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-orange-200 font-medium mb-1">Contato bloqueado</p>
+                      <p className="text-orange-200/80 text-sm">
+                        Use 1 credito para desbloquear o contato deste cliente.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleUnlockContact}
+                    disabled={loadingContact}
+                    className="flex-1 bg-[#00a884] hover:bg-[#00966d] text-white"
+                  >
+                    {loadingContact ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Coins className="w-4 h-4 mr-2" />
+                        Usar 1 Credito
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowContactModal(false)}
+                    className="border-[#3b4a54] text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef]"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

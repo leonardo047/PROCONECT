@@ -9,14 +9,15 @@ import { Badge } from "@/componentes/interface do usuário/badge";
 import {
   MapPin, Star, Instagram, Share2,
   ExternalLink, CheckCircle,
-  ChevronLeft, ChevronRight, X, MessageSquare, User, DollarSign, Sparkles, Lock, FileText
+  ChevronLeft, ChevronRight, X, MessageSquare, User, DollarSign, Sparkles, Lock, FileText, MessageCircle
 } from "lucide-react";
 import PublicAvailabilityView from "@/componentes/profissional/PublicAvailabilityView";
 import AvailabilityStatusBadge from "@/componentes/profissional/AvailabilityStatusBadge";
 import ProfessionalBadges from "@/componentes/profissional/ProfessionalBadges";
 import ServicesList from "@/componentes/profissional/ServicesList";
 import ServiceAreaMap from "@/componentes/profissional/ServiceAreaMap";
-import FloatingWhatsAppButton from "@/componentes/interface do usuário/FloatingWhatsAppButton";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
 import { showToast } from "@/utils/showToast";
@@ -592,11 +593,18 @@ export default function Portfolio() {
         </div>
       </div>
 
-      {/* ====== BOTAO FLUTUANTE WHATSAPP ====== */}
-      <FloatingWhatsAppButton
-        whatsapp={professional?.whatsapp}
-        professionalName={professional?.name?.split(' ')[0]}
-      />
+      {/* ====== BOTAO FLUTUANTE CONVERSAR ====== */}
+      {professional?.id && (
+        <Link
+          to={createPageUrl("Conversations") + `?start_chat_with=${professional.id}`}
+          className="fixed bottom-6 right-6 z-50"
+        >
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white shadow-2xl rounded-full px-6 py-6 text-lg font-bold flex items-center gap-2">
+            <MessageCircle className="w-6 h-6" />
+            Conversar
+          </Button>
+        </Link>
+      )}
     </div>
   );
 }

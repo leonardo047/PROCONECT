@@ -4,9 +4,11 @@ import { Professional, Review } from "@/lib/entities";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import {
-  MapPin, Star, Phone, Instagram, Share2,
-  ExternalLink, Briefcase, CheckCircle
+  MapPin, Star, Instagram, Share2,
+  ExternalLink, Briefcase, CheckCircle, MessageCircle
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import PublicAvailabilityView from "@/componentes/profissional/PublicAvailabilityView";
 import AvailabilityStatusBadge from "@/componentes/profissional/AvailabilityStatusBadge";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
@@ -189,15 +191,12 @@ export default function PublicProfile() {
 
                   {/* Quick Contact Buttons */}
                   <div className="flex flex-wrap gap-3 mt-4">
-                    {professional.whatsapp && (
-                      <Button
-                        onClick={() => window.open(`https://wa.me/55${professional.whatsapp.replace(/\D/g, '')}`, '_blank')}
-                        className="bg-green-500 hover:bg-green-600"
-                      >
-                        <Phone className="w-4 h-4 mr-2" />
-                        WhatsApp
+                    <Link to={createPageUrl("Conversations") + `?start_chat_with=${professional.id}`}>
+                      <Button className="bg-orange-500 hover:bg-orange-600">
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Conversar com Profissional
                       </Button>
-                    )}
+                    </Link>
                     {professional.instagram && (
                       <Button
                         variant="outline"

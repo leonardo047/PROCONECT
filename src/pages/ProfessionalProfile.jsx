@@ -8,10 +8,9 @@ import { Button } from "@/componentes/interface do usuário/button";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/componentes/interface do usuário/tabs";
 import {
-  MapPin, Instagram, ArrowLeft, Loader2,
-  Video, CheckCircle, Star, MessageSquare, Lock, MessageCircle
+  MapPin, ArrowLeft, Loader2,
+  Video, CheckCircle, Star, MessageSquare, MessageCircle
 } from "lucide-react";
-import WhatsAppButton from "@/componentes/interface do usuário/WhatsAppButton";
 import ReviewForm from "@/componentes/avaliações/ReviewForm";
 import ReviewCard from "@/componentes/avaliações/ReviewCard";
 import AppointmentRequestForm from "@/componentes/agendamentos/AppointmentRequestForm";
@@ -85,13 +84,6 @@ export default function ProfessionalProfile() {
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : 0;
 
-  // Verificar se o PROFISSIONAL é pagante (tem créditos, créditos ilimitados ou plano ativo)
-  const isProfessionalPaid = professional && (
-    (professional.credits_balance && professional.credits_balance > 0) ||
-    professional.has_unlimited_credits ||
-    professional.plan_active
-  );
-
   if (isLoading || isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -162,14 +154,6 @@ export default function ProfessionalProfile() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                {isProfessionalPaid && (
-                  <div className="flex items-center gap-1 text-green-600 text-sm">
-                    <CheckCircle className="w-4 h-4" />
-                    Perfil Verificado
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Descrição Pessoal */}
@@ -186,71 +170,34 @@ export default function ProfessionalProfile() {
             <div className="bg-slate-50 rounded-xl p-6 mb-8">
               <h2 className="text-lg font-semibold text-slate-900 mb-4">Contato</h2>
 
-              {isProfessionalPaid ? (
-                // Profissional é pagante - mostra WhatsApp e Instagram
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <WhatsAppButton
-                      phone={professional.whatsapp}
-                      professionalName={professional.name}
-                      className="flex-1"
-                    />
-
-                    {professional.instagram && (
-                      <a
-                        href={`https://instagram.com/${professional.instagram.replace('@', '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Button variant="outline" className="w-full sm:w-auto gap-2">
-                          <Instagram className="w-5 h-5" />
-                          Instagram
-                        </Button>
-                      </a>
-                    )}
-                  </div>
+              <div className="space-y-4">
+                <p className="text-slate-600 text-sm">
+                  Entre em contato com este profissional atraves da nossa plataforma:
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {user ? (
+                    <Link to={createPageUrl("Conversations") + `?start_chat_with=${professionalId}`} className="flex-1">
+                      <Button className="w-full bg-orange-500 hover:bg-orange-600">
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Conversar com Profissional
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button onClick={navigateToLogin} className="flex-1 bg-orange-500 hover:bg-orange-600">
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Fazer Login para Conversar
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setActiveTab('schedule')}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Solicitar Orcamento
+                  </Button>
                 </div>
-              ) : (
-                // Profissional NÃO é pagante - mostra apenas opções de contato via plataforma
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-200 rounded-xl p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Lock className="w-6 h-6 text-slate-500" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg text-slate-900 mb-2">
-                        Contato via Plataforma
-                      </h3>
-                      <p className="text-slate-600 text-sm mb-4">
-                        Este profissional ainda não ativou o contato direto.
-                        Você pode entrar em contato através da nossa plataforma:
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <Button
-                          onClick={() => setActiveTab('schedule')}
-                          className="bg-orange-500 hover:bg-orange-600 flex-1"
-                        >
-                          <MessageSquare className="w-4 h-4 mr-2" />
-                          Solicitar Orçamento
-                        </Button>
-                        {user ? (
-                          <Link to={createPageUrl("Conversations") + `?professionalId=${professionalId}`}>
-                            <Button variant="outline" className="w-full">
-                              <MessageCircle className="w-4 h-4 mr-2" />
-                              Chat da Plataforma
-                            </Button>
-                          </Link>
-                        ) : (
-                          <Button variant="outline" onClick={navigateToLogin}>
-                            <MessageCircle className="w-4 h-4 mr-2" />
-                            Fazer Login para Chat
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
 
             {/* Video */}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { Professional, SavedSearch } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Sparkles, Trophy, TrendingUp, Save, Bookmark, X, ChevronDown } from "lucide-react";
+import { Search, Sparkles, Trophy, TrendingUp, Save, Bookmark, X, ChevronDown, FileText } from "lucide-react";
 import SearchFilters from "@/componentes/interface do usuário/SearchFilters";
 import ProfessionalCard from "@/componentes/interface do usuário/ProfessionalCard";
 import LocationSearch from "@/componentes/procurar/LocationSearch";
@@ -12,6 +12,8 @@ import { Input } from "@/componentes/interface do usuário/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/componentes/interface do usuário/dialog";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { showToast } from "@/utils/showToast";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
 // Itens por página
 const ITEMS_PER_PAGE = 12;
@@ -407,11 +409,33 @@ export default function SearchProfessionals() {
             <h3 className="text-xl font-bold text-slate-800 mb-2">
               Nenhum profissional encontrado
             </h3>
-            <p className="text-slate-600 max-w-md">
+            <p className="text-slate-600 max-w-md mb-6">
               {searchMode === 'location'
                 ? 'Tente aumentar o raio de busca ou verificar sua localização.'
                 : 'Tente ajustar os filtros ou buscar em outra região.'}
             </p>
+
+            {/* Botao para deixar nota de servico */}
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-slate-200 max-w-md">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-left">
+                  <h4 className="font-bold text-slate-900">Deixe uma nota de servico</h4>
+                  <p className="text-sm text-slate-600">Profissionais verao sua solicitacao</p>
+                </div>
+              </div>
+              <p className="text-slate-600 text-sm mb-4 text-left">
+                Descreva o servico que voce precisa e profissionais da regiao poderao entrar em contato com voce.
+              </p>
+              <Link to={createPageUrl("JobOpportunities")}>
+                <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Deixar Nota de Servico
+                </Button>
+              </Link>
+            </div>
           </div>
         ) : (
           <>
@@ -446,6 +470,29 @@ export default function SearchProfessionals() {
                 </Button>
               </div>
             )}
+
+            {/* Sugestão para postar orçamento */}
+            <div className="mt-10 bg-gradient-to-r from-blue-50 to-orange-50 rounded-2xl p-6 border border-blue-100 shadow-sm">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="text-xl font-bold text-slate-900 mb-1">
+                    Não encontrou o profissional ideal?
+                  </h3>
+                  <p className="text-slate-600">
+                    Publique uma nota de serviço descrevendo o que você precisa. Profissionais da região poderão ver sua solicitação e entrar em contato com você!
+                  </p>
+                </div>
+                <Link to={createPageUrl("JobOpportunities")} className="flex-shrink-0">
+                  <Button size="lg" className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-6 shadow-md">
+                    <FileText className="w-5 h-5 mr-2" />
+                    Publicar Nota de Serviço
+                  </Button>
+                </Link>
+              </div>
+            </div>
           </>
         )}
       </div>

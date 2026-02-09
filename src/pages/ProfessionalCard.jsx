@@ -2,7 +2,9 @@ import React from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { Professional } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, MapPin, Star, Phone, Instagram, Calendar, Award, Share2, MessageCircle } from "lucide-react";
+import { Loader2, MapPin, Star, Instagram, Calendar, Award, Share2, MessageCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Card, CardContent } from "@/componentes/interface do usuário/card";
@@ -35,11 +37,6 @@ export default function ProfessionalCard() {
       navigator.clipboard.writeText(url);
       showToast.success('Link copiado!');
     }
-  };
-
-  const handleWhatsApp = () => {
-    const message = encodeURIComponent(`Olá ${professional.name}! Vi seu cartão digital no ConectPro.`);
-    window.open(`https://wa.me/55${professional.whatsapp.replace(/\D/g, '')}?text=${message}`, '_blank');
   };
 
   if (isLoading || isLoadingAuth) {
@@ -174,20 +171,8 @@ export default function ProfessionalCard() {
 
             {/* Informações de Contato */}
             <div className="mb-6">
-              <h3 className="font-bold text-slate-900 mb-3">Informações de Contato</h3>
+              <h3 className="font-bold text-slate-900 mb-3">Contato</h3>
               <div className="space-y-3">
-                {professional.whatsapp && (
-                  <div className="flex items-center gap-3 text-slate-600">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                      <Phone className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-500">WhatsApp</p>
-                      <p className="font-semibold">{professional.whatsapp}</p>
-                    </div>
-                  </div>
-                )}
-
                 {professional.instagram && (
                   <div className="flex items-center gap-3 text-slate-600">
                     <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
@@ -195,7 +180,14 @@ export default function ProfessionalCard() {
                     </div>
                     <div>
                       <p className="text-sm text-slate-500">Instagram</p>
-                      <p className="font-semibold">@{professional.instagram}</p>
+                      <a
+                        href={`https://instagram.com/${professional.instagram.replace('@', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-pink-600 hover:underline"
+                      >
+                        @{professional.instagram}
+                      </a>
                     </div>
                   </div>
                 )}
@@ -206,7 +198,7 @@ export default function ProfessionalCard() {
                       <MapPin className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500">Localização</p>
+                      <p className="text-sm text-slate-500">Localizacao</p>
                       <a
                         href={professional.google_maps_link}
                         target="_blank"
@@ -223,13 +215,12 @@ export default function ProfessionalCard() {
 
             {/* Botões de Ação */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Button
-                onClick={handleWhatsApp}
-                className="bg-green-500 hover:bg-green-600 text-white py-6 text-lg"
-              >
-                <MessageCircle className="w-5 h-5 mr-2" />
-                Chamar no WhatsApp
-              </Button>
+              <Link to={createPageUrl("Conversations") + `?start_chat_with=${professional.id}`} className="contents">
+                <Button className="bg-orange-500 hover:bg-orange-600 text-white py-6 text-lg">
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  Conversar com Profissional
+                </Button>
+              </Link>
 
               <Button
                 onClick={() => window.location.href = `/ProfessionalProfile?id=${professional.id}`}
@@ -237,7 +228,7 @@ export default function ProfessionalCard() {
                 className="py-6 text-lg border-2 border-orange-500 text-orange-600 hover:bg-orange-50"
               >
                 <Calendar className="w-5 h-5 mr-2" />
-                Solicitar Orçamento
+                Solicitar Orcamento
               </Button>
             </div>
 
