@@ -36,20 +36,22 @@ export default function QuoteChat({
     mutationFn: async (data) => {
       const newMessage = await QuoteMessage.create(data);
 
-      // Criar notificacao para o outro usuario (nao critico)
-      try {
-        await Notification.create({
-          user_id: otherUser.id,
-          type: 'quote_message',
-          title: 'Nova Mensagem no Orçamento',
-          message: `${currentUser.full_name || currentUser.name} enviou uma mensagem sobre "${quoteRequest?.title}"`,
-          link: currentUser.user_type === 'profissional'
-            ? `/ClientQuotes?response=${quoteResponseId}`
-            : `/ProfessionalQuotes?response=${quoteResponseId}`,
-          priority: 'high'
-        });
-      } catch (err) {
-        // Ignorar erro de notificação
+      // Criar notificação para o outro usuário
+      if (otherUser?.id) {
+        try {
+          await Notification.create({
+            user_id: otherUser.id,
+            type: 'quote_message',
+            title: 'Nova Mensagem no Orçamento',
+            message: `${currentUser.full_name || currentUser.name} enviou uma mensagem sobre "${quoteRequest?.title}"`,
+            link: currentUser.user_type === 'profissional'
+              ? `/ClientQuotes?response=${quoteResponseId}`
+              : `/ProfessionalQuotes?response=${quoteResponseId}`,
+            priority: 'high'
+          });
+        } catch (err) {
+          console.error('Erro ao criar notificação:', err);
+        }
       }
 
       return newMessage;

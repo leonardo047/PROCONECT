@@ -273,17 +273,22 @@ export default function Conversations() {
         await DirectConversationService.updateLastMessage(selectedConversation.id);
       }
 
-      try {
-        await Notification.create({
-          user_id: selectedConversation.other_user_id,
-          type: 'quote_message',
-          title: 'Nova Mensagem',
-          message: `${user.full_name || user.email} enviou uma mensagem`,
-          link: `/Conversations`,
-          priority: 'high'
-        });
-      } catch (err) {
-        // Ignorar erro de notificação
+      // Criar notificação para o outro usuário
+      if (selectedConversation.other_user_id) {
+        try {
+          await Notification.create({
+            user_id: selectedConversation.other_user_id,
+            type: 'quote_message',
+            title: 'Nova Mensagem',
+            message: `${user.full_name || user.email} enviou uma mensagem`,
+            link: `/Conversations`,
+            priority: 'high'
+          });
+        } catch (err) {
+          console.error('Erro ao criar notificação:', err);
+        }
+      } else {
+        console.warn('other_user_id não definido para a conversa:', selectedConversation.id);
       }
 
       return newMessage;

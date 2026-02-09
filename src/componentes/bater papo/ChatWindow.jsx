@@ -36,14 +36,20 @@ export default function ChatWindow({ appointmentId, currentUser, otherUser }) {
       const newMessage = await Message.create(data);
 
       // Criar notificação para o outro usuário
-      await Notification.create({
-        user_id: otherUser.id,
-        type: 'message',
-        title: 'Nova Mensagem',
-        message: `${currentUser.full_name} enviou uma mensagem`,
-        link: `/ClientAppointments?id=${appointmentId}`,
-        priority: 'high'
-      });
+      if (otherUser?.id) {
+        try {
+          await Notification.create({
+            user_id: otherUser.id,
+            type: 'message',
+            title: 'Nova Mensagem',
+            message: `${currentUser.full_name} enviou uma mensagem`,
+            link: `/ClientAppointments?id=${appointmentId}`,
+            priority: 'high'
+          });
+        } catch (notifError) {
+          console.error('Erro ao criar notificação:', notifError);
+        }
+      }
 
       return newMessage;
     },
