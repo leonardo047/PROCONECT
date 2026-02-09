@@ -515,6 +515,16 @@ export default function Layout({ children, currentPageName }) {
   }, [navigate]);
 
   const handleSwitchMode = useCallback(async (mode) => {
+    // Se está mudando para o mesmo modo atual, apenas navegar
+    if (mode === activeMode) {
+      if (mode === 'professional') {
+        navigate('/ProfessionalDashboard');
+      } else {
+        navigate('/ClientDashboard');
+      }
+      return;
+    }
+
     const result = await switchMode(mode);
     if (result?.needsProfessionalSetup) {
       // Redirecionar para página de cadastro profissional
@@ -527,7 +537,7 @@ export default function Layout({ children, currentPageName }) {
         navigate('/ClientDashboard');
       }
     }
-  }, [switchMode, navigate]);
+  }, [switchMode, navigate, activeMode]);
 
   // Pages that don't need layout (pages with their own complete UI)
   const noLayoutPages = ['Onboarding', 'Login', 'Portfolio', 'ProfessionalCard', 'BecomeProfessional'];
