@@ -222,13 +222,15 @@ export default function ProfessionalProfile() {
               </div>
             </div>
 
-            {/* Description */}
-            <div className="mb-8">
-              <h2 className="text-lg font-semibold text-slate-900 mb-3">Sobre</h2>
-              <p className="text-slate-600 leading-relaxed">
-                {professional.description || "Profissional qualificado com experiência na área. Entre em contato para mais informações sobre serviços disponíveis."}
-              </p>
-            </div>
+            {/* Descrição Pessoal */}
+            {(professional.personal_description || professional.description) && (
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold text-slate-900 mb-3">Sobre</h2>
+                <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {professional.personal_description || professional.description}
+                </p>
+              </div>
+            )}
 
             {/* Contact Section */}
             <div className="bg-slate-50 rounded-xl p-6 mb-8">

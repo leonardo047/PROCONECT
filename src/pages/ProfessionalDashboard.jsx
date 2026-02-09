@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/lib/AuthContext";
 import { Professional, PlanConfig, ProfessionalService, ProfessionalPlanService, Category } from "@/lib/entities";
 import { uploadFile, replaceFile, deleteFile, BUCKETS } from "@/lib/storage";
@@ -53,6 +54,7 @@ const states = [
 
 export default function ProfessionalDashboard() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { user, isLoadingAuth, isAuthenticated, navigateToLogin, professional: authProfessional } = useAuth();
   const [formData, setFormData] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -1184,7 +1186,7 @@ export default function ProfessionalDashboard() {
               <CardContent className="p-6 text-center">
                 <p className="text-slate-600 mb-4">Responda pedidos de orçamento e ganhe mais clientes</p>
                 <Button
-                  onClick={() => window.location.href = '/ProfessionalQuotes'}
+                  onClick={() => navigate('/ProfessionalQuotes')}
                   className="bg-green-500 hover:bg-green-600"
                 >
                   Ver Pedidos de Orçamento
@@ -1198,7 +1200,7 @@ export default function ProfessionalDashboard() {
               <CardContent className="p-6 text-center">
                 <p className="text-slate-600 mb-4">Gerencie suas avaliações em uma página dedicada</p>
                 <Button
-                  onClick={() => window.location.href = '/ProfessionalReviews'}
+                  onClick={() => navigate('/ProfessionalReviews')}
                   className="bg-orange-500 hover:bg-orange-600"
                 >
                   Ver Todas as Avaliacoes
@@ -1212,7 +1214,7 @@ export default function ProfessionalDashboard() {
               <CardContent className="p-6 text-center">
                 <p className="text-slate-600 mb-4">Gerencie sua agenda e solicitações de orçamento</p>
                 <Button
-                  onClick={() => window.location.href = '/ProfessionalSchedule'}
+                  onClick={() => navigate('/ProfessionalSchedule')}
                   className="bg-blue-500 hover:bg-blue-600"
                 >
                   Ver Minha Agenda

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
@@ -11,27 +11,28 @@ import {
   DialogTitle,
 } from "@/componentes/interface do usuário/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/componentes/interface do usuário/select";
+import {
   CreditCard,
   QrCode,
   Loader2,
   Check,
   Copy,
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  Lock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const MERCADOPAGO_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 
-/**
- * NOTA DE SEGURANÇA:
- * - A implementação de pagamento por cartão requer a SDK do MercadoPago.js para tokenização segura
- * - NUNCA armazenamos dados de cartão (número, CVV) no state do React ou enviamos ao nossó backend
- * - A tokenização deve ser feita diretamente pelo SDK do MercadoPago no navegador
- * - Até a implementação completa, a opção de cartão está desabilitada
- * - Apenas PIX está disponível, que é mais seguro por não manipular dados de cartão
- */
-const CARD_PAYMENT_ENABLED = false; // Desabilitado até implementação segura com MercadoPago.js SDK
+// Habilitar pagamento com cartão
+const CARD_PAYMENT_ENABLED = true;
 
 export default function MercadoPagoCheckout({
   isOpen,
@@ -42,7 +43,7 @@ export default function MercadoPagoCheckout({
   professionalId = null,
   onSuccess
 }) {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const [step, setStep] = useState('select'); // select, pix, card, processing, success, error
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -52,16 +53,73 @@ export default function MercadoPagoCheckout({
   const [copied, setCopied] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
 
-  // NOTA DE SEGURANÇA: Não armazenamos mais dados de cartão no state
-  // A tokenização deve ser feita diretamente pelo SDK do MercadoPago
-  // Mantemos apenas installments que não e dado sensível
-  const [installments, setInstallments] = useState(1);
+  // Card state
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardholderName, setCardholderName] = useState('');
+  const [expirationMonth, setExpirationMonth] = useState('');
+  const [expirationYear, setExpirationYear] = useState('');
+  const [securityCode, setSecurityCode] = useState('');
+  const [identificationType, setIdentificationType] = useState('CPF');
+  const [identificationNumber, setIdentificationNumber] = useState('');
+  const [installments, setInstallments] = useState('1');
+  const [cardBrand, setCardBrand] = useState(null);
+  const [installmentOptions, setInstallmentOptions] = useState([]);
+
+  // MercadoPago SDK reference
+  const mpRef = useRef(null);
+  const sdkLoadedRef = useRef(false);
+
+  // Carregar SDK do MercadoPago
+  useEffect(() => {
+    if (sdkLoadedRef.current || !CARD_PAYMENT_ENABLED) return;
+
+    const loadMercadoPagoSDK = () => {
+      return new Promise((resolve, reject) => {
+        if (window.MercadoPago) {
+          resolve(window.MercadoPago);
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://sdk.mercadopago.com/js/v2';
+        script.async = true;
+        script.onload = () => {
+          if (window.MercadoPago) {
+            resolve(window.MercadoPago);
+          } else {
+            reject(new Error('MercadoPago SDK não carregou corretamente'));
+          }
+        };
+        script.onerror = () => reject(new Error('Erro ao carregar SDK do MercadoPago'));
+        document.body.appendChild(script);
+      });
+    };
+
+    loadMercadoPagoSDK()
+      .then((MercadoPago) => {
+        if (MERCADOPAGO_PUBLIC_KEY) {
+          mpRef.current = new MercadoPago(MERCADOPAGO_PUBLIC_KEY);
+          sdkLoadedRef.current = true;
+        }
+      })
+      .catch((err) => {
+        console.error('Erro ao carregar MercadoPago SDK:', err);
+      });
+  }, []);
 
   // Função para limpar todos os dados sensíveis
   const clearSensitiveData = useCallback(() => {
     setPixData(null);
     setCopied(false);
-    setInstallments(1);
+    setCardNumber('');
+    setCardholderName('');
+    setExpirationMonth('');
+    setExpirationYear('');
+    setSecurityCode('');
+    setIdentificationNumber('');
+    setInstallments('1');
+    setCardBrand(null);
+    setInstallmentOptions([]);
     setError(null);
   }, []);
 
@@ -70,11 +128,14 @@ export default function MercadoPagoCheckout({
     if (isOpen) {
       setStep('select');
       clearSensitiveData();
+      // Preencher nome do usuário se disponível
+      if (user?.full_name) {
+        setCardholderName(user.full_name.toUpperCase());
+      }
     } else {
-      // Limpar dados sensíveis quando modal fecha por segurança
       clearSensitiveData();
     }
-  }, [isOpen, clearSensitiveData]);
+  }, [isOpen, clearSensitiveData, user]);
 
   // Poll for PIX payment status
   useEffect(() => {
@@ -114,11 +175,65 @@ export default function MercadoPagoCheckout({
           // Ignorar erro
         }
         setCheckingPayment(false);
-      }, 5000); // Check every 5 seconds
+      }, 5000);
     }
 
     return () => clearInterval(interval);
   }, [step, pixData, session, planKey, onSuccess, onClose]);
+
+  // Formatar número do cartão
+  const formatCardNumber = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 16);
+    const groups = digits.match(/.{1,4}/g) || [];
+    return groups.join(' ');
+  };
+
+  // Identificar bandeira do cartão
+  const identifyCardBrand = (number) => {
+    const digits = number.replace(/\D/g, '');
+    if (digits.startsWith('4')) return 'visa';
+    if (/^5[1-5]/.test(digits) || /^2[2-7]/.test(digits)) return 'mastercard';
+    if (/^3[47]/.test(digits)) return 'amex';
+    if (/^6(?:011|5)/.test(digits)) return 'discover';
+    if (/^(?:2131|1800|35)/.test(digits)) return 'jcb';
+    if (/^3(?:0[0-5]|[68])/.test(digits)) return 'diners';
+    if (/^(50|6[0-9])/.test(digits)) return 'elo';
+    if (/^606282|^3841(?:[0|4|6]{1})0/.test(digits)) return 'hipercard';
+    return null;
+  };
+
+  // Atualizar bandeira quando número do cartão muda
+  useEffect(() => {
+    const brand = identifyCardBrand(cardNumber);
+    setCardBrand(brand);
+
+    // Calcular parcelas quando tem bandeira
+    if (brand && planPrice) {
+      const options = [];
+      const maxInstallments = 12;
+      for (let i = 1; i <= maxInstallments; i++) {
+        const installmentValue = planPrice / i;
+        if (installmentValue >= 5) { // Mínimo R$ 5 por parcela
+          options.push({
+            value: i.toString(),
+            label: i === 1
+              ? `1x de R$ ${planPrice.toFixed(2)} (sem juros)`
+              : `${i}x de R$ ${installmentValue.toFixed(2)} (sem juros)`
+          });
+        }
+      }
+      setInstallmentOptions(options);
+    }
+  }, [cardNumber, planPrice]);
+
+  // Formatar CPF
+  const formatCPF = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
 
   const handlePixPayment = async () => {
     setLoading(true);
@@ -168,38 +283,31 @@ export default function MercadoPagoCheckout({
     }
   };
 
-  /**
-   * IMPLEMENTAÇÃO SEGURA DE PAGAMENTO COM CARTÃO
-   *
-   * Para implementar pagamento com cartão de forma segura:
-   * 1. Carregar o SDK do MercadoPago.js: https://sdk.mercadopago.com/js/v2
-   * 2. Inicializar com a public key
-   * 3. Usar o método createCardToken() do SDK para tokenizar os dados do cartão
-   * 4. Enviar APENAS o token ao backend (nunca os dados do cartão)
-   * 5. O backend usa o token para criar o pagamento via API do MercadoPago
-   *
-   * Exemplo de implementação:
-   *
-   * const mp = new MercadoPago(MERCADOPAGO_PUBLIC_KEY);
-   * const cardToken = await mp.createCardToken({
-   *   cardNumber: document.getElementById('cardNumber').value, // Pegar direto do DOM
-   *   cardholderName: document.getElementById('cardholderName').value,
-   *   cardExpirationMonth: '12',
-   *   cardExpirationYear: '2025',
-   *   securityCode: document.getElementById('cvv').value,
-   *   identificationType: 'CPF',
-   *   identificationNumber: '12345678909'
-   * });
-   *
-   * // Agora sim, enviar apenas o token
-   * await fetch('/api/payment', {
-   *   body: JSON.stringify({ card_token: cardToken.id })
-   * });
-   */
   const handleCardPayment = async () => {
-    // Pagamento com cartão desabilitado até implementação segura
-    if (!CARD_PAYMENT_ENABLED) {
-      setError('Pagamento com cartão ainda não disponível. Use PIX.');
+    if (!CARD_PAYMENT_ENABLED || !mpRef.current) {
+      setError('Pagamento com cartão não disponível no momento.');
+      return;
+    }
+
+    // Validações
+    if (!cardNumber || cardNumber.replace(/\D/g, '').length < 13) {
+      setError('Número do cartão inválido');
+      return;
+    }
+    if (!cardholderName || cardholderName.length < 3) {
+      setError('Nome do titular inválido');
+      return;
+    }
+    if (!expirationMonth || !expirationYear) {
+      setError('Data de validade inválida');
+      return;
+    }
+    if (!securityCode || securityCode.length < 3) {
+      setError('CVV inválido');
+      return;
+    }
+    if (!identificationNumber || identificationNumber.replace(/\D/g, '').length < 11) {
+      setError('CPF inválido');
       return;
     }
 
@@ -207,18 +315,84 @@ export default function MercadoPagoCheckout({
     setError(null);
 
     try {
-      if (!MERCADOPAGO_PUBLIC_KEY) {
-        setError('Pagamento com cartão em configuração. Use PIX por enquanto.');
-        setLoading(false);
-        return;
+      // Criar token do cartão usando SDK do MercadoPago
+      const cardTokenResponse = await mpRef.current.createCardToken({
+        cardNumber: cardNumber.replace(/\D/g, ''),
+        cardholderName: cardholderName,
+        cardExpirationMonth: expirationMonth,
+        cardExpirationYear: expirationYear,
+        securityCode: securityCode,
+        identificationType: identificationType,
+        identificationNumber: identificationNumber.replace(/\D/g, '')
+      });
+
+      if (cardTokenResponse.error) {
+        throw new Error(cardTokenResponse.error.message || 'Erro ao processar cartão');
       }
 
-      // TODO: Implementar tokenização segura com MercadoPago.js SDK
-      // Por segurança, não processamos dados de cartão até ter implementação completa
-      setError('Implementação de cartão em desenvolvimento. Use PIX.');
+      // Enviar apenas o token para o backend
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mercadopago-checkout`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({
+            action: 'create_card_payment',
+            plan_key: planKey,
+            professional_id: professionalId,
+            card_token: cardTokenResponse.id,
+            installments: parseInt(installments),
+            payment_method_id: cardBrand || 'visa',
+            payer: {
+              email: user?.email,
+              identification: {
+                type: identificationType,
+                number: identificationNumber.replace(/\D/g, '')
+              }
+            }
+          })
+        }
+      );
 
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao processar pagamento');
+      }
+
+      if (data.status === 'approved') {
+        setStep('success');
+        setTimeout(() => {
+          onSuccess?.();
+          onClose();
+        }, 2000);
+      } else if (data.status === 'in_process' || data.status === 'pending') {
+        setError('Pagamento em análise. Você receberá uma confirmação em breve.');
+      } else {
+        throw new Error(data.status_detail || 'Pagamento não aprovado');
+      }
     } catch (err) {
-      setError('Erro ao processar pagamento');
+      console.error('Erro no pagamento:', err);
+
+      // Traduzir erros comuns
+      const errorMessage = err.message || 'Erro ao processar pagamento';
+      if (errorMessage.includes('card_number')) {
+        setError('Número do cartão inválido');
+      } else if (errorMessage.includes('expiration')) {
+        setError('Data de validade inválida');
+      } else if (errorMessage.includes('security_code') || errorMessage.includes('cvv')) {
+        setError('Código de segurança inválido');
+      } else if (errorMessage.includes('insufficient_funds') || errorMessage.includes('insufficient_amount')) {
+        setError('Saldo insuficiente no cartão');
+      } else if (errorMessage.includes('cc_rejected')) {
+        setError('Cartão recusado. Tente outro cartão ou entre em contato com seu banco.');
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -257,27 +431,27 @@ export default function MercadoPagoCheckout({
 
       <Card
         className={`border-2 transition-all ${
-          CARD_PAYMENT_ENABLED
+          CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY
             ? 'border-blue-300 hover:border-blue-500 cursor-pointer'
             : 'border-slate-200 opacity-60 cursor-not-allowed'
         }`}
-        onClick={() => CARD_PAYMENT_ENABLED && setStep('card')}
+        onClick={() => CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY && setStep('card')}
       >
         <CardContent className="p-4 flex items-center gap-4">
           <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-            CARD_PAYMENT_ENABLED ? 'bg-blue-100' : 'bg-slate-100'
+            CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'bg-blue-100' : 'bg-slate-100'
           }`}>
             <CreditCard className={`w-6 h-6 ${
-              CARD_PAYMENT_ENABLED ? 'text-blue-600' : 'text-slate-400'
+              CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'text-blue-600' : 'text-slate-400'
             }`} />
           </div>
           <div className="flex-1">
             <p className={`font-semibold ${
-              CARD_PAYMENT_ENABLED ? 'text-slate-900' : 'text-slate-500'
+              CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'text-slate-900' : 'text-slate-500'
             }`}>Cartão de Crédito</p>
             <p className="text-sm text-slate-500">
-              {CARD_PAYMENT_ENABLED
-                ? 'Parcele em até 12x'
+              {CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY
+                ? 'Parcele em até 12x sem juros'
                 : 'Em breve disponível'}
             </p>
           </div>
@@ -368,7 +542,7 @@ export default function MercadoPagoCheckout({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => setStep('select')}
+        onClick={() => { setStep('select'); setError(null); }}
         className="mb-2"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
@@ -376,27 +550,149 @@ export default function MercadoPagoCheckout({
       </Button>
 
       <div className="text-center mb-4">
+        <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium mb-3">
+          <CreditCard className="w-4 h-4" />
+          Cartão de Crédito
+        </div>
         <p className="text-2xl font-bold text-slate-900">R$ {planPrice?.toFixed(2)}</p>
         <p className="text-slate-600">{planName}</p>
       </div>
 
-      {/* Pagamento com cartão em desenvolvimento */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
-        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-        <h3 className="font-semibold text-slate-900 mb-2">
-          Pagamento com Cartão em Desenvolvimento
-        </h3>
-        <p className="text-sm text-slate-600 mb-4">
-          Estamos implementando pagamento seguro com cartão de crédito.
-          Por enquanto, use o PIX que é instantâneo e seguro.
-        </p>
+      <div className="space-y-4">
+        {/* Número do Cartão */}
+        <div className="space-y-2">
+          <Label htmlFor="cardNumber">Número do Cartão</Label>
+          <div className="relative">
+            <Input
+              id="cardNumber"
+              placeholder="0000 0000 0000 0000"
+              value={cardNumber}
+              onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+              maxLength={19}
+              className="pr-12"
+            />
+            {cardBrand && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <img
+                  src={`https://www.mercadopago.com/org-img/MP3/API/logos/${cardBrand}.gif`}
+                  alt={cardBrand}
+                  className="h-6"
+                  onError={(e) => e.target.style.display = 'none'}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Nome do Titular */}
+        <div className="space-y-2">
+          <Label htmlFor="cardholderName">Nome no Cartão</Label>
+          <Input
+            id="cardholderName"
+            placeholder="NOME COMO NO CARTÃO"
+            value={cardholderName}
+            onChange={(e) => setCardholderName(e.target.value.toUpperCase())}
+          />
+        </div>
+
+        {/* Validade e CVV */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <Label>Mês</Label>
+            <Select value={expirationMonth} onValueChange={setExpirationMonth}>
+              <SelectTrigger>
+                <SelectValue placeholder="MM" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const month = (i + 1).toString().padStart(2, '0');
+                  return <SelectItem key={month} value={month}>{month}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Ano</Label>
+            <Select value={expirationYear} onValueChange={setExpirationYear}>
+              <SelectTrigger>
+                <SelectValue placeholder="AA" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 15 }, (_, i) => {
+                  const year = (new Date().getFullYear() + i).toString().slice(-2);
+                  return <SelectItem key={year} value={year}>{year}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cvv">CVV</Label>
+            <Input
+              id="cvv"
+              placeholder="123"
+              value={securityCode}
+              onChange={(e) => setSecurityCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              maxLength={4}
+              type="password"
+            />
+          </div>
+        </div>
+
+        {/* CPF */}
+        <div className="space-y-2">
+          <Label htmlFor="cpf">CPF do Titular</Label>
+          <Input
+            id="cpf"
+            placeholder="000.000.000-00"
+            value={identificationNumber}
+            onChange={(e) => setIdentificationNumber(formatCPF(e.target.value))}
+            maxLength={14}
+          />
+        </div>
+
+        {/* Parcelas */}
+        {installmentOptions.length > 0 && (
+          <div className="space-y-2">
+            <Label>Parcelas</Label>
+            <Select value={installments} onValueChange={setInstallments}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                {installmentOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Botão de Pagamento */}
         <Button
-          className="w-full bg-green-600 hover:bg-green-700"
-          onClick={() => setStep('select')}
+          onClick={handleCardPayment}
+          disabled={loading}
+          className="w-full bg-blue-600 hover:bg-blue-700"
         >
-          <QrCode className="w-4 h-4 mr-2" />
-          Voltar e Pagar com PIX
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Processando...
+            </>
+          ) : (
+            <>
+              <Lock className="w-4 h-4 mr-2" />
+              Pagar R$ {planPrice?.toFixed(2)}
+            </>
+          )}
         </Button>
+
+        {/* Segurança */}
+        <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+          <Lock className="w-3 h-3" />
+          <span>Pagamento seguro via Mercado Pago</span>
+        </div>
       </div>
 
       {error && (
@@ -418,13 +714,13 @@ export default function MercadoPagoCheckout({
         <Check className="w-10 h-10 text-green-600" />
       </div>
       <h3 className="text-2xl font-bold text-slate-900 mb-2">Pagamento Confirmado!</h3>
-      <p className="text-slate-600">Seu acessó foi liberado com sucesso.</p>
+      <p className="text-slate-600">Seu acesso foi liberado com sucesso.</p>
     </motion.div>
   );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step === 'success' ? (
