@@ -155,8 +155,25 @@ export default function BecomeProfessional() {
       return;
     }
 
-    setLoading(false);
-  }, [user, isAuthenticated, isLoadingAuth, navigate]);
+    // Verificar se já existe um registro de profissional para este usuário
+    const checkExistingProfessional = async () => {
+      try {
+        const existingProfessional = await ProfessionalService.findByUserId(user.id);
+        if (existingProfessional) {
+          // Já existe um profissional, apenas marcar o usuário e redirecionar
+          await markAsProfessional();
+          showToast.success('Bem-vindo de volta!', 'Seu perfil profissional já existe.');
+          navigate('/ProfessionalDashboard');
+          return;
+        }
+      } catch (error) {
+        // Ignorar erro e continuar com o fluxo normal
+      }
+      setLoading(false);
+    };
+
+    checkExistingProfessional();
+  }, [user, isAuthenticated, isLoadingAuth, navigate, markAsProfessional]);
 
   const handleSubmit = async () => {
     if (!user?.id) {
@@ -265,6 +282,20 @@ export default function BecomeProfessional() {
       await refreshUserData();
       window.location.href = createPageUrl("ProfessionalDashboard");
     } catch (error) {
+      // Verificar se é erro de conflito (profissional já existe)
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('409') || errorMessage.includes('duplicate') || errorMessage.includes('conflict')) {
+        // Tentar apenas marcar como profissional e redirecionar
+        try {
+          await markAsProfessional();
+          showToast.success('Bem-vindo de volta!', 'Seu perfil profissional já existe.');
+          await refreshUserData();
+          window.location.href = createPageUrl("ProfessionalDashboard");
+          return;
+        } catch (e) {
+          // Continuar com o erro original
+        }
+      }
       showToast.error('Erro ao salvar', translateSupabaseError(error));
       savingRef.current = false;
       setSaving(false);
