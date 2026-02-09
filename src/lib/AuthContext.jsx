@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const [activeMode, setActiveMode] = useState('client'); // 'client' ou 'professional'
 
   const isLoadingRef = useRef(false);
   const mountedRef = useRef(true);
@@ -24,6 +25,7 @@ export const AuthProvider = ({ children }) => {
     setProfile(null);
     setProfessional(null);
     setIsAuthenticated(false);
+    setActiveMode('client');
   }, []);
 
   // Carregar dados do professional em background (não bloqueia)
@@ -83,10 +85,14 @@ export const AuthProvider = ({ children }) => {
           ...basicUser,
           ...userProfile,
           user_type: userProfile.user_type || basicUser.user_type || 'cliente',
-          role: finalRole
+          role: finalRole,
+          is_professional: userProfile.is_professional || false,
+          active_mode: userProfile.active_mode || 'client'
         };
         setUser(combinedUser);
         setProfile(userProfile);
+        // Definir o modo ativo baseado no perfil do banco
+        setActiveMode(userProfile.active_mode || 'client');
 
         // Se for profissional, carregar dados do professional em background
         if (combinedUser.user_type === 'profissional') {
@@ -410,6 +416,57 @@ export const AuthProvider = ({ children }) => {
     }
   }, [loadUserData]);
 
+  // Função para alternar entre modos (cliente/profissional)
+  const switchMode = useCallback(async (mode) => {
+    if (!user?.id) return false;
+
+    // Se tentar mudar para profissional mas não completou cadastro profissional
+    if (mode === 'professional' && !user.is_professional) {
+      // Retorna false para indicar que precisa completar o cadastro
+      return { success: false, needsProfessionalSetup: true };
+    }
+
+    try {
+      // Atualizar no banco
+      await User.update(user.id, { active_mode: mode });
+
+      // Atualizar estado local
+      setActiveMode(mode);
+      setUser(prev => ({ ...prev, active_mode: mode }));
+
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao trocar modo:', error);
+      return { success: false, error };
+    }
+  }, [user]);
+
+  // Função para marcar usuário como profissional após completar cadastro
+  const markAsProfessional = useCallback(async () => {
+    if (!user?.id) return false;
+
+    try {
+      await User.update(user.id, {
+        is_professional: true,
+        active_mode: 'professional',
+        user_type: 'profissional' // Manter compatibilidade
+      });
+
+      setUser(prev => ({
+        ...prev,
+        is_professional: true,
+        active_mode: 'professional',
+        user_type: 'profissional'
+      }));
+      setActiveMode('professional');
+
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao marcar como profissional:', error);
+      return { success: false, error };
+    }
+  }, [user]);
+
   const value = useMemo(() => ({
     user,
     profile,
@@ -420,6 +477,9 @@ export const AuthProvider = ({ children }) => {
     isLoadingPublicSettings: false,
     authError,
     appPublicSettings: null,
+    activeMode,
+    switchMode,
+    markAsProfessional,
     signIn,
     signUp,
     signInWithProvider,
@@ -436,6 +496,7 @@ export const AuthProvider = ({ children }) => {
     checkAppState: checkSession
   }), [
     user, profile, professional, session, isAuthenticated, isLoadingAuth, authError,
+    activeMode, switchMode, markAsProfessional,
     signIn, signUp, signInWithProvider, logout, navigateToLogin, redirectToLogin,
     resetPassword, updatePassword, updateProfile, updateAuthUser, refreshUserData,
     me, isAuthenticatedSync, checkSession

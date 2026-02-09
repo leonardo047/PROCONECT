@@ -51,6 +51,12 @@ export const CLIENT_ROUTES = [
   '/RequestQuote'
 ];
 
+// Rotas que requerem autenticação mas são acessíveis a qualquer tipo de usuário
+export const AUTHENTICATED_ROUTES = [
+  '/BecomeProfessional',
+  '/Conversations'
+];
+
 // Loading spinner simples
 const RouteLoader = memo(() => (
   <div className="fixed inset-0 flex items-center justify-center bg-slate-50">
@@ -70,7 +76,7 @@ const ProtectedRoute = memo(({
   requiredUserType = null,
   fallbackPath = '/login'
 }) => {
-  const { user, isAuthenticated, isLoadingAuth } = useAuth();
+  const { user, isAuthenticated, isLoadingAuth, activeMode } = useAuth();
   const location = useLocation();
 
   // Ainda carregando auth - mostrar loader
@@ -90,13 +96,31 @@ const ProtectedRoute = memo(({
     return <Navigate to="/" replace />;
   }
 
-  // Verificar tipo de usuário (ex: profissional, cliente)
-  if (requiredUserType && user.user_type !== requiredUserType) {
-    // Redirecionar para dashboard apropriado
-    if (user.user_type === 'profissional') {
-      return <Navigate to="/ProfessionalDashboard" replace />;
-    } else {
-      return <Navigate to="/ClientDashboard" replace />;
+  // Verificar tipo de usuário baseado no activeMode
+  if (requiredUserType) {
+    // Se requer profissional
+    if (requiredUserType === 'profissional') {
+      // Verificar se o modo ativo é profissional
+      if (activeMode !== 'professional') {
+        // Se não é profissional no modo ativo, redirecionar para dashboard cliente
+        return <Navigate to="/ClientDashboard" replace />;
+      }
+      // Verificar se completou o cadastro profissional
+      if (!user.is_professional) {
+        // Precisa completar o cadastro profissional
+        return <Navigate to="/BecomeProfessional" replace />;
+      }
+    }
+
+    // Se requer cliente
+    if (requiredUserType === 'cliente') {
+      // Verificar se o modo ativo é cliente
+      if (activeMode !== 'client') {
+        // Se não é cliente no modo ativo, redirecionar para dashboard profissional
+        if (user.is_professional) {
+          return <Navigate to="/ProfessionalDashboard" replace />;
+        }
+      }
     }
   }
 
@@ -125,6 +149,8 @@ export const getRequiredRole = (path) => {
  * Helper para determinar o userType necessário para uma rota
  */
 export const getRequiredUserType = (path) => {
+  // Rotas que requerem autenticação mas não tipo específico
+  if (AUTHENTICATED_ROUTES.includes(path)) return null;
   if (PROFESSIONAL_ROUTES.includes(path)) return 'profissional';
   if (CLIENT_ROUTES.includes(path)) return 'cliente';
   return null;

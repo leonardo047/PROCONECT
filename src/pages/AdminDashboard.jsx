@@ -95,6 +95,30 @@ export default function AdminDashboard() {
   const [clientAddCreditsReason, setClientAddCreditsReason] = useState('');
   const [savingClientCredits, setSavingClientCredits] = useState(false);
 
+  // Estados de Paginação - Transações
+  const [paymentPage, setPaymentPage] = useState(1);
+  const PAYMENTS_PER_PAGE = 15;
+
+  // Estados de Paginação - Indicações
+  const [referralPage, setReferralPage] = useState(1);
+  const REFERRALS_PER_PAGE = 15;
+
+  // Estados de Paginação - Créditos Profissionais
+  const [creditProfPage, setCreditProfPage] = useState(1);
+  const CREDIT_PROF_PER_PAGE = 15;
+
+  // Estados de Paginação - Créditos Clientes
+  const [creditClientPage, setCreditClientPage] = useState(1);
+  const CREDIT_CLIENT_PER_PAGE = 15;
+
+  // Estados de Paginação - Histórico de Créditos Prof.
+  const [creditHistoryProfPage, setCreditHistoryProfPage] = useState(1);
+  const CREDIT_HISTORY_PROF_PER_PAGE = 15;
+
+  // Estados de Paginação - Histórico de Créditos Cliente
+  const [creditHistoryClientPage, setCreditHistoryClientPage] = useState(1);
+  const CREDIT_HISTORY_CLIENT_PER_PAGE = 15;
+
   const queryClient = useQueryClient();
 
   // Redirect if not authenticated or not admin
@@ -2669,12 +2693,15 @@ export default function AdminDashboard() {
                           <Input
                             placeholder="Buscar por nome ou email..."
                             value={paymentSearch}
-                            onChange={(e) => setPaymentSearch(e.target.value)}
+                            onChange={(e) => {
+                              setPaymentSearch(e.target.value);
+                              setPaymentPage(1);
+                            }}
                             className="pl-10"
                           />
                         </div>
 
-                        <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                        <Select value={paymentStatusFilter} onValueChange={(v) => { setPaymentStatusFilter(v); setPaymentPage(1); }}>
                           <SelectTrigger>
                             <SelectValue placeholder="Status" />
                           </SelectTrigger>
@@ -2688,7 +2715,7 @@ export default function AdminDashboard() {
                           </SelectContent>
                         </Select>
 
-                        <Select value={paymentPeriodFilter} onValueChange={setPaymentPeriodFilter}>
+                        <Select value={paymentPeriodFilter} onValueChange={(v) => { setPaymentPeriodFilter(v); setPaymentPage(1); }}>
                           <SelectTrigger>
                             <SelectValue placeholder="Periodo" />
                           </SelectTrigger>
@@ -2706,6 +2733,7 @@ export default function AdminDashboard() {
                             setPaymentSearch('');
                             setPaymentStatusFilter('all');
                             setPaymentPeriodFilter('all');
+                            setPaymentPage(1);
                           }}
                         >
                           <Filter className="w-4 h-4 mr-2" />
@@ -2719,100 +2747,154 @@ export default function AdminDashboard() {
                         <div className="text-center py-8">
                           <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
                         </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Data</TableHead>
-                                <TableHead>Cliente</TableHead>
-                                <TableHead>Plano</TableHead>
-                                <TableHead>Valor</TableHead>
-                                <TableHead>Metodo</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Acoes</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {getFilteredPayments().length === 0 ? (
-                                <TableRow>
-                                  <TableCell colSpan={7} className="text-center text-slate-500 py-8">
-                                    Nenhum pagamento encontrado
-                                  </TableCell>
-                                </TableRow>
-                              ) : (
-                                getFilteredPayments().slice(0, 30).map((payment) => {
-                                  const profile = profiles.find(p => p.id === payment.user_id);
-                                  const prof = professionals.find(p => p.user_id === payment.user_id);
-                                  const clientName = profile?.full_name || prof?.name || 'N/A';
-                                  const clientEmail = profile?.email || prof?.email || payment.payer_email || 'N/A';
+                      ) : (() => {
+                        const filteredPayments = getFilteredPayments();
+                        const paymentTotalPages = Math.ceil(filteredPayments.length / PAYMENTS_PER_PAGE);
+                        const paymentStartIndex = (paymentPage - 1) * PAYMENTS_PER_PAGE;
+                        const paginatedPayments = filteredPayments.slice(paymentStartIndex, paymentStartIndex + PAYMENTS_PER_PAGE);
 
-                                  return (
-                                    <TableRow key={payment.id}>
-                                      <TableCell className="text-sm">
-                                        {new Date(payment.created_at).toLocaleDateString('pt-BR')}
-                                      </TableCell>
-                                      <TableCell>
-                                        <div>
-                                          <p className="font-medium text-sm">{clientName}</p>
-                                          <p className="text-xs text-slate-500">{clientEmail}</p>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell>
-                                        <Badge variant="outline" className="text-xs">
-                                          {payment.plan_type || payment.description || 'N/A'}
-                                        </Badge>
-                                      </TableCell>
-                                      <TableCell className="font-semibold text-green-600">
-                                        {formatCurrency(payment.total_price || payment.amount)}
-                                      </TableCell>
-                                      <TableCell>
-                                        <Badge className={`text-xs ${payment.payment_method === 'pix' ? 'bg-teal-500' : 'bg-blue-500'}`}>
-                                          {payment.payment_method === 'pix' ? 'PIX' : payment.payment_method === 'credit_card' ? 'Cartao' : payment.payment_method || 'N/A'}
-                                        </Badge>
-                                      </TableCell>
-                                      <TableCell>
-                                        <Badge className={`text-xs ${
-                                          payment.status === 'processed' || payment.status === 'approved' ? 'bg-green-500' :
-                                          payment.status === 'pending' ? 'bg-yellow-500' :
-                                          payment.status === 'failed' ? 'bg-red-500' :
-                                          payment.status === 'refunded' ? 'bg-purple-500' : 'bg-slate-500'
-                                        }`}>
-                                          {payment.status === 'processed' || payment.status === 'approved' ? 'Aprovado' :
-                                           payment.status === 'pending' ? 'Pendente' :
-                                           payment.status === 'failed' ? 'Falhou' :
-                                           payment.status === 'refunded' ? 'Reembolsado' : payment.status}
-                                        </Badge>
-                                      </TableCell>
-                                      <TableCell>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => {
-                                            setSelectedPayment({
-                                              ...payment,
-                                              clientName,
-                                              clientEmail
-                                            });
-                                            setShowPaymentDialog(true);
-                                          }}
-                                        >
-                                          <Eye className="w-4 h-4" />
-                                        </Button>
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                })
-                              )}
-                            </TableBody>
-                          </Table>
-                          {getFilteredPayments().length > 30 && (
-                            <p className="text-center text-sm text-slate-500 mt-4">
-                              Mostrando 30 de {getFilteredPayments().length} resultados
-                            </p>
-                          )}
-                        </div>
-                      )}
+                        return (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Data</TableHead>
+                                  <TableHead>Cliente</TableHead>
+                                  <TableHead>Plano</TableHead>
+                                  <TableHead>Valor</TableHead>
+                                  <TableHead>Metodo</TableHead>
+                                  <TableHead>Status</TableHead>
+                                  <TableHead>Acoes</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {paginatedPayments.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-slate-500 py-8">
+                                      Nenhum pagamento encontrado
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  paginatedPayments.map((payment) => {
+                                    const profile = profiles.find(p => p.id === payment.user_id);
+                                    const prof = professionals.find(p => p.user_id === payment.user_id);
+                                    const clientName = profile?.full_name || prof?.name || 'N/A';
+                                    const clientEmail = profile?.email || prof?.email || payment.payer_email || 'N/A';
+
+                                    return (
+                                      <TableRow key={payment.id}>
+                                        <TableCell className="text-sm">
+                                          {new Date(payment.created_at).toLocaleDateString('pt-BR')}
+                                        </TableCell>
+                                        <TableCell>
+                                          <div>
+                                            <p className="font-medium text-sm">{clientName}</p>
+                                            <p className="text-xs text-slate-500">{clientEmail}</p>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className="text-xs">
+                                            {payment.plan_type || payment.description || 'N/A'}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="font-semibold text-green-600">
+                                          {formatCurrency(payment.total_price || payment.amount)}
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge className={`text-xs ${payment.payment_method === 'pix' ? 'bg-teal-500' : 'bg-blue-500'}`}>
+                                            {payment.payment_method === 'pix' ? 'PIX' : payment.payment_method === 'credit_card' ? 'Cartao' : payment.payment_method || 'N/A'}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge className={`text-xs ${
+                                            payment.status === 'processed' || payment.status === 'approved' ? 'bg-green-500' :
+                                            payment.status === 'pending' ? 'bg-yellow-500' :
+                                            payment.status === 'failed' ? 'bg-red-500' :
+                                            payment.status === 'refunded' ? 'bg-purple-500' : 'bg-slate-500'
+                                          }`}>
+                                            {payment.status === 'processed' || payment.status === 'approved' ? 'Aprovado' :
+                                             payment.status === 'pending' ? 'Pendente' :
+                                             payment.status === 'failed' ? 'Falhou' :
+                                             payment.status === 'refunded' ? 'Reembolsado' : payment.status}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                              setSelectedPayment({
+                                                ...payment,
+                                                clientName,
+                                                clientEmail
+                                              });
+                                              setShowPaymentDialog(true);
+                                            }}
+                                          >
+                                            <Eye className="w-4 h-4" />
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })
+                                )}
+                              </TableBody>
+                            </Table>
+
+                            {/* Paginação Transações */}
+                            {paymentTotalPages > 1 && (
+                              <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                                <p className="text-sm text-slate-500">
+                                  Mostrando {paymentStartIndex + 1} a {Math.min(paymentStartIndex + PAYMENTS_PER_PAGE, filteredPayments.length)} de {filteredPayments.length} transacoes
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPaymentPage(p => Math.max(1, p - 1))}
+                                    disabled={paymentPage === 1}
+                                  >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    Anterior
+                                  </Button>
+                                  {Array.from({ length: Math.min(5, paymentTotalPages) }, (_, i) => {
+                                    let pageNum;
+                                    if (paymentTotalPages <= 5) {
+                                      pageNum = i + 1;
+                                    } else if (paymentPage <= 3) {
+                                      pageNum = i + 1;
+                                    } else if (paymentPage >= paymentTotalPages - 2) {
+                                      pageNum = paymentTotalPages - 4 + i;
+                                    } else {
+                                      pageNum = paymentPage - 2 + i;
+                                    }
+                                    return (
+                                      <Button
+                                        key={pageNum}
+                                        variant={paymentPage === pageNum ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => setPaymentPage(pageNum)}
+                                        className={paymentPage === pageNum ? "bg-orange-500 hover:bg-orange-600" : ""}
+                                      >
+                                        {pageNum}
+                                      </Button>
+                                    );
+                                  })}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPaymentPage(p => Math.min(paymentTotalPages, p + 1))}
+                                    disabled={paymentPage === paymentTotalPages}
+                                  >
+                                    Proximo
+                                    <ChevronRight className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </CardContent>
                   </Card>
                 </div>
@@ -2898,12 +2980,15 @@ export default function AdminDashboard() {
                         <Input
                           placeholder="Buscar..."
                           value={referralSearch}
-                          onChange={(e) => setReferralSearch(e.target.value)}
+                          onChange={(e) => {
+                            setReferralSearch(e.target.value);
+                            setReferralPage(1);
+                          }}
                           className="pl-10"
                         />
                       </div>
 
-                      <Select value={referralStatusFilter} onValueChange={setReferralStatusFilter}>
+                      <Select value={referralStatusFilter} onValueChange={(v) => { setReferralStatusFilter(v); setReferralPage(1); }}>
                         <SelectTrigger>
                           <SelectValue placeholder="Status" />
                         </SelectTrigger>
@@ -2914,7 +2999,7 @@ export default function AdminDashboard() {
                         </SelectContent>
                       </Select>
 
-                      <Select value={referralTypeFilter} onValueChange={setReferralTypeFilter}>
+                      <Select value={referralTypeFilter} onValueChange={(v) => { setReferralTypeFilter(v); setReferralPage(1); }}>
                         <SelectTrigger>
                           <SelectValue placeholder="Tipo" />
                         </SelectTrigger>
@@ -2931,6 +3016,7 @@ export default function AdminDashboard() {
                           setReferralSearch('');
                           setReferralStatusFilter('all');
                           setReferralTypeFilter('all');
+                          setReferralPage(1);
                         }}
                       >
                         <Filter className="w-4 h-4 mr-2" />
@@ -2944,73 +3030,132 @@ export default function AdminDashboard() {
                       <div className="text-center py-8">
                         <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
                       </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Data</TableHead>
-                              <TableHead>Quem Indicou</TableHead>
-                              <TableHead>Tipo</TableHead>
-                              <TableHead>Indicado</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Acoes</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {getFilteredReferrals().length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={6} className="text-center text-slate-500 py-8">
-                                  Nenhuma indicação encontrada
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              getFilteredReferrals().slice(0, 50).map((referral) => {
-                                const referrerType = getReferrerType(referral);
-                                const referrer = getReferrerData(referral);
-                                const referred = profiles.find(p => p.id === referral.referred_user_id);
+                    ) : (() => {
+                      const filteredReferrals = getFilteredReferrals();
+                      const referralTotalPages = Math.ceil(filteredReferrals.length / REFERRALS_PER_PAGE);
+                      const referralStartIndex = (referralPage - 1) * REFERRALS_PER_PAGE;
+                      const paginatedReferrals = filteredReferrals.slice(referralStartIndex, referralStartIndex + REFERRALS_PER_PAGE);
 
-                                return (
-                                  <TableRow key={referral.id}>
-                                    <TableCell>
-                                      {new Date(referral.created_at).toLocaleDateString('pt-BR')}
-                                    </TableCell>
-                                    <TableCell className="font-medium">
-                                      {referrer?.name || referrer?.full_name || 'Desconhecido'}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge variant="outline">
-                                        {referrerType === 'professional' ? 'Profissional' : 'Cliente'}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      {referred?.full_name || 'Desconhecido'}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge className={referral.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'}>
-                                        {referral.status === 'completed' ? 'Completada' : 'Pendente'}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      {referral.status === 'pending' && (
-                                        <Button
-                                          size="sm"
-                                          className="bg-green-500 hover:bg-green-600"
-                                          onClick={() => completeReferralMutation.mutate(referral.id)}
-                                        >
-                                          <CheckCircle className="w-4 h-4 mr-1" />
-                                          Aprovar
-                                        </Button>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
+                      return (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Data</TableHead>
+                                <TableHead>Quem Indicou</TableHead>
+                                <TableHead>Tipo</TableHead>
+                                <TableHead>Indicado</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Acoes</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {paginatedReferrals.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                                    Nenhuma indicação encontrada
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                paginatedReferrals.map((referral) => {
+                                  const referrerType = getReferrerType(referral);
+                                  const referrer = getReferrerData(referral);
+                                  const referred = profiles.find(p => p.id === referral.referred_user_id);
+
+                                  return (
+                                    <TableRow key={referral.id}>
+                                      <TableCell>
+                                        {new Date(referral.created_at).toLocaleDateString('pt-BR')}
+                                      </TableCell>
+                                      <TableCell className="font-medium">
+                                        {referrer?.name || referrer?.full_name || 'Desconhecido'}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge variant="outline">
+                                          {referrerType === 'professional' ? 'Profissional' : 'Cliente'}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell>
+                                        {referred?.full_name || 'Desconhecido'}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge className={referral.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'}>
+                                          {referral.status === 'completed' ? 'Completada' : 'Pendente'}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell>
+                                        {referral.status === 'pending' && (
+                                          <Button
+                                            size="sm"
+                                            className="bg-green-500 hover:bg-green-600"
+                                            onClick={() => completeReferralMutation.mutate(referral.id)}
+                                          >
+                                            <CheckCircle className="w-4 h-4 mr-1" />
+                                            Aprovar
+                                          </Button>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })
+                              )}
+                            </TableBody>
+                          </Table>
+
+                          {/* Paginação Indicações */}
+                          {referralTotalPages > 1 && (
+                            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                              <p className="text-sm text-slate-500">
+                                Mostrando {referralStartIndex + 1} a {Math.min(referralStartIndex + REFERRALS_PER_PAGE, filteredReferrals.length)} de {filteredReferrals.length} indicacoes
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setReferralPage(p => Math.max(1, p - 1))}
+                                  disabled={referralPage === 1}
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                  Anterior
+                                </Button>
+                                {Array.from({ length: Math.min(5, referralTotalPages) }, (_, i) => {
+                                  let pageNum;
+                                  if (referralTotalPages <= 5) {
+                                    pageNum = i + 1;
+                                  } else if (referralPage <= 3) {
+                                    pageNum = i + 1;
+                                  } else if (referralPage >= referralTotalPages - 2) {
+                                    pageNum = referralTotalPages - 4 + i;
+                                  } else {
+                                    pageNum = referralPage - 2 + i;
+                                  }
+                                  return (
+                                    <Button
+                                      key={pageNum}
+                                      variant={referralPage === pageNum ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => setReferralPage(pageNum)}
+                                      className={referralPage === pageNum ? "bg-orange-500 hover:bg-orange-600" : ""}
+                                    >
+                                      {pageNum}
+                                    </Button>
+                                  );
+                                })}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setReferralPage(p => Math.min(referralTotalPages, p + 1))}
+                                  disabled={referralPage === referralTotalPages}
+                                >
+                                  Proximo
+                                  <ChevronRight className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               </div>
@@ -3097,7 +3242,10 @@ export default function AdminDashboard() {
                     <Input
                       placeholder="Buscar profissional..."
                       value={creditSearch}
-                      onChange={(e) => setCreditSearch(e.target.value)}
+                      onChange={(e) => {
+                        setCreditSearch(e.target.value);
+                        setCreditProfPage(1);
+                      }}
                       className="pl-10 w-64"
                     />
                   </div>
@@ -3185,7 +3333,18 @@ export default function AdminDashboard() {
                     <div className="text-center py-8">
                       <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
                     </div>
-                  ) : (
+                  ) : (() => {
+                    const filteredProfs = professionals.filter(p =>
+                      !creditSearch ||
+                      p.name?.toLowerCase().includes(creditSearch.toLowerCase()) ||
+                      p.profession?.toLowerCase().includes(creditSearch.toLowerCase()) ||
+                      p.city?.toLowerCase().includes(creditSearch.toLowerCase())
+                    );
+                    const creditProfTotalPages = Math.ceil(filteredProfs.length / CREDIT_PROF_PER_PAGE);
+                    const creditProfStartIndex = (creditProfPage - 1) * CREDIT_PROF_PER_PAGE;
+                    const paginatedProfs = filteredProfs.slice(creditProfStartIndex, creditProfStartIndex + CREDIT_PROF_PER_PAGE);
+
+                    return (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -3199,15 +3358,7 @@ export default function AdminDashboard() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {professionals
-                            .filter(p =>
-                              !creditSearch ||
-                              p.name?.toLowerCase().includes(creditSearch.toLowerCase()) ||
-                              p.profession?.toLowerCase().includes(creditSearch.toLowerCase()) ||
-                              p.city?.toLowerCase().includes(creditSearch.toLowerCase())
-                            )
-                            .slice(0, 50)
-                            .map((prof) => (
+                          {paginatedProfs.map((prof) => (
                               <TableRow key={prof.id}>
                                 <TableCell className="font-medium">{prof.name}</TableCell>
                                 <TableCell>{prof.profession}</TableCell>
@@ -3294,8 +3445,61 @@ export default function AdminDashboard() {
                             ))}
                         </TableBody>
                       </Table>
+
+                      {/* Paginação Profissionais Créditos */}
+                      {creditProfTotalPages > 1 && (
+                        <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                          <p className="text-sm text-slate-500">
+                            Mostrando {creditProfStartIndex + 1} a {Math.min(creditProfStartIndex + CREDIT_PROF_PER_PAGE, filteredProfs.length)} de {filteredProfs.length} profissionais
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCreditProfPage(p => Math.max(1, p - 1))}
+                              disabled={creditProfPage === 1}
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                              Anterior
+                            </Button>
+                            {Array.from({ length: Math.min(5, creditProfTotalPages) }, (_, i) => {
+                              let pageNum;
+                              if (creditProfTotalPages <= 5) {
+                                pageNum = i + 1;
+                              } else if (creditProfPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (creditProfPage >= creditProfTotalPages - 2) {
+                                pageNum = creditProfTotalPages - 4 + i;
+                              } else {
+                                pageNum = creditProfPage - 2 + i;
+                              }
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={creditProfPage === pageNum ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setCreditProfPage(pageNum)}
+                                  className={creditProfPage === pageNum ? "bg-orange-500 hover:bg-orange-600" : ""}
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            })}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCreditProfPage(p => Math.min(creditProfTotalPages, p + 1))}
+                              disabled={creditProfPage === creditProfTotalPages}
+                            >
+                              Proximo
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
@@ -3315,7 +3519,10 @@ export default function AdminDashboard() {
                       <Input
                         placeholder="Buscar cliente..."
                         value={clientCreditSearch}
-                        onChange={(e) => setClientCreditSearch(e.target.value)}
+                        onChange={(e) => {
+                          setClientCreditSearch(e.target.value);
+                          setCreditClientPage(1);
+                        }}
                         className="pl-10 w-48"
                       />
                     </div>
@@ -3326,7 +3533,20 @@ export default function AdminDashboard() {
                     <div className="text-center py-8">
                       <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto" />
                     </div>
-                  ) : (
+                  ) : (() => {
+                    const filteredClients = profiles
+                      .filter(p => p.user_type === 'cliente' || !p.user_type)
+                      .filter(p =>
+                        !clientCreditSearch ||
+                        p.full_name?.toLowerCase().includes(clientCreditSearch.toLowerCase()) ||
+                        p.email?.toLowerCase().includes(clientCreditSearch.toLowerCase()) ||
+                        p.city?.toLowerCase().includes(clientCreditSearch.toLowerCase())
+                      );
+                    const creditClientTotalPages = Math.ceil(filteredClients.length / CREDIT_CLIENT_PER_PAGE);
+                    const creditClientStartIndex = (creditClientPage - 1) * CREDIT_CLIENT_PER_PAGE;
+                    const paginatedClients = filteredClients.slice(creditClientStartIndex, creditClientStartIndex + CREDIT_CLIENT_PER_PAGE);
+
+                    return (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -3340,16 +3560,7 @@ export default function AdminDashboard() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {profiles
-                            .filter(p => p.user_type === 'cliente' || !p.user_type)
-                            .filter(p =>
-                              !clientCreditSearch ||
-                              p.full_name?.toLowerCase().includes(clientCreditSearch.toLowerCase()) ||
-                              p.email?.toLowerCase().includes(clientCreditSearch.toLowerCase()) ||
-                              p.city?.toLowerCase().includes(clientCreditSearch.toLowerCase())
-                            )
-                            .slice(0, 30)
-                            .map((client) => (
+                          {paginatedClients.map((client) => (
                               <TableRow key={client.id}>
                                 <TableCell className="font-medium">{client.full_name || 'Sem nome'}</TableCell>
                                 <TableCell className="text-sm text-slate-500">{client.email}</TableCell>
@@ -3436,8 +3647,61 @@ export default function AdminDashboard() {
                             ))}
                         </TableBody>
                       </Table>
+
+                      {/* Paginação Clientes Créditos */}
+                      {creditClientTotalPages > 1 && (
+                        <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                          <p className="text-sm text-slate-500">
+                            Mostrando {creditClientStartIndex + 1} a {Math.min(creditClientStartIndex + CREDIT_CLIENT_PER_PAGE, filteredClients.length)} de {filteredClients.length} clientes
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCreditClientPage(p => Math.max(1, p - 1))}
+                              disabled={creditClientPage === 1}
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                              Anterior
+                            </Button>
+                            {Array.from({ length: Math.min(5, creditClientTotalPages) }, (_, i) => {
+                              let pageNum;
+                              if (creditClientTotalPages <= 5) {
+                                pageNum = i + 1;
+                              } else if (creditClientPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (creditClientPage >= creditClientTotalPages - 2) {
+                                pageNum = creditClientTotalPages - 4 + i;
+                              } else {
+                                pageNum = creditClientPage - 2 + i;
+                              }
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={creditClientPage === pageNum ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setCreditClientPage(pageNum)}
+                                  className={creditClientPage === pageNum ? "bg-orange-500 hover:bg-orange-600" : ""}
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            })}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCreditClientPage(p => Math.min(creditClientTotalPages, p + 1))}
+                              disabled={creditClientPage === creditClientTotalPages}
+                            >
+                              Proximo
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
@@ -3457,64 +3721,102 @@ export default function AdminDashboard() {
                     </div>
                   ) : creditTransactions.length === 0 ? (
                     <p className="text-center text-slate-500 py-8">Nenhuma transacao encontrada</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Data</TableHead>
-                            <TableHead>Profissional</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead className="text-center">Qtd</TableHead>
-                            <TableHead>Motivo</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {creditTransactions.slice(0, 30).map((tx) => (
-                            <TableRow key={tx.id}>
-                              <TableCell>
-                                {new Date(tx.created_at).toLocaleDateString('pt-BR')}
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                {tx.professionals?.name || 'N/A'}
-                              </TableCell>
-                              <TableCell>
-                                <Badge className={
-                                  tx.transaction_type === 'grant_unlimited' ? 'bg-purple-500' :
-                                  tx.transaction_type === 'revoke_unlimited' ? 'bg-red-500' :
-                                  tx.transaction_type === 'add_credits' ? 'bg-green-500' :
-                                  tx.transaction_type === 'use_credit' ? 'bg-blue-500' :
-                                  tx.transaction_type === 'purchase_credits' ? 'bg-orange-500' :
-                                  'bg-slate-500'
-                                }>
-                                  {tx.transaction_type === 'grant_unlimited' && 'Infinito Liberado'}
-                                  {tx.transaction_type === 'revoke_unlimited' && 'Infinito Revogado'}
-                                  {tx.transaction_type === 'add_credits' && 'Créditos Adicionados'}
-                                  {tx.transaction_type === 'use_credit' && 'Crédito Usado'}
-                                  {tx.transaction_type === 'purchase_credits' && 'Compra'}
-                                  {tx.transaction_type === 'expire_unlimited' && 'Expirado'}
-                                  {tx.transaction_type === 'refund_credit' && 'Estorno'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {tx.amount !== 0 && (
-                                  <span className={tx.amount > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                                    {tx.amount > 0 ? '+' : ''}{tx.amount}
-                                  </span>
-                                )}
-                                {tx.unlimited_after && (
-                                  <Infinity className="w-4 h-4 inline ml-1 text-purple-500" />
-                                )}
-                              </TableCell>
-                              <TableCell className="max-w-[200px] truncate">
-                                {tx.reason || '-'}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+                  ) : (() => {
+                    const totalHistoryProfPages = Math.ceil(creditTransactions.length / CREDIT_HISTORY_PROF_PER_PAGE);
+                    const historyProfStartIndex = (creditHistoryProfPage - 1) * CREDIT_HISTORY_PROF_PER_PAGE;
+                    const paginatedHistoryProf = creditTransactions.slice(historyProfStartIndex, historyProfStartIndex + CREDIT_HISTORY_PROF_PER_PAGE);
+
+                    return (
+                      <>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Data</TableHead>
+                                <TableHead>Profissional</TableHead>
+                                <TableHead>Tipo</TableHead>
+                                <TableHead className="text-center">Qtd</TableHead>
+                                <TableHead>Motivo</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {paginatedHistoryProf.map((tx) => (
+                                <TableRow key={tx.id}>
+                                  <TableCell>
+                                    {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                                  </TableCell>
+                                  <TableCell className="font-medium">
+                                    {tx.professionals?.name || 'N/A'}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge className={
+                                      tx.transaction_type === 'grant_unlimited' ? 'bg-purple-500' :
+                                      tx.transaction_type === 'revoke_unlimited' ? 'bg-red-500' :
+                                      tx.transaction_type === 'add_credits' ? 'bg-green-500' :
+                                      tx.transaction_type === 'use_credit' ? 'bg-blue-500' :
+                                      tx.transaction_type === 'purchase_credits' ? 'bg-orange-500' :
+                                      'bg-slate-500'
+                                    }>
+                                      {tx.transaction_type === 'grant_unlimited' && 'Infinito Liberado'}
+                                      {tx.transaction_type === 'revoke_unlimited' && 'Infinito Revogado'}
+                                      {tx.transaction_type === 'add_credits' && 'Créditos Adicionados'}
+                                      {tx.transaction_type === 'use_credit' && 'Crédito Usado'}
+                                      {tx.transaction_type === 'purchase_credits' && 'Compra'}
+                                      {tx.transaction_type === 'expire_unlimited' && 'Expirado'}
+                                      {tx.transaction_type === 'refund_credit' && 'Estorno'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {tx.amount !== 0 && (
+                                      <span className={tx.amount > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                                        {tx.amount > 0 ? '+' : ''}{tx.amount}
+                                      </span>
+                                    )}
+                                    {tx.unlimited_after && (
+                                      <Infinity className="w-4 h-4 inline ml-1 text-purple-500" />
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="max-w-[200px] truncate">
+                                    {tx.reason || '-'}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {/* Paginação Histórico Profissionais */}
+                        {totalHistoryProfPages > 1 && (
+                          <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                            <p className="text-sm text-slate-500">
+                              Mostrando {historyProfStartIndex + 1}-{Math.min(historyProfStartIndex + CREDIT_HISTORY_PROF_PER_PAGE, creditTransactions.length)} de {creditTransactions.length}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCreditHistoryProfPage(p => Math.max(1, p - 1))}
+                                disabled={creditHistoryProfPage === 1}
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </Button>
+                              <span className="text-sm">
+                                {creditHistoryProfPage} / {totalHistoryProfPages}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCreditHistoryProfPage(p => Math.min(totalHistoryProfPages, p + 1))}
+                                disabled={creditHistoryProfPage === totalHistoryProfPages}
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
@@ -3534,67 +3836,105 @@ export default function AdminDashboard() {
                     </div>
                   ) : clientCreditTransactions.length === 0 ? (
                     <p className="text-center text-slate-500 py-8">Nenhuma transacao de cliente encontrada</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Data</TableHead>
-                            <TableHead>Cliente</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead className="text-center">Qtd</TableHead>
-                            <TableHead>Motivo</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {clientCreditTransactions.slice(0, 30).map((tx) => {
-                            const client = profiles.find(p => p.id === tx.user_id);
-                            return (
-                              <TableRow key={tx.id}>
-                                <TableCell>
-                                  {new Date(tx.created_at).toLocaleDateString('pt-BR')}
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  {client?.full_name || client?.email || 'N/A'}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge className={
-                                    tx.transaction_type === 'grant_unlimited' ? 'bg-purple-500' :
-                                    tx.transaction_type === 'revoke_unlimited' ? 'bg-red-500' :
-                                    tx.transaction_type === 'add_credits' ? 'bg-green-500' :
-                                    tx.transaction_type === 'use_credit' ? 'bg-blue-500' :
-                                    tx.transaction_type === 'purchase_credits' ? 'bg-orange-500' :
-                                    'bg-slate-500'
-                                  }>
-                                    {tx.transaction_type === 'grant_unlimited' && 'Infinito Liberado'}
-                                    {tx.transaction_type === 'revoke_unlimited' && 'Infinito Revogado'}
-                                    {tx.transaction_type === 'add_credits' && 'Créditos Adicionados'}
-                                    {tx.transaction_type === 'use_credit' && 'Crédito Usado'}
-                                    {tx.transaction_type === 'purchase_credits' && 'Compra'}
-                                    {tx.transaction_type === 'expire_unlimited' && 'Expirado'}
-                                    {tx.transaction_type === 'refund_credit' && 'Estorno'}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  {tx.amount !== 0 && (
-                                    <span className={tx.amount > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                                      {tx.amount > 0 ? '+' : ''}{tx.amount}
-                                    </span>
-                                  )}
-                                  {tx.unlimited_after && (
-                                    <Infinity className="w-4 h-4 inline ml-1 text-purple-500" />
-                                  )}
-                                </TableCell>
-                                <TableCell className="max-w-[200px] truncate">
-                                  {tx.reason || '-'}
-                                </TableCell>
+                  ) : (() => {
+                    const totalHistoryClientPages = Math.ceil(clientCreditTransactions.length / CREDIT_HISTORY_CLIENT_PER_PAGE);
+                    const historyClientStartIndex = (creditHistoryClientPage - 1) * CREDIT_HISTORY_CLIENT_PER_PAGE;
+                    const paginatedHistoryClient = clientCreditTransactions.slice(historyClientStartIndex, historyClientStartIndex + CREDIT_HISTORY_CLIENT_PER_PAGE);
+
+                    return (
+                      <>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Data</TableHead>
+                                <TableHead>Cliente</TableHead>
+                                <TableHead>Tipo</TableHead>
+                                <TableHead className="text-center">Qtd</TableHead>
+                                <TableHead>Motivo</TableHead>
                               </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+                            </TableHeader>
+                            <TableBody>
+                              {paginatedHistoryClient.map((tx) => {
+                                const client = profiles.find(p => p.id === tx.user_id);
+                                return (
+                                  <TableRow key={tx.id}>
+                                    <TableCell>
+                                      {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                                    </TableCell>
+                                    <TableCell className="font-medium">
+                                      {client?.full_name || client?.email || 'N/A'}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge className={
+                                        tx.transaction_type === 'grant_unlimited' ? 'bg-purple-500' :
+                                        tx.transaction_type === 'revoke_unlimited' ? 'bg-red-500' :
+                                        tx.transaction_type === 'add_credits' ? 'bg-green-500' :
+                                        tx.transaction_type === 'use_credit' ? 'bg-blue-500' :
+                                        tx.transaction_type === 'purchase_credits' ? 'bg-orange-500' :
+                                        'bg-slate-500'
+                                      }>
+                                        {tx.transaction_type === 'grant_unlimited' && 'Infinito Liberado'}
+                                        {tx.transaction_type === 'revoke_unlimited' && 'Infinito Revogado'}
+                                        {tx.transaction_type === 'add_credits' && 'Créditos Adicionados'}
+                                        {tx.transaction_type === 'use_credit' && 'Crédito Usado'}
+                                        {tx.transaction_type === 'purchase_credits' && 'Compra'}
+                                        {tx.transaction_type === 'expire_unlimited' && 'Expirado'}
+                                        {tx.transaction_type === 'refund_credit' && 'Estorno'}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      {tx.amount !== 0 && (
+                                        <span className={tx.amount > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                                          {tx.amount > 0 ? '+' : ''}{tx.amount}
+                                        </span>
+                                      )}
+                                      {tx.unlimited_after && (
+                                        <Infinity className="w-4 h-4 inline ml-1 text-purple-500" />
+                                      )}
+                                    </TableCell>
+                                    <TableCell className="max-w-[200px] truncate">
+                                      {tx.reason || '-'}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {/* Paginação Histórico Clientes */}
+                        {totalHistoryClientPages > 1 && (
+                          <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                            <p className="text-sm text-slate-500">
+                              Mostrando {historyClientStartIndex + 1}-{Math.min(historyClientStartIndex + CREDIT_HISTORY_CLIENT_PER_PAGE, clientCreditTransactions.length)} de {clientCreditTransactions.length}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCreditHistoryClientPage(p => Math.max(1, p - 1))}
+                                disabled={creditHistoryClientPage === 1}
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </Button>
+                              <span className="text-sm">
+                                {creditHistoryClientPage} / {totalHistoryClientPages}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCreditHistoryClientPage(p => Math.min(totalHistoryClientPages, p + 1))}
+                                disabled={creditHistoryClientPage === totalHistoryClientPages}
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </div>

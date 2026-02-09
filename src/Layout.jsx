@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { NotificationService, QuoteMessageService } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Search, User, LogOut, Menu, X,
-  Hammer, Shield, ChevronDown, Bell, FileText, MessageCircle
+  Hammer, Shield, ChevronDown, Bell, FileText, MessageCircle, Briefcase, ArrowRightLeft
 } from "lucide-react";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Badge } from "@/componentes/interface do usuário/badge";
@@ -26,7 +26,9 @@ const Header = memo(function Header({
   currentPageName,
   onLogout,
   onLogin,
-  onRegister
+  onRegister,
+  activeMode,
+  onSwitchMode
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -72,9 +74,10 @@ const Header = memo(function Header({
   }, []);
 
   const isAdmin = user?.role === 'admin';
-  // Admin não e tratado como profissional ou cliente - tem seu próprio menu
-  const isProfessional = !isAdmin && user?.user_type === 'profissional';
-  const isClient = !isAdmin && user?.user_type === 'cliente';
+  // Usar activeMode para determinar qual menu mostrar
+  // Admin não é tratado como profissional ou cliente - tem seu próprio menu
+  const isProfessional = !isAdmin && activeMode === 'professional';
+  const isClient = !isAdmin && activeMode === 'client';
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm">
@@ -248,6 +251,43 @@ const Header = memo(function Header({
                         Painel Admin
                       </Link>
                     </DropdownMenuItem>
+                  )}
+
+                  {/* Seção de alternância de modo */}
+                  {!isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <div className="px-2 py-1.5">
+                        <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                          <ArrowRightLeft className="w-3 h-3" />
+                          Agir como:
+                        </p>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => onSwitchMode('client')}
+                            className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+                              activeMode === 'client'
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            <User className="w-3 h-3 inline mr-1" />
+                            Cliente
+                          </button>
+                          <button
+                            onClick={() => onSwitchMode('professional')}
+                            className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+                              activeMode === 'professional'
+                                ? 'bg-orange-500 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Briefcase className="w-3 h-3 inline mr-1" />
+                            Profissional
+                          </button>
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   <DropdownMenuSeparator />
@@ -460,7 +500,7 @@ const Footer = memo(function Footer() {
 
 export default function Layout({ children, currentPageName }) {
   const navigate = useNavigate();
-  const { user, isAuthenticated, isLoadingAuth, logout } = useAuth();
+  const { user, isAuthenticated, isLoadingAuth, logout, activeMode, switchMode } = useAuth();
 
   const handleLogout = useCallback(async () => {
     await logout(true);
@@ -474,8 +514,23 @@ export default function Layout({ children, currentPageName }) {
     navigate('/login?tab=register');
   }, [navigate]);
 
+  const handleSwitchMode = useCallback(async (mode) => {
+    const result = await switchMode(mode);
+    if (result?.needsProfessionalSetup) {
+      // Redirecionar para página de cadastro profissional
+      navigate('/BecomeProfessional');
+    } else if (result?.success) {
+      // Redirecionar para o dashboard apropriado
+      if (mode === 'professional') {
+        navigate('/ProfessionalDashboard');
+      } else {
+        navigate('/ClientDashboard');
+      }
+    }
+  }, [switchMode, navigate]);
+
   // Pages that don't need layout (pages with their own complete UI)
-  const noLayoutPages = ['Onboarding', 'Login', 'Portfolio', 'ProfessionalCard'];
+  const noLayoutPages = ['Onboarding', 'Login', 'Portfolio', 'ProfessionalCard', 'BecomeProfessional'];
   if (noLayoutPages.includes(currentPageName)) {
     return <>{children}</>;
   }
@@ -490,6 +545,8 @@ export default function Layout({ children, currentPageName }) {
         onLogout={handleLogout}
         onLogin={handleLogin}
         onRegister={handleRegister}
+        activeMode={activeMode}
+        onSwitchMode={handleSwitchMode}
       />
 
       {/* Main Content */}

@@ -10,7 +10,7 @@ import { Label } from '@/componentes/interface do usuário/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/componentes/interface do usuário/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/componentes/interface do usuário/tabs';
 import { Alert, AlertDescription } from '@/componentes/interface do usuário/alert';
-import { Loader2, Mail, Lock, User, Building2, Gift, Phone } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Gift, Phone } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -31,7 +31,6 @@ export default function Login() {
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [registerPhone, setRegisterPhone] = useState('');
-  const [userType, setUserType] = useState('cliente');
 
   // Referral code state
   const [referralCode, setReferralCode] = useState('');
@@ -165,10 +164,12 @@ export default function Login() {
     }
 
     try {
+      // Todos os novos usuários começam como cliente
+      // Podem virar profissional depois pelo menu
       await signUp(registerEmail, registerPassword, {
         full_name: registerName,
         phone: phoneDigits, // Send only digits, trigger will format
-        user_type: userType,
+        user_type: 'cliente',
         referred_by_code: referralCode || null
       });
       setSuccess('Cadastro realizado! Verifique seu email para confirmar sua conta.');
@@ -333,30 +334,6 @@ export default function Login() {
                     />
                   </div>
                   <p className="text-xs text-gray-500">Digite o DDD + número com 9 digitos</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Tipo de conta</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant={userType === 'cliente' ? 'default' : 'outline'}
-                      className={userType === 'cliente' ? 'bg-orange-500 hover:bg-orange-600' : ''}
-                      onClick={() => setUserType('cliente')}
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Cliente
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={userType === 'profissional' ? 'default' : 'outline'}
-                      className={userType === 'profissional' ? 'bg-orange-500 hover:bg-orange-600' : ''}
-                      onClick={() => setUserType('profissional')}
-                    >
-                      <Building2 className="h-4 w-4 mr-2" />
-                      Profissional
-                    </Button>
-                  </div>
                 </div>
 
                 <div className="space-y-2">

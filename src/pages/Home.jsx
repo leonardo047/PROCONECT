@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ProfessionalService, ClientReferralService, Category } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/componentes/interface do usuário/button";
 import { ArrowRight, Paintbrush, Wrench, Zap,
   Droplets, Sparkles, TreePine, HardHat,
@@ -250,23 +251,68 @@ const ServiceGroupCard = memo(({ group }) => {
 });
 
 // Bloco 1 - Hero com gradiente roxo/laranja
-const SearchSection = memo(() => (
-  <section className="bg-gradient-to-r from-purple-900 via-purple-800 to-orange-600 py-12 md:py-16 relative overflow-hidden">
-    {/* Efeitos de fundo */}
-    <div className="absolute inset-0 opacity-20">
-      <div className="absolute top-0 right-0 w-96 h-96 bg-orange-400 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-400 rounded-full blur-3xl" />
-    </div>
+// Botões dinâmicos baseados no status do usuário
+const SearchSection = memo(({ isAuthenticated, user }) => {
+  // Determinar quais botões mostrar
+  const isProfessional = user?.is_professional === true;
 
-    <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
-      <p className="text-base md:text-lg text-white/90 mb-6 max-w-2xl mx-auto leading-relaxed">
-        Use sua localização para encontrar pintores, pedreiros, eletricistas e outros profissionais qualificados. Rápido, fácil e confiável. ✨
-      </p>
+  // Renderizar botões baseado no status do usuário
+  const renderButtons = () => {
+    if (!isAuthenticated) {
+      // VISITANTE (não logado)
+      // Solicitar Orçamento, Buscar Profissionais, Sou Profissional
+      return (
+        <>
+          <Link to={createPageUrl("RequestQuote")}>
+            <Button size="lg" className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-6 py-5 rounded-xl shadow-lg">
+              Solicitar Orçamento
+            </Button>
+          </Link>
+          <Link to={createPageUrl("SearchProfessionals")}>
+            <Button size="lg" variant="outline" className="w-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-6 py-5 rounded-xl">
+              Buscar Profissionais
+            </Button>
+          </Link>
+          <Link to={createPageUrl("Onboarding")}>
+            <Button size="lg" variant="outline" className="w-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-6 py-5 rounded-xl">
+              Área Profissional
+            </Button>
+          </Link>
+        </>
+      );
+    }
 
-      <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-2xl mx-auto mb-8">
+    if (isProfessional) {
+      // USUÁRIO É PROFISSIONAL (pode também ser cliente)
+      // Painel Profissional, Buscar Profissionais, Solicitar Serviço
+      return (
+        <>
+          <Link to={createPageUrl("ProfessionalDashboard")}>
+            <Button size="lg" className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-6 py-5 rounded-xl shadow-lg">
+              Painel Profissional
+            </Button>
+          </Link>
+          <Link to={createPageUrl("SearchProfessionals")}>
+            <Button size="lg" variant="outline" className="w-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-6 py-5 rounded-xl">
+              Buscar Profissionais
+            </Button>
+          </Link>
+          <Link to={createPageUrl("RequestQuote")}>
+            <Button size="lg" variant="outline" className="w-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-6 py-5 rounded-xl">
+              Solicitar Serviço
+            </Button>
+          </Link>
+        </>
+      );
+    }
+
+    // USUÁRIO SÓ É CLIENTE (não é profissional)
+    // Solicitar Serviço, Buscar Profissionais, Tornar-se Profissional
+    return (
+      <>
         <Link to={createPageUrl("RequestQuote")}>
           <Button size="lg" className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-6 py-5 rounded-xl shadow-lg">
-            Solicitar Orçamento
+            Solicitar Serviço
           </Button>
         </Link>
         <Link to={createPageUrl("SearchProfessionals")}>
@@ -274,32 +320,52 @@ const SearchSection = memo(() => (
             Buscar Profissionais
           </Button>
         </Link>
-        <Link to={createPageUrl("Onboarding")}>
+        <Link to={createPageUrl("BecomeProfessional")}>
           <Button size="lg" variant="outline" className="w-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-6 py-5 rounded-xl">
-            Sou Profissional
+            Tornar-se Profissional
           </Button>
         </Link>
+      </>
+    );
+  };
+
+  return (
+    <section className="bg-gradient-to-r from-purple-900 via-purple-800 to-orange-600 py-12 md:py-16 relative overflow-hidden">
+      {/* Efeitos de fundo */}
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-orange-400 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-400 rounded-full blur-3xl" />
       </div>
 
-      <div className="flex items-center justify-center gap-8 text-white/80 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="flex -space-x-2">
-            <div className="w-6 h-6 bg-orange-500 rounded-full border-2 border-white" />
-            <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white" />
-            <div className="w-6 h-6 bg-green-500 rounded-full border-2 border-white" />
-          </div>
-          <span className="font-semibold">500+</span>
-          <span>Profissionais</span>
+      <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
+        <p className="text-base md:text-lg text-white/90 mb-6 max-w-2xl mx-auto leading-relaxed">
+          Use sua localização para encontrar pintores, pedreiros, eletricistas e outros profissionais qualificados. Rápido, fácil e confiável. ✨
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-2xl mx-auto mb-8">
+          {renderButtons()}
         </div>
-        <div className="flex items-center gap-2">
-          <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-          <span className="font-semibold">4.8/5</span>
-          <span>Avaliação</span>
+
+        <div className="flex items-center justify-center gap-8 text-white/80 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-2">
+              <div className="w-6 h-6 bg-orange-500 rounded-full border-2 border-white" />
+              <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white" />
+              <div className="w-6 h-6 bg-green-500 rounded-full border-2 border-white" />
+            </div>
+            <span className="font-semibold">500+</span>
+            <span>Profissionais</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+            <span className="font-semibold">4.8/5</span>
+            <span>Avaliação</span>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
-));
+    </section>
+  );
+});
 
 // Bloco 2 - Categorias Populares (Atalhos)
 const PopularCategories = memo(() => {
@@ -450,10 +516,11 @@ const HowItWorks = memo(() => (
 ));
 
 // CTA para profissionais com botão de compartilhamento
-const ProfessionalCTA = memo(() => {
+const ProfessionalCTA = memo(({ isAuthenticated, user }) => {
   const [copied, setCopied] = useState(false);
   const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://conectpro.com.br';
   const shareText = 'Encontre profissionais qualificados para sua obra ou serviço no ConectPro!';
+  const isProfessional = user?.is_professional === true;
 
   const handleShare = useCallback(async () => {
     if (navigator.share) {
@@ -478,6 +545,91 @@ const ProfessionalCTA = memo(() => {
     }
   }, [shareUrl, shareText]);
 
+  // Se já é profissional, mostrar CTA diferente
+  if (isAuthenticated && isProfessional) {
+    return (
+      <section className="py-12 bg-gradient-to-r from-orange-500 to-orange-600">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+            Gerencie seu perfil profissional
+          </h2>
+          <p className="text-lg text-orange-100 mb-6 max-w-xl mx-auto">
+            Atualize suas informações, fotos e acompanhe seus contatos
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link to={createPageUrl("ProfessionalDashboard")}>
+              <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 font-semibold px-8 py-5 rounded-xl">
+                Meu Painel
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handleShare}
+              className="bg-white/10 text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-8 py-5 rounded-xl"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-5 h-5 mr-2" />
+                  Link Copiado!
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-5 h-5 mr-2" />
+                  Compartilhar Site
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Se é cliente logado, mostrar CTA para virar profissional
+  if (isAuthenticated && !isProfessional) {
+    return (
+      <section className="py-12 bg-gradient-to-r from-orange-500 to-orange-600">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+            Quer oferecer seus serviços?
+          </h2>
+          <p className="text-lg text-orange-100 mb-6 max-w-xl mx-auto">
+            Torne-se um profissional e mostre seu trabalho para milhares de clientes
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link to={createPageUrl("BecomeProfessional")}>
+              <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 font-semibold px-8 py-5 rounded-xl">
+                Tornar-se Profissional
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handleShare}
+              className="bg-white/10 text-white hover:bg-white/20 border-2 border-white/30 font-semibold px-8 py-5 rounded-xl"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-5 h-5 mr-2" />
+                  Link Copiado!
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-5 h-5 mr-2" />
+                  Compartilhar Site
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Visitante (não logado) - CTA padrão
   return (
     <section className="py-12 bg-gradient-to-r from-orange-500 to-orange-600">
       <div className="max-w-7xl mx-auto px-4 text-center">
@@ -521,6 +673,7 @@ const ProfessionalCTA = memo(() => {
 export default function Home() {
   const [searchParams] = useSearchParams();
   const refCode = searchParams.get('ref');
+  const { user, isAuthenticated } = useAuth();
 
   // Capturar código de indicação da URL e salvar no localStorage
   useEffect(() => {
@@ -574,7 +727,7 @@ export default function Home() {
   return (
     <div>
       {/* Bloco 1 - Hero */}
-      <SearchSection />
+      <SearchSection isAuthenticated={isAuthenticated} user={user} />
 
       {/* Bloco 2 - Categorias Populares (Atalhos) */}
       <PopularCategories />
@@ -592,7 +745,7 @@ export default function Home() {
       <HowItWorks />
 
       {/* CTA para Profissionais */}
-      <ProfessionalCTA />
+      <ProfessionalCTA isAuthenticated={isAuthenticated} user={user} />
     </div>
   );
 }

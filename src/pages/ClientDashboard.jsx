@@ -12,7 +12,7 @@ import {
   CreditCard, CheckCircle, Clock, Search,
   Loader2, Star, Calendar, User as UserIcon, Save,
   Share2, Gift, Copy, MessageCircle, Users, XCircle,
-  Infinity, Sparkles
+  Infinity, Sparkles, Briefcase
 } from "lucide-react";
 import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
 import CancelSubscriptionDialog from "@/componentes/assinatura/CancelSubscriptionDialog";
@@ -868,6 +868,21 @@ export default function ClientDashboard() {
                   </div>
                 </Button>
               </Link>
+
+              {/* Botão Virar Profissional - só aparece se não é profissional */}
+              {!user?.is_professional && (
+                <Link to={createPageUrl("BecomeProfessional")} className="md:col-span-2">
+                  <Button variant="outline" className="w-full h-auto py-4 justify-start gap-4 border-orange-300 hover:border-orange-500 hover:bg-orange-50">
+                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                      <Briefcase className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-orange-700">Virar Profissional</p>
+                      <p className="text-sm text-slate-500">Ofereça seus serviços na plataforma</p>
+                    </div>
+                  </Button>
+                </Link>
+              )}
             </div>
           </CardContent>
         </Card>

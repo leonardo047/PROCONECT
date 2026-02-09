@@ -28,6 +28,7 @@ const JobMarketplace = lazy(() => import('./pages/JobMarketplace.jsx'));
 const ServiceQuotes = lazy(() => import('./pages/ServiceQuotes.jsx'));
 const Portfolio = lazy(() => import('./pages/Portfolio.jsx'));
 const Conversations = lazy(() => import('./pages/Conversations.jsx'));
+const BecomeProfessional = lazy(() => import('./pages/BecomeProfessional.jsx'));
 const Login = lazy(() => import('./pages/Login.jsx'));
 
 export const PAGES = {
@@ -52,6 +53,7 @@ export const PAGES = {
     "ServiceQuotes": ServiceQuotes,
     "Portfolio": Portfolio,
     "Conversations": Conversations,
+    "BecomeProfessional": BecomeProfessional,
 }
 
 export const pagesConfig = {
