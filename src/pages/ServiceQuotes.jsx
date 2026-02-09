@@ -44,7 +44,7 @@ const ITEMS_PER_PAGE = 12;
 export default function ServiceQuotes() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated, professional: authProfessional } = useAuth();
+  const { user, isAuthenticated, professional: authProfessional, activeMode } = useAuth();
 
   const [filters, setFilters] = useState({
     city: '',
@@ -293,12 +293,12 @@ export default function ServiceQuotes() {
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">Orçamento Serviços</h1>
                 <p className="text-slate-600">
-                  {professional ? 'Encontre clientes que precisam dos seus serviços' : 'Solicite orçamentos de profissionais'}
+                  {activeMode === 'professional' ? 'Encontre clientes que precisam dos seus serviços' : 'Solicite orçamentos de profissionais'}
                 </p>
               </div>
             </div>
-            {/* Botao de solicitar orcamento - so aparece para clientes */}
-            {!professional && (
+            {/* Botao de solicitar orcamento - aparece para clientes ou usuarios nao logados */}
+            {activeMode !== 'professional' && (
               <Link to={createPageUrl("RequestQuote")}>
                 <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold shadow-md">
                   <Plus className="w-4 h-4 mr-2" />
