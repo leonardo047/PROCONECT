@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/componentes/interface do usuário/badge";
 import { Upload, X, Loader2, CheckCircle, Send, Search, AlertCircle } from "lucide-react";
 import { addDays } from "date-fns";
+import { showToast } from "@/utils/showToast";
 
 export default function CreateQuoteRequest({ onSuccess }) {
   const { user, isAuthenticated, navigateToLogin } = useAuth();
@@ -102,7 +103,12 @@ export default function CreateQuoteRequest({ onSuccess }) {
 
       // Se auto_match está ativo, buscar profissionais
       if (data.auto_match) {
-        await matchProfessionals(quote);
+        try {
+          await matchProfessionals(quote);
+        } catch (e) {
+          // Ignorar erro de match, o importante é que o orçamento foi criado
+          console.warn('Erro ao fazer match:', e);
+        }
       }
 
       return quote;
@@ -110,6 +116,10 @@ export default function CreateQuoteRequest({ onSuccess }) {
     onSuccess: () => {
       queryClient.invalidateQueries(['quote-requests']);
       if (onSuccess) onSuccess();
+    },
+    onError: (error) => {
+      console.error('Erro ao criar orçamento:', error);
+      showToast.error('Erro ao publicar', error.message || 'Não foi possível publicar sua solicitação. Tente novamente.');
     }
   });
 
@@ -179,7 +189,8 @@ export default function CreateQuoteRequest({ onSuccess }) {
 
     const quoteData = {
       category: formData.category,
-      title: `${formData.category} - ${formData.city}`,
+      profession: formData.category, // Compatibilidade com campo profession
+      title: formData.title || `${formData.category} - ${formData.city}`,
       description: formData.description,
       city: formData.city,
       state: formData.state,
@@ -187,9 +198,9 @@ export default function CreateQuoteRequest({ onSuccess }) {
       urgency: urgencyMap[formData.urgency] || 'medium',
       accepts_visit: formData.accepts_visit,
       client_id: user.id,
-      client_name: user.full_name,
+      client_name: user.full_name || 'Cliente',
       client_phone: formData.phone || user.phone || '',
-      photos: photos,
+      photos: photos || [],
       expires_at: addDays(new Date(), 7).toISOString(),
       status: 'open',
       auto_match: formData.auto_match
@@ -280,6 +291,18 @@ export default function CreateQuoteRequest({ onSuccess }) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Título do Serviço */}
+          <div>
+            <Label className="text-base font-medium">Título do serviço *</Label>
+            <Input
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Ex: Reforma de cozinha, Pintura de sala, etc."
+              className="mt-1.5"
+              required
+            />
           </div>
 
           {/* Descrição do Serviço */}
