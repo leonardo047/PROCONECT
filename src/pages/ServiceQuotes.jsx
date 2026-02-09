@@ -12,8 +12,10 @@ import { Badge } from "@/componentes/interface do usuário/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/componentes/interface do usuário/dialog";
 import {
   FileText, MapPin, Clock, DollarSign, Search, Send,
-  Filter, Loader2, UserPlus, Eye, Camera, ChevronDown, Navigation
+  Filter, Loader2, UserPlus, Eye, Camera, ChevronDown, Navigation, Plus
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import RespondQuoteDialog from "@/componentes/profissional/RespondQuoteDialog";
@@ -283,14 +285,22 @@ export default function ServiceQuotes() {
       <div className="max-w-5xl mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
-              <FileText className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">Orçamento Serviços</h1>
+                <p className="text-slate-600">Encontre clientes que precisam dos seus serviços</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Orçamento Serviços</h1>
-              <p className="text-slate-600">Encontre clientes que precisam dos seus serviços</p>
-            </div>
+            <Link to={createPageUrl("RequestQuote")}>
+              <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold shadow-md">
+                <Plus className="w-4 h-4 mr-2" />
+                Solicitar Orçamento
+              </Button>
+            </Link>
           </div>
         </div>
 
