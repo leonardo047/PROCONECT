@@ -422,6 +422,32 @@ export const AuthProvider = ({ children }) => {
 
     // Se tentar mudar para profissional mas não completou cadastro profissional
     if (mode === 'professional' && !user.is_professional) {
+      // Verificar diretamente no banco se existe um registro de profissional
+      // (pode estar desatualizado no perfil local)
+      try {
+        const existingProfessional = await ProfessionalService.findByUserId(user.id);
+        if (existingProfessional) {
+          // Profissional existe! Atualizar o perfil e continuar
+          await User.update(user.id, {
+            is_professional: true,
+            active_mode: 'professional',
+            user_type: 'profissional'
+          });
+          setUser(prev => ({
+            ...prev,
+            is_professional: true,
+            active_mode: 'professional',
+            user_type: 'profissional'
+          }));
+          setActiveMode('professional');
+          setProfessional(existingProfessional);
+          return { success: true };
+        }
+      } catch (error) {
+        // Se falhar a verificação, continuar com o fluxo normal
+        console.error('Erro ao verificar profissional existente:', error);
+      }
+
       // Retorna false para indicar que precisa completar o cadastro
       return { success: false, needsProfessionalSetup: true };
     }
