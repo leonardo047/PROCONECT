@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, Category, PlanConfig, Payment, Referral, Profile, Expense, ClientSubscription, CreditsService, PricingPlan, PricingPlanService, DiscountCoupon, DiscountCouponService, CouponUsageService } from "@/lib/entities";
+import { Professional, Category, PlanConfig, Payment, Referral, Profile, Expense, ClientSubscription, CreditsService, PricingPlan, PricingPlanService, DiscountCoupon, DiscountCouponService, CouponUsageService, PromotionalRule, PromotionalRuleService } from "@/lib/entities";
 import { jsPDF } from 'jspdf';
 import { showToast } from "@/utils/showToast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -130,6 +130,13 @@ export default function AdminDashboard() {
   const [savingCoupon, setSavingCoupon] = useState(false);
   const [showDeleteCouponDialog, setShowDeleteCouponDialog] = useState(false);
   const [couponToDelete, setCouponToDelete] = useState(null);
+
+  // State para regras promocionais
+  const [showPromoRuleDialog, setShowPromoRuleDialog] = useState(false);
+  const [editingPromoRule, setEditingPromoRule] = useState(null);
+  const [savingPromoRule, setSavingPromoRule] = useState(false);
+  const [showDeletePromoRuleDialog, setShowDeletePromoRuleDialog] = useState(false);
+  const [promoRuleToDelete, setPromoRuleToDelete] = useState(null);
   const [showDeletePlanDialog, setShowDeletePlanDialog] = useState(false);
   const [planToDelete, setPlanToDelete] = useState(null);
 
@@ -256,6 +263,13 @@ export default function AdminDashboard() {
   const { data: discountCoupons = [], isLoading: loadingCoupons } = useQuery({
     queryKey: ['admin-discount-coupons'],
     queryFn: () => DiscountCouponService.getAllCoupons(),
+    enabled: !!user && user.role === 'admin'
+  });
+
+  // Query para regras promocionais
+  const { data: promotionalRules = [], isLoading: loadingPromoRules } = useQuery({
+    queryKey: ['admin-promotional-rules'],
+    queryFn: () => PromotionalRuleService.getAllRules(),
     enabled: !!user && user.role === 'admin'
   });
 
@@ -431,6 +445,46 @@ export default function AdminDashboard() {
     },
     onError: (error) => {
       showToast.error('Erro ao excluir cupom: ' + error.message);
+    }
+  });
+
+  // Mutations para regras promocionais
+  const createPromoRuleMutation = useMutation({
+    mutationFn: (data) => PromotionalRule.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-promotional-rules']);
+      setShowPromoRuleDialog(false);
+      setEditingPromoRule(null);
+      showToast.success('Regra criada com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao criar regra: ' + error.message);
+    }
+  });
+
+  const updatePromoRuleMutation = useMutation({
+    mutationFn: ({ id, data }) => PromotionalRule.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-promotional-rules']);
+      setShowPromoRuleDialog(false);
+      setEditingPromoRule(null);
+      showToast.success('Regra atualizada com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao atualizar regra: ' + error.message);
+    }
+  });
+
+  const deletePromoRuleMutation = useMutation({
+    mutationFn: (id) => PromotionalRule.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-promotional-rules']);
+      setShowDeletePromoRuleDialog(false);
+      setPromoRuleToDelete(null);
+      showToast.success('Regra excluída com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao excluir regra: ' + error.message);
     }
   });
 
@@ -4434,6 +4488,152 @@ export default function AdminDashboard() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Regras Promocionais */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Gift className="w-5 h-5 text-purple-500" />
+                        Regras Promocionais
+                      </CardTitle>
+                      <CardDescription>Configure promoções automáticas para novos usuários</CardDescription>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setEditingPromoRule({
+                          trigger_type: 'new_professional_signup',
+                          benefit_type: 'unlimited_credits',
+                          benefit_value: 0,
+                          duration_days: 30,
+                          is_active: true,
+                          priority: 0
+                        });
+                        setShowPromoRuleDialog(true);
+                      }}
+                      className="bg-purple-500 hover:bg-purple-600"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nova Regra
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingPromoRules ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Gatilho</TableHead>
+                          <TableHead>Benefício</TableHead>
+                          <TableHead className="text-center">Usos</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {promotionalRules.map((rule) => (
+                          <TableRow key={rule.id}>
+                            <TableCell className="font-medium">{rule.name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {rule.trigger_type === 'new_professional_signup' && 'Novo Profissional'}
+                                {rule.trigger_type === 'new_client_signup' && 'Novo Cliente'}
+                                {rule.trigger_type === 'first_purchase' && 'Primeira Compra'}
+                                {rule.trigger_type === 'referral_signup' && 'Indicação'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {rule.benefit_type === 'unlimited_credits' && (
+                                <span className="flex items-center gap-1 text-purple-600">
+                                  <Infinity className="w-4 h-4" />
+                                  {rule.duration_days} dias
+                                </span>
+                              )}
+                              {rule.benefit_type === 'bonus_credits' && (
+                                <span className="flex items-center gap-1 text-green-600">
+                                  <Coins className="w-4 h-4" />
+                                  {rule.benefit_value} créditos
+                                </span>
+                              )}
+                              {rule.benefit_type === 'discount_percentage' && (
+                                <span className="text-blue-600">{rule.benefit_value}% desconto</span>
+                              )}
+                              {rule.benefit_type === 'free_plan_days' && (
+                                <span className="text-orange-600">{rule.duration_days} dias grátis</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="font-medium">{rule.current_uses || 0}</span>
+                              {rule.max_uses && (
+                                <span className="text-slate-400"> / {rule.max_uses}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge className={rule.is_active ? 'bg-green-500' : 'bg-slate-400'}>
+                                {rule.is_active ? 'Ativo' : 'Inativo'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingPromoRule(rule);
+                                    setShowPromoRuleDialog(true);
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    await updatePromoRuleMutation.mutateAsync({
+                                      id: rule.id,
+                                      data: { is_active: !rule.is_active }
+                                    });
+                                  }}
+                                >
+                                  {rule.is_active ? (
+                                    <ToggleRight className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <ToggleLeft className="w-4 h-4 text-slate-400" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() => {
+                                    setPromoRuleToDelete(rule);
+                                    setShowDeletePromoRuleDialog(true);
+                                  }}
+                                >
+                                  <Trash className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {promotionalRules.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                              Nenhuma regra promocional cadastrada
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
         </Tabs>
@@ -5722,6 +5922,220 @@ export default function AdminDashboard() {
               <Button
                 variant="destructive"
                 onClick={() => deleteCouponMutation.mutate(couponToDelete?.id)}
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                Excluir
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Promotional Rule Dialog */}
+        <Dialog open={showPromoRuleDialog} onOpenChange={setShowPromoRuleDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Gift className="w-5 h-5 text-purple-500" />
+                {editingPromoRule?.id ? 'Editar' : 'Nova'} Regra Promocional
+              </DialogTitle>
+              <DialogDescription>
+                Configure uma regra promocional automática
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setSavingPromoRule(true);
+              const formData = new FormData(e.target);
+
+              const data = {
+                name: formData.get('name'),
+                description: formData.get('description') || null,
+                trigger_type: formData.get('trigger_type'),
+                benefit_type: formData.get('benefit_type'),
+                benefit_value: parseInt(formData.get('benefit_value') || '0'),
+                duration_days: formData.get('duration_days') ? parseInt(formData.get('duration_days')) : null,
+                valid_until: formData.get('valid_until') ? new Date(formData.get('valid_until') + 'T23:59:59').toISOString() : null,
+                max_uses: formData.get('max_uses') ? parseInt(formData.get('max_uses')) : null,
+                is_active: formData.get('is_active') === 'true',
+                priority: parseInt(formData.get('priority') || '0')
+              };
+
+              try {
+                if (editingPromoRule?.id) {
+                  await updatePromoRuleMutation.mutateAsync({ id: editingPromoRule.id, data });
+                } else {
+                  await createPromoRuleMutation.mutateAsync(data);
+                }
+              } catch (err) {
+                // Error handled in mutation
+              }
+              setSavingPromoRule(false);
+            }}>
+              <div className="space-y-4 py-4">
+                <div>
+                  <Label htmlFor="promo_name">Nome da Regra *</Label>
+                  <Input
+                    id="promo_name"
+                    name="name"
+                    placeholder="Ex: Boas-vindas Profissional"
+                    defaultValue={editingPromoRule?.name || ''}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="promo_description">Descrição</Label>
+                  <Input
+                    id="promo_description"
+                    name="description"
+                    placeholder="Descrição da promoção"
+                    defaultValue={editingPromoRule?.description || ''}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Gatilho *</Label>
+                    <Select name="trigger_type" defaultValue={editingPromoRule?.trigger_type || 'new_professional_signup'}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new_professional_signup">Novo Profissional</SelectItem>
+                        <SelectItem value="new_client_signup">Novo Cliente</SelectItem>
+                        <SelectItem value="first_purchase">Primeira Compra</SelectItem>
+                        <SelectItem value="referral_signup">Cadastro por Indicação</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Tipo de Benefício *</Label>
+                    <Select name="benefit_type" defaultValue={editingPromoRule?.benefit_type || 'unlimited_credits'}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unlimited_credits">Créditos Ilimitados</SelectItem>
+                        <SelectItem value="bonus_credits">Créditos de Bônus</SelectItem>
+                        <SelectItem value="discount_percentage">Desconto %</SelectItem>
+                        <SelectItem value="free_plan_days">Dias Grátis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="promo_benefit_value">Valor do Benefício</Label>
+                    <Input
+                      id="promo_benefit_value"
+                      name="benefit_value"
+                      type="number"
+                      min="0"
+                      placeholder="Qtd créditos ou % desconto"
+                      defaultValue={editingPromoRule?.benefit_value || '0'}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Para créditos bônus ou % desconto</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="promo_duration_days">Duração (dias)</Label>
+                    <Input
+                      id="promo_duration_days"
+                      name="duration_days"
+                      type="number"
+                      min="1"
+                      placeholder="30"
+                      defaultValue={editingPromoRule?.duration_days || '30'}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Para créditos ilimitados</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="promo_valid_until">Válido até</Label>
+                    <Input
+                      id="promo_valid_until"
+                      name="valid_until"
+                      type="date"
+                      defaultValue={editingPromoRule?.valid_until ? new Date(editingPromoRule.valid_until).toISOString().split('T')[0] : ''}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Deixe vazio para sem limite</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="promo_max_uses">Limite de Usos</Label>
+                    <Input
+                      id="promo_max_uses"
+                      name="max_uses"
+                      type="number"
+                      min="1"
+                      placeholder="Ilimitado"
+                      defaultValue={editingPromoRule?.max_uses || ''}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="promo_priority">Prioridade</Label>
+                  <Input
+                    id="promo_priority"
+                    name="priority"
+                    type="number"
+                    min="0"
+                    defaultValue={editingPromoRule?.priority || '0'}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Maior = mais prioritário</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="promo_is_active"
+                    name="is_active"
+                    value="true"
+                    defaultChecked={editingPromoRule?.is_active !== false}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="promo_is_active" className="cursor-pointer">Regra Ativa</Label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <Button type="button" variant="outline" onClick={() => setShowPromoRuleDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={savingPromoRule} className="bg-purple-500 hover:bg-purple-600">
+                  {savingPromoRule ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Promotional Rule Confirmation Dialog */}
+        <Dialog open={showDeletePromoRuleDialog} onOpenChange={setShowDeletePromoRuleDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="w-5 h-5" />
+                Excluir Regra
+              </DialogTitle>
+              <DialogDescription>
+                Tem certeza que deseja excluir a regra "{promoRuleToDelete?.name}"? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 justify-end pt-4">
+              <Button variant="outline" onClick={() => setShowDeletePromoRuleDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deletePromoRuleMutation.mutate(promoRuleToDelete?.id)}
               >
                 <Trash className="w-4 h-4 mr-2" />
                 Excluir

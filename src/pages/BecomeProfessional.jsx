@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/lib/AuthContext";
-import { ProfessionalService, ReferralService, ClientReferralService, generateReferralCode, Category } from "@/lib/entities";
+import { ProfessionalService, ReferralService, ClientReferralService, generateReferralCode, Category, PromotionalRuleService } from "@/lib/entities";
 import { createPageUrl } from "@/utils";
 import { translateSupabaseError } from "@/utils/translateSupabaseError";
 import { showToast } from "@/utils/showToast";
@@ -244,10 +244,25 @@ export default function BecomeProfessional() {
         total_referrals: 0
       };
 
-      await ProfessionalService.createWithAuth(professionalData);
+      const createdProfessional = await ProfessionalService.createWithAuth(professionalData);
 
       // Marcar usuário como profissional no AuthContext
       await markAsProfessional();
+
+      // Aplicar regras promocionais (ex: créditos de boas-vindas)
+      try {
+        const appliedRules = await PromotionalRuleService.applyRules(
+          user.id,
+          createdProfessional?.id,
+          'new_professional_signup'
+        );
+        if (appliedRules && appliedRules.length > 0) {
+          console.log('Regras promocionais aplicadas:', appliedRules);
+        }
+      } catch (promoError) {
+        console.error('Erro ao aplicar regras promocionais:', promoError);
+        // Não bloquear o fluxo principal
+      }
 
       // Processar indicação se este usuário foi indicado
       if (user.referred_by_code) {

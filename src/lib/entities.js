@@ -2303,6 +2303,80 @@ export const CouponUsageService = {
   }
 };
 
+// Promotional Rules - Regras promocionais configuráveis pelo admin
+export const PromotionalRule = createEntityService('promotional_rules');
+
+export const PromotionalRuleUsage = createEntityService('promotional_rule_usages');
+
+export const PromotionalRuleService = {
+  ...PromotionalRule,
+
+  // Buscar todas as regras (admin)
+  async getAllRules() {
+    const { data, error } = await supabase
+      .from('promotional_rules')
+      .select('*')
+      .order('priority', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Buscar regras ativas
+  async getActiveRules(triggerType = null) {
+    let query = supabase
+      .from('promotional_rules')
+      .select('*')
+      .eq('is_active', true)
+      .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`);
+
+    if (triggerType) {
+      query = query.eq('trigger_type', triggerType);
+    }
+
+    const { data, error } = await query.order('priority', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Aplicar regras promocionais para um usuário
+  async applyRules(userId, professionalId = null, triggerType = 'new_professional_signup') {
+    const { data, error } = await supabase.rpc('apply_promotional_rules', {
+      p_user_id: userId,
+      p_professional_id: professionalId,
+      p_trigger_type: triggerType
+    });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Buscar estatísticas de uma regra
+  async getRuleStats(ruleId) {
+    const { data, error } = await supabase
+      .from('promotional_rule_usages')
+      .select('*, profiles:user_id(full_name, email)')
+      .eq('rule_id', ruleId)
+      .order('applied_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Buscar regras aplicadas a um usuário
+  async getUserRules(userId) {
+    const { data, error } = await supabase
+      .from('promotional_rule_usages')
+      .select('*, promotional_rules:rule_id(*)')
+      .eq('user_id', userId)
+      .order('applied_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+};
+
 export default {
   Profile,
   Professional,
@@ -2354,5 +2428,8 @@ export default {
   DiscountCoupon,
   DiscountCouponService,
   CouponUsage,
-  CouponUsageService
+  CouponUsageService,
+  PromotionalRule,
+  PromotionalRuleService,
+  PromotionalRuleUsage
 };
