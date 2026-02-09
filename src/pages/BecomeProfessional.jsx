@@ -13,34 +13,18 @@ import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Hammer, ArrowLeft, CheckCircle, Loader2, Briefcase } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
-const BRAZILIAN_STATES = [
-  { value: 'AC', label: 'Acre' },
-  { value: 'AL', label: 'Alagoas' },
-  { value: 'AP', label: 'Amapá' },
-  { value: 'AM', label: 'Amazonas' },
-  { value: 'BA', label: 'Bahia' },
-  { value: 'CE', label: 'Ceará' },
-  { value: 'DF', label: 'Distrito Federal' },
-  { value: 'ES', label: 'Espírito Santo' },
-  { value: 'GO', label: 'Goiás' },
-  { value: 'MA', label: 'Maranhão' },
-  { value: 'MT', label: 'Mato Grosso' },
-  { value: 'MS', label: 'Mato Grosso do Sul' },
-  { value: 'MG', label: 'Minas Gerais' },
-  { value: 'PA', label: 'Pará' },
-  { value: 'PB', label: 'Paraíba' },
-  { value: 'PR', label: 'Paraná' },
-  { value: 'PE', label: 'Pernambuco' },
-  { value: 'PI', label: 'Piauí' },
-  { value: 'RJ', label: 'Rio de Janeiro' },
-  { value: 'RN', label: 'Rio Grande do Norte' },
-  { value: 'RS', label: 'Rio Grande do Sul' },
-  { value: 'RO', label: 'Rondônia' },
-  { value: 'RR', label: 'Roraima' },
-  { value: 'SC', label: 'Santa Catarina' },
-  { value: 'SP', label: 'São Paulo' },
-  { value: 'SE', label: 'Sergipe' },
-  { value: 'TO', label: 'Tocantins' }
+// Limitado apenas para Santa Catarina
+const AVAILABLE_STATES = [
+  { value: 'SC', label: 'Santa Catarina' }
+];
+
+// Cidades disponíveis para cadastro de profissionais
+const AVAILABLE_CITIES = [
+  { value: 'Rio do Sul', label: 'Rio do Sul' },
+  { value: 'Agronômica', label: 'Agronômica' },
+  { value: 'Aurora', label: 'Aurora' },
+  { value: 'Pouso Redondo', label: 'Pouso Redondo' },
+  { value: 'Ibirama', label: 'Ibirama' }
 ];
 
 
@@ -112,12 +96,13 @@ export default function BecomeProfessional() {
     cpf: '',
     profession: '',
     city: '',
-    state: '',
+    state: 'SC', // Fixo em Santa Catarina
     address: '',
     years_experience: '',
     google_maps_link: '',
     business_hours: '',
-    personal_description: ''
+    personal_description: '',
+    company_name: '' // Nome da empresa
   });
 
   useEffect(() => {
@@ -165,8 +150,8 @@ export default function BecomeProfessional() {
       return;
     }
 
-    if (!formData.city?.trim()) {
-      showToast.error('Erro', 'Informe sua cidade.');
+    if (!formData.city) {
+      showToast.error('Erro', 'Selecione sua cidade.');
       return;
     }
 
@@ -207,6 +192,7 @@ export default function BecomeProfessional() {
       const professionalData = {
         user_id: user.id,
         name: user.full_name,
+        company_name: formData.company_name || null,
         profession: formData.profession || 'outros',
         city: formData.city,
         state: formData.state,
@@ -325,6 +311,20 @@ export default function BecomeProfessional() {
             </div>
 
             <div className="space-y-4">
+              {/* Nome da Empresa */}
+              <div>
+                <Label>Nome da Empresa</Label>
+                <Input
+                  placeholder="Nome da sua empresa (opcional)"
+                  value={formData.company_name}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                  className="h-12 mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Deixe em branco se for autônomo
+                </p>
+              </div>
+
               <div>
                 <Label>Profissão Principal *</Label>
                 <Select
@@ -391,7 +391,7 @@ export default function BecomeProfessional() {
                       <SelectValue placeholder="Selecione o estado" />
                     </SelectTrigger>
                     <SelectContent>
-                      {BRAZILIAN_STATES.map(state => (
+                      {AVAILABLE_STATES.map(state => (
                         <SelectItem key={state.value} value={state.value}>
                           {state.label}
                         </SelectItem>
@@ -402,12 +402,24 @@ export default function BecomeProfessional() {
 
                 <div>
                   <Label>Cidade *</Label>
-                  <Input
-                    placeholder="Digite sua cidade"
+                  <Select
                     value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="h-12 mt-1"
-                  />
+                    onValueChange={(value) => setFormData({ ...formData, city: value })}
+                  >
+                    <SelectTrigger className="h-12 mt-1">
+                      <SelectValue placeholder="Selecione sua cidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AVAILABLE_CITIES.map(city => (
+                        <SelectItem key={city.value} value={city.value}>
+                          {city.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Atualmente disponível apenas para a região do Alto Vale do Itajaí
+                  </p>
                 </div>
               </div>
 
@@ -494,7 +506,7 @@ export default function BecomeProfessional() {
                 disabled={
                   !formData.profession ||
                   !formData.state ||
-                  !formData.city?.trim() ||
+                  !formData.city ||
                   !formData.personal_description?.trim() ||
                   saving ||
                   (formData.profession === 'empresa_local' && !formData.cnpj && !formData.cpf) ||
