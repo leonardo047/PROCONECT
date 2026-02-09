@@ -4,6 +4,7 @@ import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";
 import { Card, CardContent } from "@/componentes/interface do usuário/card";
+import { Badge } from "@/componentes/interface do usuário/badge";
 import {
   Dialog,
   DialogContent,
@@ -25,9 +26,13 @@ import {
   Copy,
   AlertCircle,
   ArrowLeft,
-  Lock
+  Lock,
+  Tag,
+  X,
+  CheckCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { DiscountCouponService } from "@/lib/entities";
 
 const MERCADOPAGO_PUBLIC_KEY = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
 
@@ -64,6 +69,12 @@ export default function MercadoPagoCheckout({
   const [installments, setInstallments] = useState('1');
   const [cardBrand, setCardBrand] = useState(null);
   const [installmentOptions, setInstallmentOptions] = useState([]);
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState(null);
 
   // MercadoPago SDK reference
   const mpRef = useRef(null);
@@ -121,7 +132,54 @@ export default function MercadoPagoCheckout({
     setCardBrand(null);
     setInstallmentOptions([]);
     setError(null);
+    setCouponCode('');
+    setAppliedCoupon(null);
+    setCouponError(null);
   }, []);
+
+  // Calcular preço final com desconto
+  const originalPrice = planPrice || 0;
+  const discountAmount = appliedCoupon?.discount_amount || 0;
+  const finalPrice = appliedCoupon?.final_price ?? originalPrice;
+
+  // Aplicar cupom
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Digite um código de cupom');
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponError(null);
+
+    try {
+      const result = await DiscountCouponService.validate(
+        couponCode.trim(),
+        planKey,
+        originalPrice
+      );
+
+      if (result.valid) {
+        setAppliedCoupon(result);
+        setCouponError(null);
+      } else {
+        setCouponError(result.error || 'Cupom inválido');
+        setAppliedCoupon(null);
+      }
+    } catch (err) {
+      setCouponError(err.message || 'Erro ao validar cupom');
+      setAppliedCoupon(null);
+    }
+
+    setCouponLoading(false);
+  };
+
+  // Remover cupom
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError(null);
+  };
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -207,24 +265,25 @@ export default function MercadoPagoCheckout({
     const brand = identifyCardBrand(cardNumber);
     setCardBrand(brand);
 
-    // Calcular parcelas quando tem bandeira
-    if (brand && planPrice) {
+    // Calcular parcelas quando tem bandeira - usar preço final após desconto
+    const priceForInstallments = appliedCoupon?.final_price ?? planPrice;
+    if (brand && priceForInstallments) {
       const options = [];
       const maxInstallments = 12;
       for (let i = 1; i <= maxInstallments; i++) {
-        const installmentValue = planPrice / i;
+        const installmentValue = priceForInstallments / i;
         if (installmentValue >= 5) { // Mínimo R$ 5 por parcela
           options.push({
             value: i.toString(),
             label: i === 1
-              ? `1x de R$ ${planPrice.toFixed(2)} (sem juros)`
+              ? `1x de R$ ${priceForInstallments.toFixed(2)} (sem juros)`
               : `${i}x de R$ ${installmentValue.toFixed(2)} (sem juros)`
           });
         }
       }
       setInstallmentOptions(options);
     }
-  }, [cardNumber, planPrice]);
+  }, [cardNumber, planPrice, appliedCoupon]);
 
   // Formatar CPF
   const formatCPF = (value) => {
@@ -258,7 +317,11 @@ export default function MercadoPagoCheckout({
           body: JSON.stringify({
             action: 'create_pix',
             plan_key: planKey,
-            professional_id: professionalId
+            professional_id: professionalId,
+            coupon_id: appliedCoupon?.coupon_id || null,
+            original_price: originalPrice,
+            final_price: finalPrice,
+            discount_amount: discountAmount
           })
         }
       );
@@ -347,6 +410,10 @@ export default function MercadoPagoCheckout({
             card_token: cardTokenResponse.id,
             installments: parseInt(installments),
             payment_method_id: cardBrand || 'visa',
+            coupon_id: appliedCoupon?.coupon_id || null,
+            original_price: originalPrice,
+            final_price: finalPrice,
+            discount_amount: discountAmount,
             payer: {
               email: user?.email,
               identification: {
@@ -408,55 +475,150 @@ export default function MercadoPagoCheckout({
 
   const renderSelectMethod = () => (
     <div className="space-y-4">
-      <div className="text-center mb-6">
-        <p className="text-3xl font-bold text-orange-600">R$ {planPrice?.toFixed(2)}</p>
-        <p className="text-slate-600">{planName}</p>
+      {/* Resumo do pedido */}
+      <div className="bg-slate-50 rounded-lg p-4">
+        <p className="text-sm text-slate-500 mb-2">{planName}</p>
+
+        {/* Se tem cupom aplicado, mostra resumo */}
+        {appliedCoupon ? (
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600">Subtotal:</span>
+              <span className="text-slate-600">R$ {originalPrice?.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-green-600">
+              <span className="flex items-center gap-1">
+                <Tag className="w-3 h-3" />
+                Desconto ({appliedCoupon.code}):
+              </span>
+              <span>-R$ {discountAmount?.toFixed(2)}</span>
+            </div>
+            <div className="border-t pt-2 flex justify-between">
+              <span className="font-semibold text-slate-900">Total:</span>
+              <span className="text-2xl font-bold text-orange-600">R$ {finalPrice?.toFixed(2)}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-between items-center">
+            <span className="font-semibold text-slate-900">Total:</span>
+            <span className="text-2xl font-bold text-orange-600">R$ {originalPrice?.toFixed(2)}</span>
+          </div>
+        )}
       </div>
 
-      <Card
-        className="border-2 border-green-300 hover:border-green-500 cursor-pointer transition-all"
-        onClick={handlePixPayment}
-      >
-        <CardContent className="p-4 flex items-center gap-4">
-          <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-            <QrCode className="w-6 h-6 text-green-600" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-slate-900">Pagar com PIX</p>
-            <p className="text-sm text-slate-500">Aprovação instantânea • Taxa: 0,99%</p>
-          </div>
-          {loading && <Loader2 className="w-5 h-5 animate-spin text-green-600" />}
-        </CardContent>
-      </Card>
+      {/* Campo de cupom */}
+      <div className="space-y-2">
+        <Label className="flex items-center gap-2 text-sm">
+          <Tag className="w-4 h-4 text-blue-500" />
+          Cupom de desconto
+        </Label>
 
-      <Card
-        className={`border-2 transition-all ${
-          CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY
-            ? 'border-blue-300 hover:border-blue-500 cursor-pointer'
-            : 'border-slate-200 opacity-60 cursor-not-allowed'
-        }`}
-        onClick={() => CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY && setStep('card')}
-      >
-        <CardContent className="p-4 flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-            CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'bg-blue-100' : 'bg-slate-100'
-          }`}>
-            <CreditCard className={`w-6 h-6 ${
-              CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'text-blue-600' : 'text-slate-400'
-            }`} />
+        {appliedCoupon ? (
+          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="font-mono font-bold text-green-800">{appliedCoupon.code}</p>
+                <p className="text-xs text-green-600">
+                  {appliedCoupon.discount_type === 'percentage'
+                    ? `${appliedCoupon.discount_value}% de desconto`
+                    : `R$ ${appliedCoupon.discount_value} de desconto`}
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRemoveCoupon}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
-          <div className="flex-1">
-            <p className={`font-semibold ${
-              CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'text-slate-900' : 'text-slate-500'
-            }`}>Cartão de Crédito</p>
-            <p className="text-sm text-slate-500">
-              {CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY
-                ? 'Parcele em até 12x sem juros'
-                : 'Em breve disponível'}
-            </p>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              placeholder="Digite o código"
+              value={couponCode}
+              onChange={(e) => {
+                setCouponCode(e.target.value.toUpperCase());
+                setCouponError(null);
+              }}
+              className="uppercase"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleApplyCoupon}
+              disabled={couponLoading || !couponCode.trim()}
+            >
+              {couponLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                'Aplicar'
+              )}
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        {couponError && (
+          <p className="text-sm text-red-600 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            {couponError}
+          </p>
+        )}
+      </div>
+
+      {/* Métodos de pagamento */}
+      <div className="pt-2">
+        <p className="text-sm font-medium text-slate-700 mb-3">Escolha o método de pagamento:</p>
+
+        <Card
+          className="border-2 border-green-300 hover:border-green-500 cursor-pointer transition-all mb-3"
+          onClick={handlePixPayment}
+        >
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <QrCode className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-slate-900">Pagar com PIX</p>
+              <p className="text-sm text-slate-500">Aprovação instantânea • Taxa: 0,99%</p>
+            </div>
+            {loading && <Loader2 className="w-5 h-5 animate-spin text-green-600" />}
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`border-2 transition-all ${
+            CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY
+              ? 'border-blue-300 hover:border-blue-500 cursor-pointer'
+              : 'border-slate-200 opacity-60 cursor-not-allowed'
+          }`}
+          onClick={() => CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY && setStep('card')}
+        >
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+              CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'bg-blue-100' : 'bg-slate-100'
+            }`}>
+              <CreditCard className={`w-6 h-6 ${
+                CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'text-blue-600' : 'text-slate-400'
+              }`} />
+            </div>
+            <div className="flex-1">
+              <p className={`font-semibold ${
+                CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY ? 'text-slate-900' : 'text-slate-500'
+              }`}>Cartão de Crédito</p>
+              <p className="text-sm text-slate-500">
+                {CARD_PAYMENT_ENABLED && MERCADOPAGO_PUBLIC_KEY
+                  ? 'Parcele em até 12x sem juros'
+                  : 'Em breve disponível'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
@@ -485,7 +647,14 @@ export default function MercadoPagoCheckout({
           Pagamento PIX
         </div>
 
-        <p className="text-3xl font-bold text-slate-900 mb-1">R$ {planPrice?.toFixed(2)}</p>
+        {appliedCoupon ? (
+          <>
+            <p className="text-sm text-slate-500 line-through">R$ {originalPrice?.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-green-600 mb-1">R$ {finalPrice?.toFixed(2)}</p>
+          </>
+        ) : (
+          <p className="text-3xl font-bold text-slate-900 mb-1">R$ {originalPrice?.toFixed(2)}</p>
+        )}
         <p className="text-slate-600 mb-6">{planName}</p>
       </div>
 
@@ -554,7 +723,14 @@ export default function MercadoPagoCheckout({
           <CreditCard className="w-4 h-4" />
           Cartão de Crédito
         </div>
-        <p className="text-2xl font-bold text-slate-900">R$ {planPrice?.toFixed(2)}</p>
+        {appliedCoupon ? (
+          <>
+            <p className="text-sm text-slate-500 line-through">R$ {originalPrice?.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-green-600">R$ {finalPrice?.toFixed(2)}</p>
+          </>
+        ) : (
+          <p className="text-2xl font-bold text-slate-900">R$ {originalPrice?.toFixed(2)}</p>
+        )}
         <p className="text-slate-600">{planName}</p>
       </div>
 
@@ -683,7 +859,7 @@ export default function MercadoPagoCheckout({
           ) : (
             <>
               <Lock className="w-4 h-4 mr-2" />
-              Pagar R$ {planPrice?.toFixed(2)}
+              Pagar R$ {finalPrice?.toFixed(2)}
             </>
           )}
         </Button>

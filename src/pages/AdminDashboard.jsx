@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, Category, PlanConfig, Payment, Referral, Profile, Expense, ClientSubscription, CreditsService } from "@/lib/entities";
+import { Professional, Category, PlanConfig, Payment, Referral, Profile, Expense, ClientSubscription, CreditsService, PricingPlan, PricingPlanService, DiscountCoupon, DiscountCouponService, CouponUsageService } from "@/lib/entities";
 import { jsPDF } from 'jspdf';
 import { showToast } from "@/utils/showToast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ import {
   ChevronLeft, ChevronRight, Gift, CreditCard, Search,
   Download, Filter, UserPlus, Clock,
   FileText, RefreshCw, Receipt, Wallet, MinusCircle, Percent,
-  Infinity, Coins
+  Infinity, Coins, Settings, Tag, ToggleLeft, ToggleRight
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -118,6 +118,20 @@ export default function AdminDashboard() {
   // Estados de Paginação - Histórico de Créditos Cliente
   const [creditHistoryClientPage, setCreditHistoryClientPage] = useState(1);
   const CREDIT_HISTORY_CLIENT_PER_PAGE = 15;
+
+  // Estados para Configurações - Planos de Preço
+  const [showPricingPlanDialog, setShowPricingPlanDialog] = useState(false);
+  const [editingPricingPlan, setEditingPricingPlan] = useState(null);
+  const [savingPricingPlan, setSavingPricingPlan] = useState(false);
+
+  // Estados para Configurações - Cupons
+  const [showCouponDialog, setShowCouponDialog] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null);
+  const [savingCoupon, setSavingCoupon] = useState(false);
+  const [showDeleteCouponDialog, setShowDeleteCouponDialog] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState(null);
+  const [showDeletePlanDialog, setShowDeletePlanDialog] = useState(false);
+  const [planToDelete, setPlanToDelete] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -228,6 +242,23 @@ export default function AdminDashboard() {
     enabled: !!user && user.role === 'admin'
   });
 
+  // Pricing Plans Query
+  const { data: pricingPlans = [], isLoading: loadingPricingPlans } = useQuery({
+    queryKey: ['admin-pricing-plans'],
+    queryFn: () => PricingPlan.filter({
+      orderBy: { field: 'display_order', direction: 'asc' },
+      limit: 100
+    }),
+    enabled: !!user && user.role === 'admin'
+  });
+
+  // Discount Coupons Query
+  const { data: discountCoupons = [], isLoading: loadingCoupons } = useQuery({
+    queryKey: ['admin-discount-coupons'],
+    queryFn: () => DiscountCouponService.getAllCoupons(),
+    enabled: !!user && user.role === 'admin'
+  });
+
   // Mutations
   const updateProfessionalMutation = useMutation({
     mutationFn: ({ id, data }) => Professional.update(id, data),
@@ -317,6 +348,90 @@ export default function AdminDashboard() {
   const deleteExpenseMutation = useMutation({
     mutationFn: (id) => Expense.delete(id),
     onSuccess: () => queryClient.invalidateQueries(['admin-expenses'])
+  });
+
+  // Criar plano de preço
+  const createPricingPlanMutation = useMutation({
+    mutationFn: (data) => PricingPlan.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-pricing-plans']);
+      setShowPricingPlanDialog(false);
+      setEditingPricingPlan(null);
+      showToast.success('Plano criado com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao criar plano: ' + error.message);
+    }
+  });
+
+  // Atualizar plano de preço
+  const updatePricingPlanMutation = useMutation({
+    mutationFn: ({ id, data }) => PricingPlan.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-pricing-plans']);
+      setShowPricingPlanDialog(false);
+      setEditingPricingPlan(null);
+      showToast.success('Plano atualizado com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao atualizar plano: ' + error.message);
+    }
+  });
+
+  // Deletar plano de preço
+  const deletePricingPlanMutation = useMutation({
+    mutationFn: (id) => PricingPlan.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-pricing-plans']);
+      setShowDeletePlanDialog(false);
+      setPlanToDelete(null);
+      showToast.success('Plano excluído com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao excluir plano: ' + error.message);
+    }
+  });
+
+  // Criar cupom de desconto
+  const createCouponMutation = useMutation({
+    mutationFn: (data) => DiscountCoupon.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-discount-coupons']);
+      setShowCouponDialog(false);
+      setEditingCoupon(null);
+      showToast.success('Cupom criado com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao criar cupom: ' + error.message);
+    }
+  });
+
+  // Atualizar cupom de desconto
+  const updateCouponMutation = useMutation({
+    mutationFn: ({ id, data }) => DiscountCoupon.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-discount-coupons']);
+      setShowCouponDialog(false);
+      setEditingCoupon(null);
+      showToast.success('Cupom atualizado com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao atualizar cupom: ' + error.message);
+    }
+  });
+
+  // Deletar cupom de desconto
+  const deleteCouponMutation = useMutation({
+    mutationFn: (id) => DiscountCoupon.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-discount-coupons']);
+      setShowDeleteCouponDialog(false);
+      setCouponToDelete(null);
+      showToast.success('Cupom excluído com sucesso!');
+    },
+    onError: (error) => {
+      showToast.error('Erro ao excluir cupom: ' + error.message);
+    }
   });
 
   // Drag and Drop
@@ -1450,7 +1565,7 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-6 mb-8">
+          <TabsList className="grid w-full grid-cols-7 mb-8">
             <TabsTrigger value="overview">Visao Geral</TabsTrigger>
             <TabsTrigger value="categories">Categorias</TabsTrigger>
             <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
@@ -1465,6 +1580,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="créditos" className="flex items-center gap-1">
               <Coins className="w-4 h-4" />
               Créditos
+            </TabsTrigger>
+            <TabsTrigger value="configuracoes" className="flex items-center gap-1">
+              <Settings className="w-4 h-4" />
+              Config
             </TabsTrigger>
           </TabsList>
 
@@ -3939,6 +4058,384 @@ export default function AdminDashboard() {
               </Card>
             </div>
           </TabsContent>
+
+          {/* Configurações Tab */}
+          <TabsContent value="configuracoes">
+            <div className="space-y-6">
+              {/* Pacotes de Créditos */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Coins className="w-5 h-5 text-green-500" />
+                        Pacotes de Créditos
+                      </CardTitle>
+                      <CardDescription>Gerencie os pacotes de créditos avulsos para profissionais</CardDescription>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setEditingPricingPlan({
+                          plan_type: 'credits',
+                          is_active: true,
+                          is_popular: false,
+                          display_order: pricingPlans.filter(p => p.plan_type === 'credits').length + 1
+                        });
+                        setShowPricingPlanDialog(true);
+                      }}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Novo Pacote
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingPricingPlans ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead className="text-center">Créditos</TableHead>
+                          <TableHead className="text-right">Preço</TableHead>
+                          <TableHead className="text-right">Por Crédito</TableHead>
+                          <TableHead className="text-center">Desconto</TableHead>
+                          <TableHead className="text-center">Popular</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pricingPlans
+                          .filter(p => p.plan_type === 'credits')
+                          .sort((a, b) => a.display_order - b.display_order)
+                          .map((plan) => (
+                            <TableRow key={plan.id}>
+                              <TableCell className="font-medium">{plan.name}</TableCell>
+                              <TableCell className="text-center">{plan.credits}</TableCell>
+                              <TableCell className="text-right">R$ {parseFloat(plan.price).toFixed(2)}</TableCell>
+                              <TableCell className="text-right">R$ {parseFloat(plan.price_per_credit || 0).toFixed(2)}</TableCell>
+                              <TableCell className="text-center">
+                                {plan.discount_percentage ? (
+                                  <Badge className="bg-green-500">{plan.discount_percentage}%</Badge>
+                                ) : '-'}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {plan.is_popular ? (
+                                  <Badge className="bg-orange-500">Popular</Badge>
+                                ) : '-'}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge className={plan.is_active ? 'bg-green-500' : 'bg-slate-400'}>
+                                  {plan.is_active ? 'Ativo' : 'Inativo'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingPricingPlan(plan);
+                                      setShowPricingPlanDialog(true);
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async () => {
+                                      await updatePricingPlanMutation.mutateAsync({
+                                        id: plan.id,
+                                        data: { is_active: !plan.is_active }
+                                      });
+                                    }}
+                                  >
+                                    {plan.is_active ? (
+                                      <ToggleRight className="w-4 h-4 text-green-500" />
+                                    ) : (
+                                      <ToggleLeft className="w-4 h-4 text-slate-400" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-700"
+                                    onClick={() => {
+                                      setPlanToDelete(plan);
+                                      setShowDeletePlanDialog(true);
+                                    }}
+                                  >
+                                    <Trash className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        {pricingPlans.filter(p => p.plan_type === 'credits').length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center text-slate-500 py-8">
+                              Nenhum pacote de créditos cadastrado
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Plano de Assinatura */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Infinity className="w-5 h-5 text-purple-500" />
+                        Plano de Assinatura
+                      </CardTitle>
+                      <CardDescription>Gerencie o plano de assinatura (créditos ilimitados)</CardDescription>
+                    </div>
+                    {pricingPlans.filter(p => p.plan_type === 'subscription').length === 0 && (
+                      <Button
+                        onClick={() => {
+                          setEditingPricingPlan({
+                            plan_type: 'subscription',
+                            is_active: true,
+                            is_popular: false,
+                            period: 'mes',
+                            display_order: 0
+                          });
+                          setShowPricingPlanDialog(true);
+                        }}
+                        className="bg-purple-500 hover:bg-purple-600"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Criar Plano
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingPricingPlans ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead className="text-right">Preço</TableHead>
+                          <TableHead className="text-center">Período</TableHead>
+                          <TableHead>Features</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pricingPlans
+                          .filter(p => p.plan_type === 'subscription')
+                          .map((plan) => (
+                            <TableRow key={plan.id}>
+                              <TableCell className="font-medium">{plan.name}</TableCell>
+                              <TableCell className="text-right">R$ {parseFloat(plan.price).toFixed(2)}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline">{plan.period || 'mes'}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-xs text-slate-500 max-w-[200px] truncate">
+                                  {Array.isArray(plan.features) ? plan.features.join(', ') : '-'}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge className={plan.is_active ? 'bg-green-500' : 'bg-slate-400'}>
+                                  {plan.is_active ? 'Ativo' : 'Inativo'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingPricingPlan(plan);
+                                      setShowPricingPlanDialog(true);
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async () => {
+                                      await updatePricingPlanMutation.mutateAsync({
+                                        id: plan.id,
+                                        data: { is_active: !plan.is_active }
+                                      });
+                                    }}
+                                  >
+                                    {plan.is_active ? (
+                                      <ToggleRight className="w-4 h-4 text-green-500" />
+                                    ) : (
+                                      <ToggleLeft className="w-4 h-4 text-slate-400" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        {pricingPlans.filter(p => p.plan_type === 'subscription').length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                              Nenhum plano de assinatura cadastrado
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Cupons de Desconto */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Tag className="w-5 h-5 text-blue-500" />
+                        Cupons de Desconto
+                      </CardTitle>
+                      <CardDescription>Gerencie cupons de desconto para checkout</CardDescription>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setEditingCoupon({
+                          discount_type: 'percentage',
+                          discount_value: 10,
+                          max_uses_per_user: 1,
+                          is_active: true
+                        });
+                        setShowCouponDialog(true);
+                      }}
+                      className="bg-blue-500 hover:bg-blue-600"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Novo Cupom
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingCoupons ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Código</TableHead>
+                          <TableHead>Desconto</TableHead>
+                          <TableHead className="text-center">Validade</TableHead>
+                          <TableHead className="text-center">Usos</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {discountCoupons.map((coupon) => (
+                          <TableRow key={coupon.id}>
+                            <TableCell className="font-mono font-bold">{coupon.code}</TableCell>
+                            <TableCell>
+                              {coupon.discount_type === 'percentage' ? (
+                                <Badge className="bg-blue-500">{coupon.discount_value}%</Badge>
+                              ) : (
+                                <Badge className="bg-green-500">R$ {parseFloat(coupon.discount_value).toFixed(2)}</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {coupon.valid_until ? (
+                                <span className={new Date(coupon.valid_until) < new Date() ? 'text-red-500' : ''}>
+                                  {new Date(coupon.valid_until).toLocaleDateString('pt-BR')}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">Sem limite</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="font-medium">{coupon.current_uses || 0}</span>
+                              {coupon.max_uses && (
+                                <span className="text-slate-400"> / {coupon.max_uses}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge className={coupon.is_active ? 'bg-green-500' : 'bg-slate-400'}>
+                                {coupon.is_active ? 'Ativo' : 'Inativo'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingCoupon(coupon);
+                                    setShowCouponDialog(true);
+                                  }}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    await updateCouponMutation.mutateAsync({
+                                      id: coupon.id,
+                                      data: { is_active: !coupon.is_active }
+                                    });
+                                  }}
+                                >
+                                  {coupon.is_active ? (
+                                    <ToggleRight className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <ToggleLeft className="w-4 h-4 text-slate-400" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() => {
+                                    setCouponToDelete(coupon);
+                                    setShowDeleteCouponDialog(true);
+                                  }}
+                                >
+                                  <Trash className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {discountCoupons.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                              Nenhum cupom cadastrado
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* Grant Unlimited Credits Dialog */}
@@ -4720,6 +5217,511 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Pricing Plan Dialog */}
+        <Dialog open={showPricingPlanDialog} onOpenChange={setShowPricingPlanDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {editingPricingPlan?.plan_type === 'subscription' ? (
+                  <Infinity className="w-5 h-5 text-purple-500" />
+                ) : (
+                  <Coins className="w-5 h-5 text-green-500" />
+                )}
+                {editingPricingPlan?.id ? 'Editar' : 'Novo'} {editingPricingPlan?.plan_type === 'subscription' ? 'Plano' : 'Pacote'}
+              </DialogTitle>
+              <DialogDescription>
+                {editingPricingPlan?.plan_type === 'subscription'
+                  ? 'Configure o plano de assinatura com créditos ilimitados'
+                  : 'Configure o pacote de créditos avulsos'}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setSavingPricingPlan(true);
+              const formData = new FormData(e.target);
+
+              const data = {
+                plan_key: formData.get('plan_key'),
+                plan_type: editingPricingPlan?.plan_type || 'credits',
+                name: formData.get('name'),
+                description: formData.get('description') || null,
+                price: parseFloat(formData.get('price')),
+                is_active: formData.get('is_active') === 'true',
+                is_popular: formData.get('is_popular') === 'true',
+                display_order: parseInt(formData.get('display_order') || '0')
+              };
+
+              if (data.plan_type === 'credits') {
+                data.credits = parseInt(formData.get('credits') || '0');
+                data.price_per_credit = data.credits > 0 ? parseFloat((data.price / data.credits).toFixed(2)) : 0;
+                data.discount_percentage = formData.get('discount_percentage') ? parseInt(formData.get('discount_percentage')) : null;
+              } else {
+                data.period = formData.get('period') || 'mes';
+                const featuresText = formData.get('features') || '';
+                data.features = featuresText.split('\n').filter(f => f.trim());
+              }
+
+              try {
+                if (editingPricingPlan?.id) {
+                  await updatePricingPlanMutation.mutateAsync({ id: editingPricingPlan.id, data });
+                } else {
+                  await createPricingPlanMutation.mutateAsync(data);
+                }
+              } catch (err) {
+                // Error handled in mutation
+              }
+              setSavingPricingPlan(false);
+            }}>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="plan_key">Chave do Plano *</Label>
+                    <Input
+                      id="plan_key"
+                      name="plan_key"
+                      placeholder="ex: credits_15"
+                      defaultValue={editingPricingPlan?.plan_key || ''}
+                      required
+                      disabled={!!editingPricingPlan?.id}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Identificador único (não pode ser alterado)</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="name">Nome *</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      placeholder="ex: 15 Créditos"
+                      defaultValue={editingPricingPlan?.name || ''}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input
+                    id="description"
+                    name="description"
+                    placeholder="Descrição do plano"
+                    defaultValue={editingPricingPlan?.description || ''}
+                  />
+                </div>
+
+                {editingPricingPlan?.plan_type === 'credits' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="credits">Quantidade de Créditos *</Label>
+                      <Input
+                        id="credits"
+                        name="credits"
+                        type="number"
+                        min="1"
+                        placeholder="10"
+                        defaultValue={editingPricingPlan?.credits || ''}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="discount_percentage">Desconto (%)</Label>
+                      <Input
+                        id="discount_percentage"
+                        name="discount_percentage"
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="10"
+                        defaultValue={editingPricingPlan?.discount_percentage || ''}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="price">Preço (R$) *</Label>
+                    <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="29.90"
+                      defaultValue={editingPricingPlan?.price || ''}
+                      required
+                    />
+                  </div>
+                  {editingPricingPlan?.plan_type === 'subscription' && (
+                    <div>
+                      <Label htmlFor="period">Período</Label>
+                      <Select name="period" defaultValue={editingPricingPlan?.period || 'mes'}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mes">Mensal</SelectItem>
+                          <SelectItem value="trimestre">Trimestral</SelectItem>
+                          <SelectItem value="semestre">Semestral</SelectItem>
+                          <SelectItem value="ano">Anual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {editingPricingPlan?.plan_type === 'credits' && (
+                    <div>
+                      <Label htmlFor="display_order">Ordem de Exibição</Label>
+                      <Input
+                        id="display_order"
+                        name="display_order"
+                        type="number"
+                        min="0"
+                        placeholder="1"
+                        defaultValue={editingPricingPlan?.display_order || '0'}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {editingPricingPlan?.plan_type === 'subscription' && (
+                  <div>
+                    <Label htmlFor="features">Features (uma por linha)</Label>
+                    <Textarea
+                      id="features"
+                      name="features"
+                      placeholder="Créditos infinitos&#10;Responda quantas cotações quiser&#10;Cancele quando quiser"
+                      defaultValue={Array.isArray(editingPricingPlan?.features) ? editingPricingPlan.features.join('\n') : ''}
+                      rows={4}
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="is_active"
+                      name="is_active"
+                      value="true"
+                      defaultChecked={editingPricingPlan?.is_active !== false}
+                      className="w-4 h-4"
+                    />
+                    <Label htmlFor="is_active" className="cursor-pointer">Ativo</Label>
+                  </div>
+                  {editingPricingPlan?.plan_type === 'credits' && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="is_popular"
+                        name="is_popular"
+                        value="true"
+                        defaultChecked={editingPricingPlan?.is_popular === true}
+                        className="w-4 h-4"
+                      />
+                      <Label htmlFor="is_popular" className="cursor-pointer">Marcar como Popular</Label>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowPricingPlanDialog(false);
+                    setEditingPricingPlan(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={savingPricingPlan}
+                  className={editingPricingPlan?.plan_type === 'subscription' ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500 hover:bg-green-600'}
+                >
+                  {savingPricingPlan ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Plan Confirmation Dialog */}
+        <Dialog open={showDeletePlanDialog} onOpenChange={setShowDeletePlanDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="w-5 h-5" />
+                Excluir Plano
+              </DialogTitle>
+              <DialogDescription>
+                Tem certeza que deseja excluir o plano "{planToDelete?.name}"? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 justify-end pt-4">
+              <Button variant="outline" onClick={() => setShowDeletePlanDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deletePricingPlanMutation.mutate(planToDelete?.id)}
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                Excluir
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Coupon Dialog */}
+        <Dialog open={showCouponDialog} onOpenChange={setShowCouponDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Tag className="w-5 h-5 text-blue-500" />
+                {editingCoupon?.id ? 'Editar' : 'Novo'} Cupom de Desconto
+              </DialogTitle>
+              <DialogDescription>
+                Configure um cupom de desconto para o checkout
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setSavingCoupon(true);
+              const formData = new FormData(e.target);
+
+              const data = {
+                code: formData.get('code').toUpperCase(),
+                discount_type: formData.get('discount_type'),
+                discount_value: parseFloat(formData.get('discount_value')),
+                description: formData.get('description') || null,
+                min_purchase_amount: formData.get('min_purchase_amount') ? parseFloat(formData.get('min_purchase_amount')) : null,
+                max_discount_amount: formData.get('max_discount_amount') ? parseFloat(formData.get('max_discount_amount')) : null,
+                max_uses: formData.get('max_uses') ? parseInt(formData.get('max_uses')) : null,
+                max_uses_per_user: parseInt(formData.get('max_uses_per_user') || '1'),
+                valid_until: formData.get('valid_until') ? new Date(formData.get('valid_until') + 'T23:59:59').toISOString() : null,
+                is_active: formData.get('is_active') === 'true'
+              };
+
+              // Parse applicable plan keys
+              const planKeysText = formData.get('applicable_plan_keys') || '';
+              if (planKeysText.trim()) {
+                data.applicable_plan_keys = planKeysText.split(',').map(k => k.trim()).filter(k => k);
+              } else {
+                data.applicable_plan_keys = null;
+              }
+
+              try {
+                if (editingCoupon?.id) {
+                  await updateCouponMutation.mutateAsync({ id: editingCoupon.id, data });
+                } else {
+                  await createCouponMutation.mutateAsync(data);
+                }
+              } catch (err) {
+                // Error handled in mutation
+              }
+              setSavingCoupon(false);
+            }}>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="code">Código do Cupom *</Label>
+                    <Input
+                      id="code"
+                      name="code"
+                      placeholder="PROMO10"
+                      defaultValue={editingCoupon?.code || ''}
+                      required
+                      className="uppercase"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Será convertido para maiúsculas</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="discount_type">Tipo de Desconto *</Label>
+                    <Select name="discount_type" defaultValue={editingCoupon?.discount_type || 'percentage'}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentual (%)</SelectItem>
+                        <SelectItem value="fixed">Valor Fixo (R$)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="discount_value">Valor do Desconto *</Label>
+                    <Input
+                      id="discount_value"
+                      name="discount_value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="10"
+                      defaultValue={editingCoupon?.discount_value || ''}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="max_discount_amount">Desconto Máximo (R$)</Label>
+                    <Input
+                      id="max_discount_amount"
+                      name="max_discount_amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="50"
+                      defaultValue={editingCoupon?.max_discount_amount || ''}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Para cupons percentuais</p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input
+                    id="description"
+                    name="description"
+                    placeholder="Ex: Desconto de boas-vindas"
+                    defaultValue={editingCoupon?.description || ''}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="min_purchase_amount">Compra Mínima (R$)</Label>
+                    <Input
+                      id="min_purchase_amount"
+                      name="min_purchase_amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0"
+                      defaultValue={editingCoupon?.min_purchase_amount || ''}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="valid_until">Válido Até</Label>
+                    <Input
+                      id="valid_until"
+                      name="valid_until"
+                      type="date"
+                      defaultValue={editingCoupon?.valid_until ? new Date(editingCoupon.valid_until).toISOString().split('T')[0] : ''}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="max_uses">Limite de Usos Total</Label>
+                    <Input
+                      id="max_uses"
+                      name="max_uses"
+                      type="number"
+                      min="1"
+                      placeholder="Ilimitado"
+                      defaultValue={editingCoupon?.max_uses || ''}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="max_uses_per_user">Usos por Usuário</Label>
+                    <Input
+                      id="max_uses_per_user"
+                      name="max_uses_per_user"
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      defaultValue={editingCoupon?.max_uses_per_user || '1'}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="applicable_plan_keys">Planos Aplicáveis (separados por vírgula)</Label>
+                  <Input
+                    id="applicable_plan_keys"
+                    name="applicable_plan_keys"
+                    placeholder="credits_5, credits_10, unlimited_monthly"
+                    defaultValue={Array.isArray(editingCoupon?.applicable_plan_keys) ? editingCoupon.applicable_plan_keys.join(', ') : ''}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Deixe vazio para aplicar em todos os planos</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="coupon_is_active"
+                    name="is_active"
+                    value="true"
+                    defaultChecked={editingCoupon?.is_active !== false}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="coupon_is_active" className="cursor-pointer">Cupom Ativo</Label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCouponDialog(false);
+                    setEditingCoupon(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={savingCoupon}
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  {savingCoupon ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Coupon Confirmation Dialog */}
+        <Dialog open={showDeleteCouponDialog} onOpenChange={setShowDeleteCouponDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="w-5 h-5" />
+                Excluir Cupom
+              </DialogTitle>
+              <DialogDescription>
+                Tem certeza que deseja excluir o cupom "{couponToDelete?.code}"? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex gap-3 justify-end pt-4">
+              <Button variant="outline" onClick={() => setShowDeleteCouponDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteCouponMutation.mutate(couponToDelete?.id)}
+              >
+                <Trash className="w-4 h-4 mr-2" />
+                Excluir
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

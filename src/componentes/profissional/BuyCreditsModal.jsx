@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -12,41 +12,46 @@ import { Badge } from "@/componentes/interface do usuário/badge";
 import { Card, CardContent } from "@/componentes/interface do usuário/card";
 import {
   Coins, Infinity, Check, Sparkles, TrendingUp,
-  CreditCard, ShoppingCart, Star, Zap, Gift
+  CreditCard, ShoppingCart, Star, Zap, Gift, Loader2
 } from "lucide-react";
 import MercadoPagoCheckout from "@/componentes/pagamento/MercadoPagoCheckout";
+import { PricingPlanService } from "@/lib/entities";
 
-// Pacotes de créditos disponíveis
-const CREDIT_PACKAGES = [
+// Fallback - Pacotes de créditos disponíveis (caso o banco falhe)
+const FALLBACK_CREDIT_PACKAGES = [
   {
     id: 'credits_5',
+    plan_key: 'credits_5',
     credits: 5,
     price: 18.45,
-    pricePerCredit: 3.69,
-    popular: false,
-    discount: null
+    price_per_credit: 3.69,
+    is_popular: false,
+    discount_percentage: null
   },
   {
     id: 'credits_10',
+    plan_key: 'credits_10',
     credits: 10,
     price: 34.90,
-    pricePerCredit: 3.49,
-    popular: true,
-    discount: '5%'
+    price_per_credit: 3.49,
+    is_popular: true,
+    discount_percentage: 5
   },
   {
     id: 'credits_20',
+    plan_key: 'credits_20',
     credits: 20,
     price: 65.80,
-    pricePerCredit: 3.29,
-    popular: false,
-    discount: '11%'
+    price_per_credit: 3.29,
+    is_popular: false,
+    discount_percentage: 11
   }
 ];
 
-// Plano de assinatura (créditos infinitos)
-const SUBSCRIPTION_PLAN = {
+// Fallback - Plano de assinatura (créditos infinitos)
+const FALLBACK_SUBSCRIPTION_PLAN = {
   id: 'unlimited_monthly',
+  plan_key: 'unlimited_monthly',
   name: 'Plano Ilimitado',
   price: 36.93,
   period: 'mes',
@@ -68,6 +73,28 @@ export default function BuyCreditsModal({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [purchaseType, setPurchaseType] = useState(null); // 'credits' ou 'subscription'
   const queryClient = useQueryClient();
+
+  // Buscar pacotes de créditos do banco
+  const { data: creditPackages = [], isLoading: loadingPackages } = useQuery({
+    queryKey: ['pricing-credit-packages'],
+    queryFn: () => PricingPlanService.getCreditPackages(),
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    retry: 1
+  });
+
+  // Buscar plano de assinatura do banco
+  const { data: subscriptionPlan, isLoading: loadingSubscription } = useQuery({
+    queryKey: ['pricing-subscription-plan'],
+    queryFn: () => PricingPlanService.getSubscriptionPlan(),
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    retry: 1
+  });
+
+  // Usar dados do banco ou fallback
+  const CREDIT_PACKAGES = creditPackages.length > 0 ? creditPackages : FALLBACK_CREDIT_PACKAGES;
+  const SUBSCRIPTION_PLAN = subscriptionPlan || FALLBACK_SUBSCRIPTION_PLAN;
+
+  const isLoading = loadingPackages || loadingSubscription;
 
   const handleSelectPackage = (pkg) => {
     setSelectedPackage(pkg);
@@ -116,7 +143,16 @@ export default function BuyCreditsModal({
             </Badge>
           </div>
 
+          {/* Loading State */}
+          {isLoading && (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto mb-2" />
+              <p className="text-slate-500">Carregando planos...</p>
+            </div>
+          )}
+
           {/* Secao: Plano Ilimitado */}
+          {!isLoading && SUBSCRIPTION_PLAN && (
           <div className="space-y-3">
             <h3 className="font-semibold text-slate-900 flex items-center gap-2">
               <Infinity className="w-5 h-5 text-purple-500" />
@@ -146,7 +182,7 @@ export default function BuyCreditsModal({
                         </Badge>
                       </div>
                       <ul className="text-sm text-slate-600 space-y-1 mt-2">
-                        {SUBSCRIPTION_PLAN.features.map((feature, idx) => (
+                        {(Array.isArray(SUBSCRIPTION_PLAN.features) ? SUBSCRIPTION_PLAN.features : []).map((feature, idx) => (
                           <li key={idx} className="flex items-center gap-2">
                             <Check className="w-4 h-4 text-green-500" />
                             {feature}
@@ -158,9 +194,9 @@ export default function BuyCreditsModal({
 
                   <div className="text-right flex-shrink-0">
                     <div className="text-3xl font-bold text-purple-600">
-                      R$ {SUBSCRIPTION_PLAN.price.toFixed(2).replace('.', ',')}
+                      R$ {parseFloat(SUBSCRIPTION_PLAN.price).toFixed(2).replace('.', ',')}
                     </div>
-                    <div className="text-sm text-slate-500">por {SUBSCRIPTION_PLAN.period}</div>
+                    <div className="text-sm text-slate-500">por {SUBSCRIPTION_PLAN.period || 'mes'}</div>
                     {purchaseType === 'subscription' && (
                       <Badge className="mt-2 bg-purple-500">
                         <Check className="w-3 h-3 mr-1" />
@@ -172,6 +208,7 @@ export default function BuyCreditsModal({
               </CardContent>
             </Card>
           </div>
+          )}
 
           {/* Divisor */}
           <div className="relative">
@@ -184,6 +221,7 @@ export default function BuyCreditsModal({
           </div>
 
           {/* Secao: Pacotes de Créditos */}
+          {!isLoading && (
           <div className="space-y-3">
             <h3 className="font-semibold text-slate-900 flex items-center gap-2">
               <Coins className="w-5 h-5 text-green-500" />
@@ -191,27 +229,33 @@ export default function BuyCreditsModal({
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {CREDIT_PACKAGES.map((pkg) => (
+              {CREDIT_PACKAGES.map((pkg) => {
+                const pkgId = pkg.plan_key || pkg.id;
+                const pkgIsPopular = pkg.is_popular || pkg.popular;
+                const pkgDiscount = pkg.discount_percentage || pkg.discount;
+                const pkgPricePerCredit = pkg.price_per_credit || pkg.pricePerCredit || (pkg.credits > 0 ? pkg.price / pkg.credits : 0);
+
+                return (
                 <Card
-                  key={pkg.id}
+                  key={pkgId}
                   className={`cursor-pointer transition-all border-2 relative ${
-                    selectedPackage?.id === pkg.id && purchaseType === 'credits'
+                    (selectedPackage?.plan_key || selectedPackage?.id) === pkgId && purchaseType === 'credits'
                       ? 'border-green-500 bg-green-50 shadow-lg'
-                      : pkg.popular
+                      : pkgIsPopular
                         ? 'border-orange-300 hover:border-orange-500 hover:shadow-md'
                         : 'border-slate-200 hover:border-slate-400 hover:shadow-md'
                   }`}
                   onClick={() => handleSelectPackage(pkg)}
                 >
-                  {pkg.popular && (
+                  {pkgIsPopular && (
                     <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-orange-500 text-white">
                       <Star className="w-3 h-3 mr-1" />
                       Popular
                     </Badge>
                   )}
-                  {pkg.discount && (
+                  {pkgDiscount && (
                     <Badge className="absolute -top-2 -right-2 bg-green-500 text-white">
-                      -{pkg.discount}
+                      -{typeof pkgDiscount === 'number' ? `${pkgDiscount}%` : pkgDiscount}
                     </Badge>
                   )}
 
@@ -226,13 +270,13 @@ export default function BuyCreditsModal({
                     <div className="text-sm text-slate-500 mb-3">créditos</div>
 
                     <div className="text-xl font-bold text-green-600">
-                      R$ {pkg.price.toFixed(2).replace('.', ',')}
+                      R$ {parseFloat(pkg.price).toFixed(2).replace('.', ',')}
                     </div>
                     <div className="text-xs text-slate-500">
-                      R$ {pkg.pricePerCredit.toFixed(2).replace('.', ',')} por crédito
+                      R$ {parseFloat(pkgPricePerCredit).toFixed(2).replace('.', ',')} por crédito
                     </div>
 
-                    {selectedPackage?.id === pkg.id && purchaseType === 'credits' && (
+                    {(selectedPackage?.plan_key || selectedPackage?.id) === pkgId && purchaseType === 'credits' && (
                       <Badge className="mt-3 bg-green-500">
                         <Check className="w-3 h-3 mr-1" />
                         Selecionado
@@ -240,9 +284,11 @@ export default function BuyCreditsModal({
                     )}
                   </CardContent>
                 </Card>
-              ))}
+              );
+              })}
             </div>
           </div>
+          )}
 
           {/* Info sobre créditos */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
@@ -275,7 +321,7 @@ export default function BuyCreditsModal({
             >
               <CreditCard className="w-4 h-4 mr-2" />
               {purchaseType === 'subscription'
-                ? `Assinar por R$ ${SUBSCRIPTION_PLAN.price.toFixed(2).replace('.', ',')}/mes`
+                ? `Assinar por R$ ${parseFloat(SUBSCRIPTION_PLAN.price).toFixed(2).replace('.', ',')}/mes`
                 : selectedPackage
                   ? `Comprar ${selectedPackage.credits} Créditos`
                   : 'Selecione uma opção'
@@ -293,13 +339,13 @@ export default function BuyCreditsModal({
             setCheckoutOpen(false);
             setSelectedPackage(null);
           }}
-          planKey={purchaseType === 'subscription' ? 'unlimited_monthly' : selectedPackage.id}
+          planKey={purchaseType === 'subscription' ? (SUBSCRIPTION_PLAN.plan_key || 'unlimited_monthly') : (selectedPackage.plan_key || selectedPackage.id)}
           planName={
             purchaseType === 'subscription'
               ? SUBSCRIPTION_PLAN.name
               : `${selectedPackage.credits} Créditos`
           }
-          planPrice={selectedPackage.price}
+          planPrice={parseFloat(selectedPackage.price)}
           professionalId={professionalId}
           onSuccess={handlePaymentSuccess}
         />

@@ -2144,6 +2144,165 @@ export const User = {
   }
 };
 
+// Pricing Plans Entity (pacotes de créditos e assinaturas)
+export const PricingPlan = createEntityService('pricing_plans');
+
+// Pricing Plan Service - métodos estendidos
+export const PricingPlanService = {
+  ...PricingPlan,
+
+  // Buscar pacotes de créditos ativos
+  async getCreditPackages() {
+    const { data, error } = await supabase
+      .from('pricing_plans')
+      .select('*')
+      .eq('plan_type', 'credits')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Buscar plano de assinatura ativo
+  async getSubscriptionPlan() {
+    const { data, error } = await supabase
+      .from('pricing_plans')
+      .select('*')
+      .eq('plan_type', 'subscription')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
+  },
+
+  // Buscar todos os planos ativos
+  async getAllActivePlans() {
+    const { data, error } = await supabase
+      .from('pricing_plans')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Buscar plano por plan_key
+  async getByPlanKey(planKey) {
+    const { data, error } = await supabase
+      .from('pricing_plans')
+      .select('*')
+      .eq('plan_key', planKey)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
+  }
+};
+
+// Discount Coupons Entity
+export const DiscountCoupon = createEntityService('discount_coupons');
+
+// Discount Coupon Service - métodos estendidos
+export const DiscountCouponService = {
+  ...DiscountCoupon,
+
+  // Validar cupom
+  async validate(code, planKey, originalPrice) {
+    const { data, error } = await supabase.rpc('validate_coupon', {
+      coupon_code: code,
+      plan_key_param: planKey,
+      original_price_param: originalPrice
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Erro ao validar cupom');
+    }
+
+    return data;
+  },
+
+  // Buscar todos os cupons (admin)
+  async getAllCoupons() {
+    const { data, error } = await supabase
+      .from('discount_coupons')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Buscar estatísticas de um cupom
+  async getCouponStats(couponId) {
+    const { data: usages, error } = await supabase
+      .from('coupon_usages')
+      .select('*')
+      .eq('coupon_id', couponId);
+
+    if (error) throw error;
+
+    const totalUses = usages?.length || 0;
+    const totalDiscount = usages?.reduce((sum, u) => sum + (parseFloat(u.discount_applied) || 0), 0) || 0;
+    const totalRevenue = usages?.reduce((sum, u) => sum + (parseFloat(u.final_price) || 0), 0) || 0;
+
+    return {
+      totalUses,
+      totalDiscount,
+      totalRevenue,
+      usages: usages || []
+    };
+  },
+
+  // Buscar cupom por código
+  async getByCode(code) {
+    const { data, error } = await supabase
+      .from('discount_coupons')
+      .select('*')
+      .ilike('code', code)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
+  }
+};
+
+// Coupon Usages Entity
+export const CouponUsage = createEntityService('coupon_usages');
+
+// Coupon Usage Service
+export const CouponUsageService = {
+  ...CouponUsage,
+
+  // Buscar usos de um cupom
+  async getByCoupon(couponId) {
+    const { data, error } = await supabase
+      .from('coupon_usages')
+      .select('*, profiles:user_id(full_name, email)')
+      .eq('coupon_id', couponId)
+      .order('used_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  // Buscar usos de um usuário
+  async getByUser(userId) {
+    const { data, error } = await supabase
+      .from('coupon_usages')
+      .select('*, discount_coupons:coupon_id(code, description)')
+      .eq('user_id', userId)
+      .order('used_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+};
+
 export default {
   Profile,
   Professional,
@@ -2189,5 +2348,11 @@ export default {
   DirectConversation,
   DirectConversationService,
   CreditTransaction,
-  CreditsService
+  CreditsService,
+  PricingPlan,
+  PricingPlanService,
+  DiscountCoupon,
+  DiscountCouponService,
+  CouponUsage,
+  CouponUsageService
 };
