@@ -293,9 +293,9 @@ export default function ProfessionalDashboard() {
     );
   }
 
-  // Se não tem professional e não está carregando, redirecionar para Onboarding
+  // Se não tem professional e não está carregando, redirecionar para BecomeProfessional
   if (!professional && !loadingProfessional && !effectiveLoading) {
-    window.location.href = '/Onboarding';
+    window.location.href = '/BecomeProfessional';
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
