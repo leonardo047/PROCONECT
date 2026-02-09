@@ -96,13 +96,8 @@ export default function BecomeProfessional() {
       return;
     }
 
-    // Se já é profissional, redirecionar para o dashboard
-    if (user.is_professional) {
-      navigate('/ProfessionalDashboard');
-      return;
-    }
-
     // Verificar se já existe um registro de profissional para este usuário
+    // Não verificar apenas user.is_professional para evitar loop de redirecionamento
     const checkExistingProfessional = async () => {
       try {
         const existingProfessional = await ProfessionalService.findByUserId(user.id);
