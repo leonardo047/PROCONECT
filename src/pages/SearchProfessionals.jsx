@@ -429,7 +429,7 @@ export default function SearchProfessionals() {
               <p className="text-slate-600 text-sm mb-4 text-left">
                 Descreva o servico que voce precisa e profissionais da regiao poderao entrar em contato com voce.
               </p>
-              <Link to={createPageUrl("JobOpportunities")}>
+              <Link to={createPageUrl("RequestQuote")}>
                 <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold">
                   <FileText className="w-4 h-4 mr-2" />
                   Deixar Nota de Servico
@@ -485,7 +485,7 @@ export default function SearchProfessionals() {
                     Publique uma nota de serviço descrevendo o que você precisa. Profissionais da região poderão ver sua solicitação e entrar em contato com você!
                   </p>
                 </div>
-                <Link to={createPageUrl("JobOpportunities")} className="flex-shrink-0">
+                <Link to={createPageUrl("RequestQuote")} className="flex-shrink-0">
                   <Button size="lg" className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold px-6 shadow-md">
                     <FileText className="w-5 h-5 mr-2" />
                     Publicar Nota de Serviço
