@@ -14,6 +14,11 @@ import { Textarea } from "@/componentes/interface do usuário/textarea";
 import { Hammer, ArrowLeft, CheckCircle, Loader2, Briefcase } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
+const BRAZILIAN_STATES = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+];
+
 const specializations = [
   "Reformas Residenciais",
   "Reformas Comerciais",
@@ -120,8 +125,21 @@ export default function BecomeProfessional() {
     years_experience: '',
     google_maps_link: '',
     business_hours: '',
-    personal_description: ''
+    personal_description: '',
+    city: '',
+    state: ''
   });
+
+  // Pré-preencher cidade e estado do perfil do usuário quando disponível
+  useEffect(() => {
+    if (user?.city || user?.state) {
+      setFormData(prev => ({
+        ...prev,
+        city: user.city || '',
+        state: user.state || ''
+      }));
+    }
+  }, [user]);
 
   useEffect(() => {
     if (isLoadingAuth) return;
@@ -156,6 +174,16 @@ export default function BecomeProfessional() {
       return;
     }
 
+    if (!formData.city?.trim()) {
+      showToast.error('Erro', 'Informe sua cidade.');
+      return;
+    }
+
+    if (!formData.state) {
+      showToast.error('Erro', 'Selecione seu estado.');
+      return;
+    }
+
     savingRef.current = true;
     setSaving(true);
 
@@ -183,8 +211,8 @@ export default function BecomeProfessional() {
         user_id: user.id,
         name: user.full_name,
         profession: formData.profession || 'outros',
-        city: user.city,
-        state: user.state,
+        city: formData.city,
+        state: formData.state,
         whatsapp: user.phone,
         description: description,
         personal_description: formData.personal_description || '',
@@ -326,6 +354,35 @@ export default function BecomeProfessional() {
                 </p>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Cidade *</Label>
+                  <Input
+                    placeholder="Sua cidade"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="h-12 mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Estado *</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => setFormData({ ...formData, state: value })}
+                  >
+                    <SelectTrigger className="h-12 mt-1">
+                      <SelectValue placeholder="UF" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BRAZILIAN_STATES.map(uf => (
+                        <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div>
                 <Label>Endereço Completo</Label>
                 <Input
@@ -441,6 +498,8 @@ export default function BecomeProfessional() {
                 disabled={
                   !formData.profession ||
                   !formData.personal_description?.trim() ||
+                  !formData.city?.trim() ||
+                  !formData.state ||
                   saving ||
                   (formData.profession === 'empresa_local' && !formData.cnpj && !formData.cpf) ||
                   (formData.profession === 'empresa_local' && !formData.google_maps_link) ||
