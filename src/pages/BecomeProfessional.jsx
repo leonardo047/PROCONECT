@@ -18,13 +18,22 @@ const AVAILABLE_STATES = [
   { value: 'SC', label: 'Santa Catarina' }
 ];
 
-// Cidades disponíveis para cadastro de profissionais
+// Cidades disponíveis para cadastro de profissionais (região do Alto Vale do Itajaí)
 const AVAILABLE_CITIES = [
   { value: 'Rio do Sul', label: 'Rio do Sul' },
+  { value: 'Lontras', label: 'Lontras' },
+  { value: 'Laurentino', label: 'Laurentino' },
   { value: 'Agronômica', label: 'Agronômica' },
+  { value: 'Trombudo Central', label: 'Trombudo Central' },
+  { value: 'Braço do Trombudo', label: 'Braço do Trombudo' },
+  { value: 'Rio do Oeste', label: 'Rio do Oeste' },
+  { value: 'Witmarsum', label: 'Witmarsum' },
+  { value: 'Ibirama', label: 'Ibirama' },
+  { value: 'Presidente Getúlio', label: 'Presidente Getúlio' },
   { value: 'Aurora', label: 'Aurora' },
-  { value: 'Pouso Redondo', label: 'Pouso Redondo' },
-  { value: 'Ibirama', label: 'Ibirama' }
+  { value: 'Atalanta', label: 'Atalanta' },
+  { value: 'Ituporanga', label: 'Ituporanga' },
+  { value: 'Agrolândia', label: 'Agrolândia' }
 ];
 
 
