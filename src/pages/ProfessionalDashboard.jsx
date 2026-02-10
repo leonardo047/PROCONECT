@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/lib/AuthContext";
-import { Professional, PlanConfig, ProfessionalService, ProfessionalPlanService, Category } from "@/lib/entities";
+import { Professional, PlanConfig, ProfessionalService, ProfessionalPlanService, Category, PricingPlanService } from "@/lib/entities";
 import { replaceFile, deleteFile, BUCKETS } from "@/lib/storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/componentes/interface do usuário/button";
@@ -120,6 +120,17 @@ export default function ProfessionalDashboard() {
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
+
+  // Buscar preços do banco de dados
+  const { data: subscriptionPlan } = useQuery({
+    queryKey: ['subscription-plan-price'],
+    queryFn: () => PricingPlanService.getSubscriptionPlan(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Preços dinâmicos (com fallback)
+  const creditPrice = 3.69; // Preço por crédito individual
+  const subscriptionPrice = subscriptionPlan?.price ? parseFloat(subscriptionPlan.price) : 3.69;
 
   // Transformar categorias em opções para o select com headers de grupo
   const professions = useMemo(() => {
@@ -421,9 +432,9 @@ export default function ProfessionalDashboard() {
                     Seu perfil está visível e clientes podem te encontrar. Você só paga quando receber contatos!
                   </p>
                   <ul className="text-sm text-green-700 space-y-1.5">
-                    <li>R$ 3,69 por contato (pague só quando necessário)</li>
-                    <li>Ou assine R$ 36,93 por 3 meses (ate 10 contatos/mes)</li>
-                    <li>Sem compromissó ou mensalidade fixa</li>
+                    <li>R$ {creditPrice.toFixed(2).replace('.', ',')} por contato (pague só quando necessário)</li>
+                    <li>Ou assine por R$ {subscriptionPrice.toFixed(2).replace('.', ',')}/mês (créditos ilimitados)</li>
+                    <li>Sem compromisso ou mensalidade fixa</li>
                   </ul>
                 </div>
               </div>
@@ -685,7 +696,7 @@ export default function ProfessionalDashboard() {
                     setSelectedPlan({
                       key: 'portfolio_premium',
                       name: 'Portfolio Premium',
-                      price: 36.93
+                      price: subscriptionPrice
                     });
                     setCheckoutOpen(true);
                   }}

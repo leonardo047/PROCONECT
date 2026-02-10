@@ -53,7 +53,7 @@ const FALLBACK_SUBSCRIPTION_PLAN = {
   id: 'unlimited_monthly',
   plan_key: 'unlimited_monthly',
   name: 'Plano Ilimitado',
-  price: 36.93,
+  price: 3.69,
   period: 'mes',
   features: [
     'Créditos infinitos',
