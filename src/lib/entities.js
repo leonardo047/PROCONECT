@@ -691,9 +691,42 @@ export const ClientReferralService = {
   }
 };
 
+// Limites do Portfolio por plano
+const PORTFOLIO_LIMITS = {
+  FREE: { MAX_PROJECTS: 3, MAX_PHOTOS_PER_PROJECT: 5 },
+  PREMIUM: { MAX_PROJECTS: 10, MAX_PHOTOS_PER_PROJECT: 10 }
+};
+
 // Extended Portfolio Service
 export const PortfolioService = {
   ...PortfolioItem,
+
+  // Obter limites baseado no profissional
+  async getLimitsForProfessional(professionalId) {
+    const { data: professional, error } = await supabase
+      .from('professionals')
+      .select('plan_type, plan_active, plan_expires_at')
+      .eq('id', professionalId)
+      .single();
+
+    if (error || !professional) {
+      return PORTFOLIO_LIMITS.FREE;
+    }
+
+    const isPremium = professional.plan_active &&
+                      professional.plan_type !== 'free' &&
+                      professional.plan_type !== null;
+
+    // Verificar se o plano não expirou
+    if (isPremium && professional.plan_expires_at) {
+      const expiresAt = new Date(professional.plan_expires_at);
+      if (expiresAt < new Date()) {
+        return PORTFOLIO_LIMITS.FREE;
+      }
+    }
+
+    return isPremium ? PORTFOLIO_LIMITS.PREMIUM : PORTFOLIO_LIMITS.FREE;
+  },
 
   // Get all portfolio items for a professional with photos
   async getByProfessional(professionalId) {
@@ -728,10 +761,13 @@ export const PortfolioService = {
 
   // Create portfolio item with photos
   async createWithPhotos(professionalId, { title, description, service_type, project_value, photos = [] }) {
-    // Check limit (max 3 items)
+    // Obter limites baseado no plano do profissional
+    const limits = await this.getLimitsForProfessional(professionalId);
+
+    // Check project limit
     const count = await this.countByProfessional(professionalId);
-    if (count >= 3) {
-      throw new Error('Limite máximo de 3 trabalhos atingido');
+    if (count >= limits.MAX_PROJECTS) {
+      throw new Error(`Limite máximo de ${limits.MAX_PROJECTS} trabalhos atingido`);
     }
 
     // Create item
@@ -750,9 +786,9 @@ export const PortfolioService = {
 
     if (itemError) throw itemError;
 
-    // Add photos (max 5)
+    // Add photos (respeitando limite do plano)
     if (photos.length > 0) {
-      const photosToInsert = photos.slice(0, 5).map((url, index) => ({
+      const photosToInsert = photos.slice(0, limits.MAX_PHOTOS_PER_PROJECT).map((url, index) => ({
         portfolio_item_id: item.id,
         photo_url: url,
         display_order: index
@@ -786,14 +822,26 @@ export const PortfolioService = {
 
   // Add photo to portfolio item
   async addPhoto(itemId, photoUrl, caption = '') {
-    // Check limit (max 5 photos per item)
+    // Buscar o item para obter o professional_id
+    const { data: item, error: itemError } = await supabase
+      .from('portfolio_items')
+      .select('professional_id')
+      .eq('id', itemId)
+      .single();
+
+    if (itemError) throw itemError;
+
+    // Obter limites baseado no plano do profissional
+    const limits = await this.getLimitsForProfessional(item.professional_id);
+
+    // Check photo limit
     const { count } = await supabase
       .from('portfolio_photos')
       .select('*', { count: 'exact', head: true })
       .eq('portfolio_item_id', itemId);
 
-    if (count >= 5) {
-      throw new Error('Limite máximo de 5 fotos por trabalho atingido');
+    if (count >= limits.MAX_PHOTOS_PER_PROJECT) {
+      throw new Error(`Limite máximo de ${limits.MAX_PHOTOS_PER_PROJECT} fotos por trabalho atingido`);
     }
 
     const { data, error } = await supabase
@@ -1349,7 +1397,10 @@ export const DirectConversationService = {
   async getForUser(userId, userType) {
     let query = supabase.from('direct_conversations').select('*');
 
-    if (userType === 'cliente' || userType === 'client') {
+    // Tratar admin como cliente para fins de conversas
+    const isClient = userType === 'cliente' || userType === 'client' || userType === 'admin';
+
+    if (isClient) {
       query = query.eq('client_id', userId);
     } else {
       query = query.eq('professional_user_id', userId);
@@ -1526,8 +1577,11 @@ export const QuoteMessageService = {
       // ===== QUOTE-BASED CONVERSATIONS =====
       let quoteResponses = [];
 
-      if (userType === 'cliente' || userType === 'client') {
-        // Cliente: buscar quote_requests do usuario e depois as responses
+      // Tratar admin como cliente para fins de conversas
+      const isClient = userType === 'cliente' || userType === 'client' || userType === 'admin';
+
+      if (isClient) {
+        // Cliente/Admin: buscar quote_requests do usuario e depois as responses
         const { data: quoteRequests, error: qrError } = await supabase
           .from('quote_requests')
           .select('id, title, client_id, client_name')
@@ -1643,7 +1697,7 @@ export const QuoteMessageService = {
 
       // ===== DIRECT CONVERSATIONS =====
       let directConvs = [];
-      if (userType === 'cliente' || userType === 'client') {
+      if (isClient) {
         const { data, error } = await supabase
           .from('direct_conversations')
           .select('*, professionals(id, name, user_id, photos)')

@@ -215,11 +215,17 @@ export default function ProfessionalDashboard() {
   }, [professional, effectiveLoading, user]);
 
   // Função para atualizar status de disponibilidade com feedback imediato
-  const updateAvailabilityStatus = (newStatus) => {
+  const updateAvailabilityStatus = async (newStatus) => {
     // Atualiza estado local imediatamente para feedback visual
     setFormData(prev => ({ ...prev, availability_status: newStatus }));
-    // Salva no banco
-    saveMutation.mutate({ ...formData, availability_status: newStatus });
+
+    // Salva diretamente no banco (sem depender do formData que pode estar desatualizado)
+    try {
+      await Professional.update(professional.id, { availability_status: newStatus });
+      queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+    }
   };
 
   const saveMutation = useMutation({
@@ -640,72 +646,45 @@ export default function ProfessionalDashboard() {
           </div>
         )}
 
-        {/* Bloco Portfolio Premium - Unificado no Topo */}
-        <Card className={`mb-8 border-2 ${professional?.plan_type !== 'free' && professional?.plan_active ? 'border-purple-300 bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50' : 'border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50'}`}>
+        {/* Bloco Serviços Realizados - Gratuito para todos */}
+        <Card className="mb-8 border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  professional?.plan_type !== 'free' && professional?.plan_active
-                    ? 'bg-gradient-to-br from-purple-500 to-pink-500'
-                    : 'bg-gradient-to-br from-orange-400 to-orange-500'
-                }`}>
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-blue-500 to-indigo-500">
                   <FolderOpen className="w-7 h-7 text-white" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-xl font-bold text-slate-900">Meu Portfolio</h3>
-                    {professional?.plan_type === 'free' && (
-                      <Badge className="bg-gradient-to-r from-orange-400 to-orange-500 text-white border-0">
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        Premium
-                      </Badge>
-                    )}
+                    <h3 className="text-xl font-bold text-slate-900">Meus Serviços Realizados</h3>
+                    <Badge className="bg-green-100 text-green-700 border-0">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Gratuito
+                    </Badge>
                   </div>
                   <p className="text-slate-600 mb-2">
-                    {professional?.plan_type !== 'free' && professional?.plan_active
-                      ? 'Gerencie seus projetos e mostre seus melhores trabalhos para clientes'
-                      : 'Mostre seus projetos e aumente em até 40% sua taxa de conversão na plataforma'}
+                    Mostre seus melhores trabalhos e aumente sua taxa de conversão na plataforma
                   </p>
-                  {professional?.plan_type === 'free' && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="flex items-center gap-1 text-green-600 font-medium">
-                        <CheckCircle className="w-4 h-4" />
-                        <span>+40% conversão</span>
-                      </div>
-                      <span className="text-slate-400">|</span>
-                      <span className="text-slate-500">Ate 3 projetos com 5 fotos cada</span>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-1 text-green-600 font-medium">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>+40% conversão</span>
                     </div>
-                  )}
+                    <span className="text-slate-400">|</span>
+                    <span className="text-slate-500">Até 3 projetos com 5 fotos cada</span>
+                  </div>
                 </div>
               </div>
 
-              {professional?.plan_type !== 'free' && professional?.plan_active ? (
-                <Button
-                  onClick={() => {
-                    setPortfolioDialogOpen(true);
-                  }}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                >
-                  <Pencil className="w-4 h-4 mr-2" />
-                  Gerenciar Portfolio
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => {
-                    setSelectedPlan({
-                      key: 'portfolio_premium',
-                      name: 'Portfolio Premium',
-                      price: subscriptionPrice
-                    });
-                    setCheckoutOpen(true);
-                  }}
-                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Desbloquear Portfolio
-                </Button>
-              )}
+              <Button
+                onClick={() => {
+                  setPortfolioDialogOpen(true);
+                }}
+                className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+              >
+                <Pencil className="w-4 h-4 mr-2" />
+                Gerenciar Serviços
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1369,13 +1348,13 @@ export default function ProfessionalDashboard() {
         />
       )}
 
-      {/* Portfolio Dialog */}
+      {/* Serviços Realizados Dialog */}
       <Dialog open={portfolioDialogOpen} onOpenChange={setPortfolioDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FolderOpen className="w-5 h-5 text-purple-500" />
-              Meu Portfolio de Trabalhos
+              <FolderOpen className="w-5 h-5 text-blue-500" />
+              Meus Serviços Realizados
             </DialogTitle>
           </DialogHeader>
           <PortfolioManager

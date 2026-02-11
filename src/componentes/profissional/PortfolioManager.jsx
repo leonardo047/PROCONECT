@@ -8,6 +8,7 @@ import { Label } from '@/componentes/interface do usuário/label';
 import { Textarea } from '@/componentes/interface do usuário/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/componentes/interface do usuário/card';
 import { Badge } from '@/componentes/interface do usuário/badge';
+import { Progress } from '@/componentes/interface do usuário/progress';
 import {
   Dialog,
   DialogContent,
@@ -28,12 +29,16 @@ import {
 } from '@/componentes/interface do usuário/alert-dialog';
 import {
   Loader2, Plus, Trash2, ImagePlus, X, Pencil,
-  FolderOpen, Camera, AlertCircle, CheckCircle, Lock, Share2, Copy, DollarSign
+  FolderOpen, Camera, AlertCircle, CheckCircle, Lock, Share2, Copy, DollarSign, Crown
 } from 'lucide-react';
 import { showToast } from "@/utils/showToast";
-
-const MAX_ITEMS = 3;
-const MAX_PHOTOS_PER_ITEM = 5;
+import {
+  getPortfolioLimits,
+  canAddProject,
+  canAddPhoto,
+  isPremiumPlan
+} from '@/lib/constants/portfolioLimits';
+import UpgradePlanModal from './UpgradePlanModal';
 
 export default function PortfolioManager({ professionalId, professional }) {
   const queryClient = useQueryClient();
@@ -42,6 +47,8 @@ export default function PortfolioManager({ professionalId, professional }) {
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeLimitType, setUpgradeLimitType] = useState('projects');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -52,7 +59,18 @@ export default function PortfolioManager({ professionalId, professional }) {
 
   // Verificar se professional ainda está carregando
   const isProfessionalLoading = !professional;
-  const isPaidPlan = professional?.plan_type !== 'free' && professional?.plan_active;
+
+  // Obter limites dinâmicos baseado no plano
+  const limits = getPortfolioLimits(professional);
+  const MAX_ITEMS = limits.MAX_PROJECTS;
+  const MAX_PHOTOS_PER_ITEM = limits.MAX_PHOTOS_PER_PROJECT;
+  const hasPremium = isPremiumPlan(professional);
+
+  // Handler para mostrar modal de upgrade quando limite é atingido
+  const handleLimitReached = (type) => {
+    setUpgradeLimitType(type);
+    setUpgradeModalOpen(true);
+  };
 
   // Fetch portfolio items usando fetch direto (evita race condition)
   const { data: portfolioItems = [], isLoading, isFetching } = useQuery({
@@ -79,7 +97,7 @@ export default function PortfolioManager({ professionalId, professional }) {
       const data = await response.json();
       return data || [];
     },
-    enabled: !!professionalId && isPaidPlan
+    enabled: !!professionalId
   });
 
   // Create mutation
@@ -166,7 +184,11 @@ export default function PortfolioManager({ professionalId, professional }) {
 
     const remainingSlots = MAX_PHOTOS_PER_ITEM - (formData.photos?.length || 0);
     if (remainingSlots <= 0) {
-      showToast.warning(`Limite de ${MAX_PHOTOS_PER_ITEM} fotos atingido.`);
+      if (!hasPremium) {
+        handleLimitReached('photos');
+      } else {
+        showToast.warning(`Limite de ${MAX_PHOTOS_PER_ITEM} fotos atingido.`);
+      }
       return;
     }
 
@@ -198,7 +220,11 @@ export default function PortfolioManager({ professionalId, professional }) {
     const currentPhotoCount = item?.portfolio_photos?.length || 0;
 
     if (currentPhotoCount >= MAX_PHOTOS_PER_ITEM) {
-      showToast.warning(`Limite de ${MAX_PHOTOS_PER_ITEM} fotos atingido para este trabalho.`);
+      if (!hasPremium) {
+        handleLimitReached('photos');
+      } else {
+        showToast.warning(`Limite de ${MAX_PHOTOS_PER_ITEM} fotos atingido para este serviço.`);
+      }
       return;
     }
 
@@ -231,11 +257,11 @@ export default function PortfolioManager({ professionalId, professional }) {
 
   const handleCreate = () => {
     if (!formData.title.trim()) {
-      showToast.warning('O titulo do trabalho é obrigatório.');
+      showToast.warning('O titulo do serviço é obrigatório.');
       return;
     }
     if (formData.photos.length === 0) {
-      showToast.warning('Adicione pelo menos uma foto do trabalho.');
+      showToast.warning('Adicione pelo menos uma foto do serviço.');
       return;
     }
     const dataToSubmit = {
@@ -259,7 +285,7 @@ export default function PortfolioManager({ professionalId, professional }) {
 
   const handleUpdate = () => {
     if (!formData.title.trim()) {
-      showToast.warning('O titulo do trabalho é obrigatório.');
+      showToast.warning('O titulo do serviço é obrigatório.');
       return;
     }
     updateMutation.mutate({
@@ -288,32 +314,6 @@ export default function PortfolioManager({ professionalId, professional }) {
     );
   }
 
-  // Se não for plano pago, mostrar mensagem
-  if (!isPaidPlan) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-orange-500" />
-          </div>
-          <h3 className="text-xl font-bold text-slate-900 mb-2">
-            Recursó Exclusivo para Assinantes
-          </h3>
-          <p className="text-slate-600 mb-6 max-w-md mx-auto">
-            O Portfolio de Trabalhos permite que você mostre seus melhores projetos
-            para potenciais clientes. Assine um plano para desbloquear este recurso.
-          </p>
-          <Button
-            onClick={() => window.location.href = '/ProfessionalDashboard?tab=plan'}
-            className="bg-orange-500 hover:bg-orange-600"
-          >
-            Ver Planos Disponiveis
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Mostrar loading apenas na primeira carga quando está buscando dados
   if (isLoading && isFetching) {
     return (
@@ -335,9 +335,9 @@ export default function PortfolioManager({ professionalId, professional }) {
               <Share2 className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1">
-              <h3 className="font-bold text-purple-900 mb-1">Seu Portfolio Online</h3>
+              <h3 className="font-bold text-purple-900 mb-1">Seus Serviços Online</h3>
               <p className="text-sm text-purple-700 mb-3">
-                Compartilhe seu portfolio com clientes e mostre seus melhores trabalhos!
+                Compartilhe seus serviços realizados com clientes e mostre seu melhor trabalho!
               </p>
               <div className="flex items-center gap-2">
                 <input
@@ -356,35 +356,84 @@ export default function PortfolioManager({ professionalId, professional }) {
         </CardContent>
       </Card>
 
-      {/* Status do Portfolio */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FolderOpen className="w-5 h-5 text-slate-600" />
-          <span className="font-medium text-slate-900">Meus Trabalhos</span>
-          <Badge variant={portfolioItems.length >= MAX_ITEMS ? "default" : "secondary"}>
-            {portfolioItems.length} / {MAX_ITEMS}
-          </Badge>
-        </div>
-        {canAddMore && (
-          <Button onClick={() => setIsCreateOpen(true)} className="bg-orange-500 hover:bg-orange-600">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Trabalho
-          </Button>
-        )}
-      </div>
+      {/* Status dos Serviços */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Meus Serviços</span>
+              {hasPremium ? (
+                <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white">
+                  <Crown className="w-3 h-3 mr-1" />
+                  Premium
+                </Badge>
+              ) : (
+                <Badge variant="secondary">Gratuito</Badge>
+              )}
+            </div>
+            <Button
+              onClick={() => {
+                if (canAddMore) {
+                  setIsCreateOpen(true);
+                } else {
+                  handleLimitReached('projects');
+                }
+              }}
+              className={canAddMore
+                ? "bg-orange-500 hover:bg-orange-600"
+                : "bg-slate-400 hover:bg-slate-500"
+              }
+            >
+              {canAddMore ? (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Novo Serviço
+                </>
+              ) : (
+                <>
+                  <Crown className="w-4 h-4 mr-2" />
+                  Limite Atingido
+                </>
+              )}
+            </Button>
+          </div>
 
-      {/* Lista de Trabalhos */}
+          {/* Barra de progresso */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">
+                {portfolioItems.length} de {MAX_ITEMS} serviços cadastrados
+              </span>
+              <span className="text-slate-500">
+                {Math.round((portfolioItems.length / MAX_ITEMS) * 100)}%
+              </span>
+            </div>
+            <Progress
+              value={(portfolioItems.length / MAX_ITEMS) * 100}
+              className="h-2"
+            />
+            {!hasPremium && portfolioItems.length >= MAX_ITEMS && (
+              <p className="text-xs text-amber-600 mt-2">
+                Faça upgrade para o plano premium e adicione até 10 serviços!
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lista de Serviços */}
       {portfolioItems.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
             <Camera className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="font-medium text-slate-900 mb-2">Nenhum trabalho cadastrado</h3>
+            <h3 className="font-medium text-slate-900 mb-2">Nenhum serviço cadastrado</h3>
             <p className="text-slate-600 mb-4">
-              Adicione seus melhores trabalhos para mostrar aos clientes.
+              Adicione seus melhores serviços realizados para mostrar aos clientes.
             </p>
             <Button onClick={() => setIsCreateOpen(true)} className="bg-orange-500 hover:bg-orange-600">
               <Plus className="w-4 h-4 mr-2" />
-              Adicionar Primeiro Trabalho
+              Adicionar Primeiro Serviço
             </Button>
           </CardContent>
         </Card>
@@ -428,7 +477,7 @@ export default function PortfolioManager({ professionalId, professional }) {
                   <p className="text-sm text-slate-600 mb-4">{item.description}</p>
                 )}
 
-                {/* Fotos do trabalho */}
+                {/* Fotos do serviço */}
                 <div className="flex items-center gap-2 mb-2">
                   <Camera className="w-4 h-4 text-slate-500" />
                   <span className="text-sm text-slate-600">
@@ -479,16 +528,16 @@ export default function PortfolioManager({ professionalId, professional }) {
         </div>
       )}
 
-      {/* Dialog de Criar Trabalho */}
+      {/* Dialog de Criar Serviço */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Novo Trabalho</DialogTitle>
+            <DialogTitle>Novo Serviço</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label>Titulo do Trabalho *</Label>
+              <Label>Titulo do Serviço *</Label>
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -508,11 +557,11 @@ export default function PortfolioManager({ professionalId, professional }) {
             </div>
 
             <div>
-              <Label>Descrição do Trabalho</Label>
+              <Label>Descrição do Serviço</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descreva o trabalho realizado, materiais utilizados, desafios superados..."
+                placeholder="Descreva o serviço realizado, materiais utilizados, desafios superados..."
                 className="mt-1 min-h-[100px]"
               />
             </div>
@@ -532,13 +581,13 @@ export default function PortfolioManager({ professionalId, professional }) {
                 />
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Informe quanto cobrou por este trabalho (opcional)
+                Informe quanto cobrou por este serviço (opcional)
               </p>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Label>Fotos do Trabalho *</Label>
+                <Label>Fotos do Serviço *</Label>
                 <Badge variant="secondary">
                   {formData.photos?.length || 0} / {MAX_PHOTOS_PER_ITEM}
                 </Badge>
@@ -599,22 +648,22 @@ export default function PortfolioManager({ professionalId, professional }) {
               ) : (
                 <Plus className="w-4 h-4 mr-2" />
               )}
-              Criar Trabalho
+              Criar Serviço
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de Editar Trabalho */}
+      {/* Dialog de Editar Serviço */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Editar Trabalho</DialogTitle>
+            <DialogTitle>Editar Serviço</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label>Titulo do Trabalho *</Label>
+              <Label>Titulo do Serviço *</Label>
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -632,7 +681,7 @@ export default function PortfolioManager({ professionalId, professional }) {
             </div>
 
             <div>
-              <Label>Descrição do Trabalho</Label>
+              <Label>Descrição do Serviço</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -658,7 +707,7 @@ export default function PortfolioManager({ professionalId, professional }) {
 
             <div className="bg-slate-50 rounded-lg p-3">
               <p className="text-sm text-slate-600">
-                Para gerenciar as fotos deste trabalho, use os controles na listagem principal.
+                Para gerenciar as fotos deste serviço, use os controles na listagem principal.
               </p>
             </div>
           </div>
@@ -689,9 +738,9 @@ export default function PortfolioManager({ professionalId, professional }) {
       <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Trabalho?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir Serviço?</AlertDialogTitle>
             <AlertDialogDescription>
-              Está acao não pode ser desfeita. O trabalho e todas as suas fotos serão excluidos permanentemente.
+              Está acao não pode ser desfeita. O serviço e todas as suas fotos serão excluidos permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -708,6 +757,13 @@ export default function PortfolioManager({ professionalId, professional }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Upgrade */}
+      <UpgradePlanModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        limitType={upgradeLimitType}
+      />
     </div>
   );
 }
