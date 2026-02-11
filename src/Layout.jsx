@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { NotificationService, QuoteMessageService } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Search, User, LogOut, Menu, X,
-  Hammer, Shield, ChevronDown, Bell, FileText, MessageCircle, Briefcase, ArrowRightLeft
+  Shield, ChevronDown, Bell, FileText, MessageCircle, Briefcase, ArrowRightLeft
 } from "lucide-react";
 import { Button } from "@/componentes/interface do usuário/button";
 import { Badge } from "@/componentes/interface do usuário/badge";
@@ -85,11 +85,13 @@ const Header = memo(function Header({
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to={createPageUrl("Home")} className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
-              <Hammer className="w-5 h-5 text-white" />
-            </div>
+            <img
+              src="/logo.jpeg"
+              alt="ConnectPro Logo"
+              className="w-10 h-10 rounded-xl object-cover"
+            />
             <span className="font-bold text-xl text-slate-800 hidden sm:block">
-              ConectPro
+              ConnectPro
             </span>
           </Link>
 
@@ -392,10 +394,12 @@ const Footer = memo(function Footer() {
           {/* Logo e Descrição */}
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                <Hammer className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-bold text-xl">ConectPro</span>
+              <img
+                src="/logo.jpeg"
+                alt="ConnectPro Logo"
+                className="w-10 h-10 rounded-xl object-cover"
+              />
+              <span className="font-bold text-xl">ConnectPro</span>
             </div>
             <p className="text-slate-400 text-sm">
               Conectando você a profissionais locais de forma rápida, simples e inteligente.
@@ -491,7 +495,7 @@ const Footer = memo(function Footer() {
         </div>
 
         <div className="border-t border-slate-800 mt-8 pt-8 text-center text-sm text-slate-500">
-          © {new Date().getFullYear()} ConectPro. Todos os direitos reservados.
+          © {new Date().getFullYear()} ConnectPro. Todos os direitos reservados.
         </div>
       </div>
     </footer>

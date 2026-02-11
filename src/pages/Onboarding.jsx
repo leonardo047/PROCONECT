@@ -8,7 +8,7 @@ import { Button } from "@/componentes/interface do usuário/button";
 import { Input } from "@/componentes/interface do usuário/input";
 import { Label } from "@/componentes/interface do usuário/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/componentes/interface do usuário/select";
-import { Hammer, CheckCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 
 const states = [
   { value: "AC", label: "Acre" },
@@ -178,10 +178,12 @@ export default function Onboarding() {
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Hammer className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Bem-vindo ao ConectPro</h1>
+          <img
+            src="/logo.jpeg"
+            alt="ConnectPro Logo"
+            className="w-16 h-16 rounded-2xl mx-auto mb-4 object-cover"
+          />
+          <h1 className="text-2xl font-bold text-white">Bem-vindo ao ConnectPro</h1>
           <p className="text-slate-400 mt-2">Complete seus dados de contato</p>
         </div>
 

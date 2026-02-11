@@ -105,7 +105,7 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-orange-600">ConectPro</CardTitle>
+            <CardTitle className="text-2xl font-bold text-purple-600">ConnectPro</CardTitle>
             <CardDescription>Link expirado ou inválido</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -154,7 +154,7 @@ export default function ResetPassword() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-orange-600">ConectPro</CardTitle>
+          <CardTitle className="text-2xl font-bold text-purple-600">ConnectPro</CardTitle>
           <CardDescription>Defina sua nova senha</CardDescription>
         </CardHeader>
         <CardContent>
