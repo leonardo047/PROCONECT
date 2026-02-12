@@ -473,22 +473,22 @@ const Footer = memo(function Footer() {
             <h4 className="font-semibold mb-4">Contato</h4>
             <div className="space-y-3 text-sm text-slate-400">
               <a
-                href="https://wa.me/5511999999999"
+                href="https://wa.me/5547984655237"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-white transition-colors"
               >
                 <span>📲</span>
-                <span>WhatsApp Atendimento<br /><span className="text-xs">(Assistente Virtual)</span></span>
+                <span>WhatsApp Atendimento<br /><span className="text-xs">(Assistente Virtual IA)</span></span>
               </a>
               <a
-                href="https://wa.me/5511999999999"
+                href="https://wa.me/5547988972946"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-white transition-colors"
               >
                 <span>📞</span>
-                <span>WhatsApp Suporte / Ajuda</span>
+                <span>WhatsApp Suporte Humano</span>
               </a>
             </div>
           </div>
