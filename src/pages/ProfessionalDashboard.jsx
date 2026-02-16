@@ -244,8 +244,8 @@ export default function ProfessionalDashboard() {
         }
       }
 
-      const isComplete = data.name && data.profession && data.city &&
-        data.state && data.whatsapp;
+      const isComplete = Boolean(data.name && data.profession && data.city &&
+        data.state && data.whatsapp);
 
       await Professional.update(professional.id, {
         ...data,
@@ -263,6 +263,11 @@ export default function ProfessionalDashboard() {
         setFormData(prev => ({ ...prev, avatar_url: result.avatarUrl }));
       }
       queryClient.invalidateQueries({ queryKey: ['my-professional'] });
+      showToast.success('Alterações salvas', 'Seu perfil foi atualizado com sucesso.');
+    },
+    onError: (error) => {
+      console.error('Erro ao salvar perfil:', error);
+      showToast.error('Erro ao salvar', error?.message || 'Não foi possível salvar as alterações. Tente novamente.');
     }
   });
 
