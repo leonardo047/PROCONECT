@@ -518,7 +518,7 @@ const HowItWorks = memo(() => (
 // CTA para profissionais com botão de compartilhamento
 const ProfessionalCTA = memo(({ isAuthenticated, user }) => {
   const [copied, setCopied] = useState(false);
-  const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://conectpro.com.br';
+  const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://connectpro.app.br';
   const shareText = 'Encontre profissionais qualificados para sua obra ou serviço no ConectPro!';
   const isProfessional = user?.is_professional === true;
 
