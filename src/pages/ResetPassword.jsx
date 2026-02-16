@@ -6,7 +6,7 @@ import { Input } from '@/componentes/interface do usuário/input';
 import { Label } from '@/componentes/interface do usuário/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/componentes/interface do usuário/card';
 import { Alert, AlertDescription } from '@/componentes/interface do usuário/alert';
-import { Loader2, Lock, CheckCircle } from 'lucide-react';
+import { Loader2, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -15,6 +15,8 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
@@ -171,13 +173,20 @@ export default function ResetPassword() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Mín. 8 chars, maiúscula e número"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
@@ -187,13 +196,20 @@ export default function ResetPassword() {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="confirmPassword"
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Repita a nova senha"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
