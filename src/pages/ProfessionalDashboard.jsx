@@ -252,9 +252,16 @@ export default function ProfessionalDashboard() {
         avatar_url: avatarUrl,
         profile_complete: isComplete
       });
+
+      // Retorna a nova URL do avatar para usar no onSuccess
+      return { avatarUrl };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       setPendingAvatarFile(null); // Limpar arquivo pendente após sucesso
+      // Atualizar o formData com a nova URL do avatar
+      if (result?.avatarUrl) {
+        setFormData(prev => ({ ...prev, avatar_url: result.avatarUrl }));
+      }
       queryClient.invalidateQueries({ queryKey: ['my-professional'] });
     }
   });
