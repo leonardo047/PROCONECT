@@ -101,6 +101,8 @@ export default function BecomeProfessional() {
   }, [categories]);
 
   const [formData, setFormData] = useState({
+    name: '', // Nome do profissional (será pré-populado com user.full_name)
+    company_name: '', // Nome da empresa (opcional)
     cnpj: '',
     cpf: '',
     profession: '',
@@ -110,8 +112,7 @@ export default function BecomeProfessional() {
     years_experience: '',
     google_maps_link: '',
     business_hours: '',
-    personal_description: '',
-    company_name: '' // Nome da empresa
+    personal_description: ''
   });
 
   useEffect(() => {
@@ -143,6 +144,13 @@ export default function BecomeProfessional() {
     checkExistingProfessional();
   }, [user, isAuthenticated, isLoadingAuth, navigate, markAsProfessional]);
 
+  // Pré-popular o nome do profissional com o nome do usuário
+  useEffect(() => {
+    if (user?.full_name && !formData.name) {
+      setFormData(prev => ({ ...prev, name: user.full_name }));
+    }
+  }, [user?.full_name]);
+
   const handleSubmit = async () => {
     if (!user?.id) {
       showToast.error('Erro: usuário não identificado', 'Por favor, faça login novamente.');
@@ -161,6 +169,11 @@ export default function BecomeProfessional() {
 
     if (!formData.city) {
       showToast.error('Erro', 'Selecione sua cidade.');
+      return;
+    }
+
+    if (!formData.name?.trim()) {
+      showToast.error('Erro', 'Preencha seu nome.');
       return;
     }
 
@@ -190,7 +203,7 @@ export default function BecomeProfessional() {
 
       // Verificar se o perfil está completo (tem todos os campos obrigatórios)
       const isProfileComplete = !!(
-        user.full_name &&
+        formData.name?.trim() &&
         formData.profession &&
         formData.city &&
         formData.state &&
@@ -200,8 +213,8 @@ export default function BecomeProfessional() {
       // Criar perfil profissional
       const professionalData = {
         user_id: user.id,
-        name: user.full_name,
-        company_name: formData.company_name || null,
+        name: formData.name.trim(),
+        company_name: formData.company_name?.trim() || null,
         profession: formData.profession || 'outros',
         city: formData.city,
         state: formData.state,
@@ -320,17 +333,31 @@ export default function BecomeProfessional() {
             </div>
 
             <div className="space-y-4">
+              {/* Nome do Profissional */}
+              <div>
+                <Label>Seu Nome *</Label>
+                <Input
+                  placeholder="Seu nome completo"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="h-12 mt-1"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Este nome será exibido no seu perfil público
+                </p>
+              </div>
+
               {/* Nome da Empresa */}
               <div>
-                <Label>Nome da Empresa</Label>
+                <Label>Nome da Empresa (opcional)</Label>
                 <Input
-                  placeholder="Nome da sua empresa (opcional)"
+                  placeholder="Ex: JM Construções, Maria Limpeza, etc."
                   value={formData.company_name}
                   onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
                   className="h-12 mt-1"
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  Deixe em branco se for autônomo
+                  Deixe em branco se você trabalha como autônomo
                 </p>
               </div>
 
@@ -513,6 +540,7 @@ export default function BecomeProfessional() {
                   handleSubmit();
                 }}
                 disabled={
+                  !formData.name?.trim() ||
                   !formData.profession ||
                   !formData.state ||
                   !formData.city ||

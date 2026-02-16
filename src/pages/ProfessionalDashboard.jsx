@@ -185,6 +185,7 @@ export default function ProfessionalDashboard() {
     if (professional && !formData) {
       setFormData({
         name: professional.name || '',
+        company_name: professional.company_name || '',
         profession: professional.profession || 'outros',
         city: professional.city || '',
         state: professional.state || '',
@@ -200,6 +201,7 @@ export default function ProfessionalDashboard() {
       // Se não tem professional ainda, setar valores padrão
       setFormData({
         name: user?.full_name || '',
+        company_name: '',
         profession: 'outros',
         city: '',
         state: '',
@@ -775,12 +777,29 @@ export default function ProfessionalDashboard() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Nome / Nome da Empresa *</Label>
+                    <Label>Seu Nome *</Label>
                     <Input
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Seu nome completo"
                       className="mt-1"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Este nome será exibido no seu perfil
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>Nome da Empresa (opcional)</Label>
+                    <Input
+                      value={formData.company_name}
+                      onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                      placeholder="Ex: JM Construções"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Deixe em branco se for autônomo
+                    </p>
                   </div>
 
                   <div>

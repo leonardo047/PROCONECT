@@ -126,7 +126,7 @@ export default function AvatarUpload({
           disabled={disabled || uploading}
           className={`
             absolute inset-0 flex items-center justify-center rounded-full
-            bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity
+            bg-black/50 opacity-60 hover:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity
             ${disabled || uploading ? 'cursor-not-allowed' : 'cursor-pointer'}
           `}
         >
