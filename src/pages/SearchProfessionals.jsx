@@ -124,7 +124,7 @@ export default function SearchProfessionals() {
 
   const [filters, setFilters] = useState({
     profession: initialProfession,
-    state: 'all',
+    state: 'SC',
     city: '',
     availableDate: null,
     minRating: 0
@@ -136,6 +136,7 @@ export default function SearchProfessionals() {
   const [userLocation, setUserLocation] = useState(null);
   const [searchRadius, setSearchRadius] = useState(20);
   const [searchMode, setSearchMode] = useState('traditional');
+  const [hasSearched, setHasSearched] = useState(false);
 
   // Estado de paginação
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
@@ -224,15 +225,12 @@ export default function SearchProfessionals() {
     }
 
     if (searchMode === 'traditional') {
-      // Filtrar por estado
-      if (filters.state !== 'all') {
-        results = results.filter(p => p.state === filters.state);
-      }
+      // Filtrar por estado (fixo em SC)
+      results = results.filter(p => p.state === 'SC');
 
-      // Filtrar por cidade
+      // Filtrar por cidade (seleção exata do dropdown)
       if (filters.city) {
-        const cityLower = filters.city.toLowerCase();
-        results = results.filter(p => p.city?.toLowerCase().includes(cityLower));
+        results = results.filter(p => p.city === filters.city);
       }
 
       // Filtrar por rating
@@ -334,7 +332,7 @@ export default function SearchProfessionals() {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-12 py-6 text-lg shadow-lg"
-                onClick={() => setVisibleCount(ITEMS_PER_PAGE)}
+                onClick={() => { setHasSearched(true); setVisibleCount(ITEMS_PER_PAGE); }}
               >
                 <Search className="w-5 h-5 mr-2" />
                 Buscar Profissionais
@@ -357,7 +355,7 @@ export default function SearchProfessionals() {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-12 py-6 text-lg shadow-lg"
-                onClick={() => setVisibleCount(ITEMS_PER_PAGE)}
+                onClick={() => { setHasSearched(true); setVisibleCount(ITEMS_PER_PAGE); }}
               >
                 <Search className="w-5 h-5 mr-2" />
                 Buscar Profissionais
@@ -394,7 +392,19 @@ export default function SearchProfessionals() {
 
       {/* Results */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {isLoading ? (
+        {!hasSearched ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-orange-200 rounded-2xl flex items-center justify-center mb-4">
+              <Search className="w-10 h-10 text-orange-500" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              Pesquise por profissionais
+            </h3>
+            <p className="text-slate-600 max-w-md">
+              Utilize os filtros acima e clique em "Buscar Profissionais" para encontrar os melhores profissionais da sua região.
+            </p>
+          </div>
+        ) : isLoading ? (
           <div className="space-y-6">
             <div className="h-16 bg-white rounded-xl animate-pulse" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

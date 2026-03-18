@@ -13,35 +13,36 @@ import { Category } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
-const states = [
-  { value: "all", label: "Todos os Estados" },
-  { value: "AC", label: "Acre" },
-  { value: "AL", label: "Alagoas" },
-  { value: "AP", label: "Amapá" },
-  { value: "AM", label: "Amazonas" },
-  { value: "BA", label: "Bahia" },
-  { value: "CE", label: "Ceará" },
-  { value: "DF", label: "Distrito Federal" },
-  { value: "ES", label: "Espírito Santo" },
-  { value: "GO", label: "Goiás" },
-  { value: "MA", label: "Maranhão" },
-  { value: "MT", label: "Mato Grosso" },
-  { value: "MS", label: "Mato Grossó do Sul" },
-  { value: "MG", label: "Minas Gerais" },
-  { value: "PA", label: "Pará" },
-  { value: "PB", label: "Paraíba" },
-  { value: "PR", label: "Paraná" },
-  { value: "PE", label: "Pernambuco" },
-  { value: "PI", label: "Piauí" },
-  { value: "RJ", label: "Rio de Janeiro" },
-  { value: "RN", label: "Rio Grande do Norte" },
-  { value: "RS", label: "Rio Grande do Sul" },
-  { value: "RO", label: "Rondônia" },
-  { value: "RR", label: "Roraima" },
-  { value: "SC", label: "Santa Catarina" },
-  { value: "SP", label: "São Paulo" },
-  { value: "SE", label: "Sergipe" },
-  { value: "TO", label: "Tocantins" }
+// Cidades do Alto Vale do Itajaí - SC
+const cidadesAltoVale = [
+  "Agrolândia",
+  "Agronômica",
+  "Atalanta",
+  "Aurora",
+  "Braço do Trombudo",
+  "Chapadão do Lageado",
+  "Dona Emma",
+  "Ibirama",
+  "Imbuia",
+  "Ituporanga",
+  "José Boiteux",
+  "Laurentino",
+  "Lontras",
+  "Mirim Doce",
+  "Petrolândia",
+  "Pouso Redondo",
+  "Presidente Getúlio",
+  "Presidente Nereu",
+  "Rio do Campo",
+  "Rio do Oeste",
+  "Rio do Sul",
+  "Salete",
+  "Santa Terezinha",
+  "Taió",
+  "Trombudo Central",
+  "Vidal Ramos",
+  "Vitor Meireles",
+  "Witmarsum"
 ];
 
 export default function SearchFilters({ filters, onFilterChange, hideLocationFields = false }) {
@@ -238,29 +239,29 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
           <>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-              <Select
-                value={filters.state}
-                onValueChange={(value) => onFilterChange({ ...filters, state: value })}
-              >
-                <SelectTrigger className="pl-10 h-12 border-2 border-orange-200 focus:ring-orange-500 focus:border-orange-500">
-                  <SelectValue placeholder="Selecione o estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  {states.map(s => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                value="Santa Catarina"
+                disabled
+                className="pl-10 h-12 border-2 border-orange-200 bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+              />
             </div>
 
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-              <Input
-                placeholder="Buscar por cidade..."
-                value={filters.city}
-                onChange={(e) => onFilterChange({ ...filters, city: e.target.value })}
-                className="pl-10 h-12 border-2 border-orange-200 focus:ring-orange-500 focus:border-orange-500"
-              />
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
+              <Select
+                value={filters.city || 'all'}
+                onValueChange={(value) => onFilterChange({ ...filters, city: value === 'all' ? '' : value, state: 'SC' })}
+              >
+                <SelectTrigger className="pl-10 h-12 border-2 border-orange-200 focus:ring-orange-500 focus:border-orange-500">
+                  <SelectValue placeholder="Selecione a cidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as cidades</SelectItem>
+                  {cidadesAltoVale.map(cidade => (
+                    <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </>
         )}

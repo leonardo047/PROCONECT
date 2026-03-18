@@ -437,14 +437,6 @@ const AllServicesSection = memo(({ isLoading }) => {
           </div>
         )}
 
-        {/* Botão Ver Todos os Profissionais */}
-        <div className="mt-10 text-center">
-          <Link to={createPageUrl("SearchProfessionals")}>
-            <Button size="lg" className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold px-10 py-6 rounded-xl shadow-lg">
-              Ver Todos os Profissionais
-            </Button>
-          </Link>
-        </div>
       </div>
     </section>
   );
@@ -710,20 +702,6 @@ export default function Home() {
     gcTime: 30 * 60 * 1000,
   });
 
-  const { data: professionals = [] } = useQuery({
-    queryKey: ['featured-professionals'],
-    queryFn: async () => {
-      const all = await ProfessionalService.search({
-        isApproved: true,
-        featured: true,
-        limit: 6
-      });
-      return all || [];
-    },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
-
   return (
     <div>
       {/* Bloco 1 - Hero */}
@@ -737,9 +715,6 @@ export default function Home() {
 
       {/* Bloco 3 - Todos os Serviços (FOCO OBRA) */}
       <AllServicesSection isLoading={loadingCategories} />
-
-      {/* Profissionais em Destaque */}
-      <FeaturedProfessionals professionals={professionals} />
 
       {/* Como Funciona */}
       <HowItWorks />

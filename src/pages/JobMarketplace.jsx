@@ -37,36 +37,36 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-// Estados brasileiros
-const ESTADOS = [
-  { value: 'all', label: 'Todos os Estados' },
-  { value: 'AC', label: 'Acre' },
-  { value: 'AL', label: 'Alagoas' },
-  { value: 'AP', label: 'Amapa' },
-  { value: 'AM', label: 'Amazonas' },
-  { value: 'BA', label: 'Bahia' },
-  { value: 'CE', label: 'Ceara' },
-  { value: 'DF', label: 'Distrito Federal' },
-  { value: 'ES', label: 'Espirito Santo' },
-  { value: 'GO', label: 'Goias' },
-  { value: 'MA', label: 'Maranhao' },
-  { value: 'MT', label: 'Mato Grosso' },
-  { value: 'MS', label: 'Mato Grossó do Sul' },
-  { value: 'MG', label: 'Minas Gerais' },
-  { value: 'PA', label: 'Para' },
-  { value: 'PB', label: 'Paraiba' },
-  { value: 'PR', label: 'Parana' },
-  { value: 'PE', label: 'Pernambuco' },
-  { value: 'PI', label: 'Piaui' },
-  { value: 'RJ', label: 'Rio de Janeiro' },
-  { value: 'RN', label: 'Rio Grande do Norte' },
-  { value: 'RS', label: 'Rio Grande do Sul' },
-  { value: 'RO', label: 'Rondonia' },
-  { value: 'RR', label: 'Roraima' },
-  { value: 'SC', label: 'Santa Catarina' },
-  { value: 'SP', label: 'Sao Paulo' },
-  { value: 'SE', label: 'Sergipe' },
-  { value: 'TO', label: 'Tocantins' }
+// Cidades do Alto Vale do Itajaí - SC (mesmo do SearchFilters)
+const cidadesAltoVale = [
+  "Agrolândia",
+  "Agronômica",
+  "Atalanta",
+  "Aurora",
+  "Braço do Trombudo",
+  "Chapadão do Lageado",
+  "Dona Emma",
+  "Ibirama",
+  "Imbuia",
+  "Ituporanga",
+  "José Boiteux",
+  "Laurentino",
+  "Lontras",
+  "Mirim Doce",
+  "Petrolândia",
+  "Pouso Redondo",
+  "Presidente Getúlio",
+  "Presidente Nereu",
+  "Rio do Campo",
+  "Rio do Oeste",
+  "Rio do Sul",
+  "Salete",
+  "Santa Terezinha",
+  "Taió",
+  "Trombudo Central",
+  "Vidal Ramos",
+  "Vitor Meireles",
+  "Witmarsum"
 ];
 
 // Opcoes de urgencia
@@ -300,35 +300,36 @@ const Filters = memo(({ filters, onFilterChange, categories, hideLocationFields 
           </Select>
         </div>
 
-        {/* Estado - oculto no modo localização */}
+        {/* Estado - fixo em SC, oculto no modo localização */}
         {!hideLocationFields && (
           <div>
             <Label className="text-sm text-slate-600 mb-1.5 block">Estado</Label>
-            <Select
-              value={filters.state}
-              onValueChange={(value) => onFilterChange({ ...filters, state: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                {ESTADOS.map(estado => (
-                  <SelectItem key={estado.value} value={estado.value}>{estado.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              value="Santa Catarina"
+              disabled
+              className="bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+            />
           </div>
         )}
 
-        {/* Cidade - oculto no modo localização */}
+        {/* Cidade - dropdown igual ao SearchFilters, oculto no modo localização */}
         {!hideLocationFields && (
           <div>
             <Label className="text-sm text-slate-600 mb-1.5 block">Cidade</Label>
-            <Input
-              placeholder="Digite a cidade..."
-              value={filters.city}
-              onChange={(e) => onFilterChange({ ...filters, city: e.target.value })}
-            />
+            <Select
+              value={filters.city || 'all'}
+              onValueChange={(value) => onFilterChange({ ...filters, city: value === 'all' ? '' : value, state: 'SC' })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a cidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as cidades</SelectItem>
+                {cidadesAltoVale.map(cidade => (
+                  <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
@@ -378,7 +379,7 @@ const Filters = memo(({ filters, onFilterChange, categories, hideLocationFields 
           size="sm"
           onClick={() => onFilterChange({
             category: 'all',
-            state: 'all',
+            state: 'SC',
             city: '',
             urgency: 'all',
             budget: 'all'
@@ -427,7 +428,7 @@ export default function JobMarketplace() {
 
   const [filters, setFilters] = useState({
     category: 'all',
-    state: 'all',
+    state: 'SC',
     city: '',
     urgency: 'all',
     budget: 'all'
@@ -437,6 +438,7 @@ export default function JobMarketplace() {
   const [selectedQuote, setSelectedQuote] = useState(null);
   const [respondDialogOpen, setRespondDialogOpen] = useState(false);
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   // Estados para busca por localização
   const [userLocation, setUserLocation] = useState(null);
@@ -515,15 +517,12 @@ export default function JobMarketplace() {
     }
 
     if (searchMode === 'traditional') {
-      // Filtrar por estado
-      if (filters.state !== 'all') {
-        results = results.filter(q => q.state === filters.state);
-      }
+      // Filtrar por estado (fixo em SC)
+      results = results.filter(q => q.state === 'SC');
 
-      // Filtrar por cidade
-      if (filters.city.trim()) {
-        const cityLower = filters.city.toLowerCase().trim();
-        results = results.filter(q => q.city?.toLowerCase().includes(cityLower));
+      // Filtrar por cidade (seleção exata do dropdown)
+      if (filters.city) {
+        results = results.filter(q => q.city === filters.city);
       }
 
       return results;
@@ -614,7 +613,7 @@ export default function JobMarketplace() {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-12 py-6 text-lg shadow-lg"
-                onClick={() => setVisibleCount(ITEMS_PER_PAGE)}
+                onClick={() => { setHasSearched(true); setVisibleCount(ITEMS_PER_PAGE); }}
               >
                 <Search className="w-5 h-5 mr-2" />
                 Buscar Oportunidades
@@ -638,7 +637,7 @@ export default function JobMarketplace() {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-12 py-6 text-lg shadow-lg"
-                onClick={() => setVisibleCount(ITEMS_PER_PAGE)}
+                onClick={() => { setHasSearched(true); setVisibleCount(ITEMS_PER_PAGE); }}
               >
                 <Search className="w-5 h-5 mr-2" />
                 Buscar Oportunidades
@@ -650,7 +649,19 @@ export default function JobMarketplace() {
 
       {/* Resultados */}
       <div className="max-w-7xl mx-auto px-4 pb-8">
-        {isLoading ? (
+        {!hasSearched ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center mb-4">
+              <Search className="w-10 h-10 text-green-500" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              Pesquise por oportunidades
+            </h3>
+            <p className="text-slate-600 max-w-md">
+              Utilize os filtros acima e clique em "Buscar Oportunidades" para encontrar vagas de trabalho e pedidos de orçamento na sua região.
+            </p>
+          </div>
+        ) : isLoading ? (
           <div className="space-y-6">
             <div className="h-16 bg-white rounded-xl animate-pulse" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

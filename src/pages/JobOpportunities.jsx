@@ -17,22 +17,14 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import PublicJobForm from "@/componentes/jobs/PublicJobForm";
 
-const states = [
-  { value: "all", label: "Todos" },
-  { value: "AC", label: "Acre" }, { value: "AL", label: "Alagoas" },
-  { value: "AP", label: "Amapa" }, { value: "AM", label: "Amazonas" },
-  { value: "BA", label: "Bahia" }, { value: "CE", label: "Ceara" },
-  { value: "DF", label: "Distrito Federal" }, { value: "ES", label: "Espirito Santo" },
-  { value: "GO", label: "Goias" }, { value: "MA", label: "Maranhao" },
-  { value: "MT", label: "Mato Grosso" }, { value: "MS", label: "Mato Grossó do Sul" },
-  { value: "MG", label: "Minas Gerais" }, { value: "PA", label: "Para" },
-  { value: "PB", label: "Paraiba" }, { value: "PR", label: "Parana" },
-  { value: "PE", label: "Pernambuco" }, { value: "PI", label: "Piaui" },
-  { value: "RJ", label: "Rio de Janeiro" }, { value: "RN", label: "Rio Grande do Norte" },
-  { value: "RS", label: "Rio Grande do Sul" }, { value: "RO", label: "Rondonia" },
-  { value: "RR", label: "Roraima" }, { value: "SC", label: "Santa Catarina" },
-  { value: "SP", label: "Sao Paulo" }, { value: "SE", label: "Sergipe" },
-  { value: "TO", label: "Tocantins" }
+// Cidades do Alto Vale do Itajaí - SC
+const cidadesAltoVale = [
+  "Agrolândia", "Agronômica", "Atalanta", "Aurora", "Braço do Trombudo",
+  "Chapadão do Lageado", "Dona Emma", "Ibirama", "Imbuia", "Ituporanga",
+  "José Boiteux", "Laurentino", "Lontras", "Mirim Doce", "Petrolândia",
+  "Pouso Redondo", "Presidente Getúlio", "Presidente Nereu", "Rio do Campo",
+  "Rio do Oeste", "Rio do Sul", "Salete", "Santa Terezinha", "Taió",
+  "Trombudo Central", "Vidal Ramos", "Vitor Meireles", "Witmarsum"
 ];
 
 const ITEMS_PER_PAGE = 12;
@@ -44,9 +36,10 @@ export default function JobOpportunities() {
 
   const [filters, setFilters] = useState({
     city: '',
-    state: 'all',
+    state: 'SC',
     profession: 'all'
   });
+  const [hasSearched, setHasSearched] = useState(false);
 
   // Estado de paginação
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
@@ -375,32 +368,10 @@ export default function JobOpportunities() {
         {/* Filters */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-slate-600" />
-                <span className="font-medium text-slate-700">Filtros</span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={getCurrentLocation}
-                disabled={loadingLocation}
-                className="text-blue-600 border-blue-300 hover:bg-blue-50"
-              >
-                {loadingLocation ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Navigation className="w-4 h-4 mr-2" />
-                )}
-                Usar minha localização
-              </Button>
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="w-5 h-5 text-slate-600" />
+              <span className="font-medium text-slate-700">Filtros</span>
             </div>
-            {locationMessage && (
-              <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                {locationMessage}
-              </div>
-            )}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Select
@@ -433,33 +404,55 @@ export default function JobOpportunities() {
                 </Select>
               </div>
               <div>
+                <Input
+                  value="Santa Catarina"
+                  disabled
+                  className="bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                />
+              </div>
+              <div>
                 <Select
-                  value={filters.state}
-                  onValueChange={(value) => setFilters({ ...filters, state: value })}
+                  value={filters.city || 'all'}
+                  onValueChange={(value) => setFilters({ ...filters, city: value === 'all' ? '' : value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Estado" />
+                    <SelectValue placeholder="Selecione a cidade" />
                   </SelectTrigger>
                   <SelectContent>
-                    {states.map(s => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem value="all">Todas as cidades</SelectItem>
+                    {cidadesAltoVale.map(cidade => (
+                      <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Input
-                  placeholder="Cidade"
-                  value={filters.city}
-                  onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-                />
-              </div>
+            </div>
+            <div className="mt-4 flex justify-center">
+              <Button
+                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-8"
+                onClick={() => { setHasSearched(true); setVisibleCount(ITEMS_PER_PAGE); }}
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Buscar Vagas
+              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Opportunities List */}
-        {isLoading ? (
+        {!hasSearched ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mb-4">
+              <Search className="w-10 h-10 text-blue-500" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              Pesquise por vagas de trabalho
+            </h3>
+            <p className="text-slate-600 max-w-md">
+              Utilize os filtros acima e clique em "Buscar Vagas" para encontrar oportunidades na sua região.
+            </p>
+          </div>
+        ) : isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
           </div>
