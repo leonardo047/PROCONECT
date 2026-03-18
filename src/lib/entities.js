@@ -2219,7 +2219,7 @@ export const User = {
     }
   },
 
-  // Update user profile (INSERT se não existir, UPDATE se existir)
+  // Update user profile (UPSERT - INSERT ou UPDATE automaticamente)
   async update(userId, updates) {
     if (!userId) throw new Error('userId is required');
 
@@ -2242,60 +2242,24 @@ export const User = {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    // Primeiro verificar se o profile existe
-    const checkResponse = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?id=eq.${userId}&select=id`,
+    // UPSERT: insere se não existir, atualiza se existir (elimina race condition)
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/profiles`,
       {
-        method: 'GET',
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${accessToken}`
-        }
+          'Authorization': `Bearer ${accessToken}`,
+          'Prefer': 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify({
+          id: userId,
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
       }
     );
-
-    const existingData = await checkResponse.json();
-    const profileExists = existingData && existingData.length > 0;
-
-    let response;
-    if (profileExists) {
-      // UPDATE
-      response = await fetch(
-        `${supabaseUrl}/rest/v1/profiles?id=eq.${userId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey,
-            'Authorization': `Bearer ${accessToken}`,
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            ...updates,
-            updated_at: new Date().toISOString()
-          })
-        }
-      );
-    } else {
-      // INSERT
-      response = await fetch(
-        `${supabaseUrl}/rest/v1/profiles`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey,
-            'Authorization': `Bearer ${accessToken}`,
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            id: userId,
-            ...updates,
-            updated_at: new Date().toISOString()
-          })
-        }
-      );
-    }
 
     if (!response.ok) {
       const errorText = await response.text();
