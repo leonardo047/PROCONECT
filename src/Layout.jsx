@@ -305,7 +305,7 @@ const Header = memo(function Header({
                 <Button
                   variant="outline"
                   onClick={onLogin}
-                  className="hidden sm:flex"
+                  className=""
                 >
                   Entrar
                 </Button>
