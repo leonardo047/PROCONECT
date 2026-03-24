@@ -488,58 +488,51 @@ const CategoryAccordionSection = memo(() => {
         </div>
 
         {/* Cards de categoria em gavetas */}
-        <div className="space-y-3">
-          {rows.map((row, rowIndex) => {
-            // Verificar se algum card desta linha está aberto
-            const openGroupInRow = row.find((_, colIndex) => {
-              const globalIndex = rowIndex * DESKTOP_COLS + colIndex;
-              return globalIndex === openIndex;
-            });
-            const openGroupGlobalIndex = openGroupInRow
-              ? serviceGroups.indexOf(openGroupInRow)
-              : null;
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {serviceGroups.map((group, globalIndex) => {
+            const isOpen = globalIndex === openIndex;
+            const isLastInRow = (globalIndex % DESKTOP_COLS === DESKTOP_COLS - 1) || globalIndex === serviceGroups.length - 1;
+            const rowStart = Math.floor(globalIndex / DESKTOP_COLS) * DESKTOP_COLS;
+            const rowEnd = Math.min(rowStart + DESKTOP_COLS, serviceGroups.length);
+            const openInRow = openIndex !== null && openIndex >= rowStart && openIndex < rowEnd;
 
             return (
-              <div key={rowIndex}>
-                {/* Linha de cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {row.map((group, colIndex) => {
-                    const globalIndex = rowIndex * DESKTOP_COLS + colIndex;
-                    const isOpen = globalIndex === openIndex;
+              <React.Fragment key={group.title}>
+                <button
+                  onClick={() => toggleCategory(globalIndex)}
+                  className={`w-full flex items-center gap-3 px-4 py-4 rounded-xl border transition-all text-left ${
+                    isOpen
+                      ? 'bg-white border-orange-300 shadow-md ring-1 ring-orange-200'
+                      : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'
+                  }`}
+                >
+                  <div className={`w-10 h-10 ${group.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-lg">{group.emoji}</span>
+                  </div>
+                  <span className="font-semibold text-slate-800 text-sm md:text-base flex-1">
+                    {group.title}
+                  </span>
+                  <ChevronDown
+                    className={`w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+                      isOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
 
-                    return (
-                      <button
-                        key={group.title}
-                        onClick={() => toggleCategory(globalIndex)}
-                        className={`w-full flex items-center gap-3 px-4 py-4 rounded-xl border transition-all text-left ${
-                          isOpen
-                            ? 'bg-white border-orange-300 shadow-md ring-1 ring-orange-200'
-                            : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'
-                        }`}
-                      >
-                        <div className={`w-10 h-10 ${group.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                          <span className="text-lg">{group.emoji}</span>
-                        </div>
-                        <span className="font-semibold text-slate-800 text-sm md:text-base flex-1">
-                          {group.title}
-                        </span>
-                        <ChevronDown
-                          className={`w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
-                            isOpen ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Painel expandido (abaixo da linha) */}
-                {openGroupGlobalIndex !== null && (
-                  <div className="mt-3 bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-6 animate-accordion-down overflow-hidden">
-                    <ServiceCarousel group={serviceGroups[openGroupGlobalIndex]} />
+                {/* Mobile: painel abre logo abaixo do item clicado */}
+                {isOpen && (
+                  <div className="md:hidden bg-white rounded-xl border border-slate-200 shadow-sm p-4 animate-accordion-down overflow-hidden">
+                    <ServiceCarousel group={group} />
                   </div>
                 )}
-              </div>
+
+                {/* Desktop: painel abre abaixo da linha de 2 colunas */}
+                {isLastInRow && openInRow && (
+                  <div className="hidden md:block md:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-6 animate-accordion-down overflow-hidden">
+                    <ServiceCarousel group={serviceGroups[openIndex]} />
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
         </div>
