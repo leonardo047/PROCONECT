@@ -9,6 +9,8 @@ import { Search, MapPin, Briefcase, Calendar as CalendarIcon, Star, Check, Chevr
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Category } from "@/lib/entities";
+import { useQuery } from "@tanstack/react-query";
 
 // Cidades do Alto Vale do Itajaí - SC
 const cidadesAltoVale = [
@@ -50,8 +52,8 @@ function toSlug(name) {
     .replace(/^_|_$/g, '');
 }
 
-// Todas as categorias de profissões (igual à Home)
-const allProfessionGroups = [
+// Categorias hardcoded (home)
+const hardcodedProfessionGroups = [
   {
     name: "Construção, Reforma e Estrutura",
     items: [
@@ -119,12 +121,56 @@ const allProfessionGroups = [
   items: group.items.map(name => ({ name, slug: toSlug(name) }))
 }));
 
+// Normaliza texto para comparação (remove acentos e converte para minúsculo)
+function normalize(text) {
+  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 export default function SearchFilters({ filters, onFilterChange, hideLocationFields = false }) {
   const [selectedDate, setSelectedDate] = useState(filters.availableDate || null);
   const [openCategoryCombobox, setOpenCategoryCombobox] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const professionGroups = allProfessionGroups;
+  // Buscar categorias de "Outros Serviços" do Supabase
+  const { data: dbCategories = [] } = useQuery({
+    queryKey: ['search-filters-all-categories'],
+    queryFn: () => Category.filter({
+      filters: { location: 'other_services', is_active: true },
+      orderBy: { field: 'order', direction: 'asc' },
+      limit: 500
+    }),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  // Mesclar categorias hardcoded com as do banco (Outros Serviços)
+  const professionGroups = useMemo(() => {
+    if (dbCategories.length === 0) return hardcodedProfessionGroups;
+
+    // Agrupar categorias do banco por category_group
+    const dbGroups = {};
+    // Set de slugs hardcoded para evitar duplicatas
+    const hardcodedSlugs = new Set();
+    hardcodedProfessionGroups.forEach(g => g.items.forEach(i => hardcodedSlugs.add(i.slug)));
+
+    dbCategories.forEach(cat => {
+      if (hardcodedSlugs.has(cat.slug)) return; // Evitar duplicatas
+      // Remover emoji do nome do grupo para exibição mais limpa
+      const groupName = (cat.category_group || 'Outros').replace(/^[\p{Emoji}\s]+/u, '').trim() || 'Outros';
+      if (!dbGroups[groupName]) {
+        dbGroups[groupName] = [];
+      }
+      dbGroups[groupName].push({ name: cat.name, slug: cat.slug });
+    });
+
+    // Converter grupos do banco para o mesmo formato
+    const extraGroups = Object.entries(dbGroups).map(([name, items]) => ({
+      name,
+      items
+    }));
+
+    return [...hardcodedProfessionGroups, ...extraGroups];
+  }, [dbCategories]);
 
   // Label da profissão selecionada
   const selectedProfessionLabel = useMemo(() => {
@@ -136,17 +182,17 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
     return "Todas as Profissões";
   }, [filters.profession, professionGroups]);
 
-  // Filtrar categorias baseado no termo de busca
+  // Filtrar categorias baseado no termo de busca (autocomplete)
   const filteredGroups = useMemo(() => {
     if (!searchTerm.trim()) return professionGroups;
 
-    const term = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const term = normalize(searchTerm);
 
     return professionGroups
       .map(group => ({
         ...group,
         items: group.items.filter(cat => {
-          const catName = cat.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const catName = normalize(cat.name);
           return catName.includes(term);
         })
       }))
