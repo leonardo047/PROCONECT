@@ -8,12 +8,13 @@ import { Button } from "@/componentes/interface do usuário/button";
 import { ArrowRight, Paintbrush, Wrench, Zap,
   Droplets, Sparkles, TreePine, HardHat,
   Star, Loader2, Home as HomeIcon, Hammer, Scissors, Truck, Building2, ShoppingBag,
-  Brush, Palette, LayoutGrid, ChevronRight,
+  Brush, Palette, LayoutGrid, ChevronRight, ChevronLeft, ChevronDown,
   Thermometer, Sun, Camera, Waves, Flower2, Bug, Sofa,
   DoorOpen, Frame, Layers, Square, ScrollText, Mountain,
   Package, Shovel, Container, FileText, PenTool,
   ClipboardCheck, Compass, Calculator, Settings, Flame,
-  Snowflake, Fan, Trees, Share2, Check
+  Snowflake, Fan, Trees, Share2, Check,
+  Car, PawPrint, PartyPopper, Monitor, GraduationCap
 } from "lucide-react";
 
 // Lazy load do componente de card
@@ -197,11 +198,32 @@ const serviceGroups = [
       { name: "Topografia", icon: Compass, color: "bg-teal-500" },
       { name: "Orçamentos Técnicos", icon: Calculator, color: "bg-orange-500" }
     ]
+  },
+  {
+    title: "Outros Tipos de Serviços",
+    emoji: "✨",
+    color: "bg-indigo-500",
+    hoverColor: "hover:bg-indigo-50",
+    linkTo: "OtherServices",
+    services: [
+      { name: "Mecânico", icon: Car, color: "bg-red-500" },
+      { name: "Funilaria/Pintura", icon: Car, color: "bg-blue-600" },
+      { name: "Cabeleireiro", icon: Scissors, color: "bg-pink-500" },
+      { name: "Manicure", icon: Sparkles, color: "bg-rose-500" },
+      { name: "Estética", icon: Sparkles, color: "bg-violet-500" },
+      { name: "Pet Shop", icon: PawPrint, color: "bg-amber-500" },
+      { name: "Veterinário", icon: PawPrint, color: "bg-green-600" },
+      { name: "Fotógrafo", icon: Camera, color: "bg-slate-700" },
+      { name: "Buffet/Eventos", icon: PartyPopper, color: "bg-orange-500" },
+      { name: "Informática", icon: Monitor, color: "bg-cyan-600" },
+      { name: "Aulas Particulares", icon: GraduationCap, color: "bg-indigo-500" },
+      { name: "Costureira", icon: Scissors, color: "bg-teal-500" }
+    ]
   }
 ];
 
-// Card de serviço individual
-const ServiceCard = memo(({ service }) => {
+// Item de serviço no carrossel horizontal
+const ServiceItem = memo(({ service }) => {
   const IconComponent = service.icon;
   const slug = service.name.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -211,13 +233,13 @@ const ServiceCard = memo(({ service }) => {
   return (
     <Link
       to={createPageUrl(`SearchProfessionals?profession=${slug}`)}
-      className="group"
+      className="group flex-shrink-0 w-20 md:w-24"
     >
-      <div className="bg-white rounded-xl p-4 flex flex-col items-center hover:shadow-md transition-all border border-slate-100 hover:border-slate-200">
-        <div className={`w-14 h-14 ${service.color} rounded-2xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-sm`}>
-          <IconComponent className="w-7 h-7 text-white" />
+      <div className="flex flex-col items-center">
+        <div className={`w-12 h-12 md:w-14 md:h-14 ${service.color} rounded-2xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-sm`}>
+          <IconComponent className="w-6 h-6 md:w-7 md:h-7 text-white" />
         </div>
-        <span className="text-xs text-center text-slate-700 font-medium leading-tight">
+        <span className="text-[11px] md:text-xs text-center text-slate-700 font-medium leading-tight">
           {service.name}
         </span>
       </div>
@@ -225,27 +247,67 @@ const ServiceCard = memo(({ service }) => {
   );
 });
 
-// Card de grupo de serviços
-const ServiceGroupCard = memo(({ group }) => {
+// Carrossel horizontal de serviços dentro de uma categoria expandida
+const ServiceCarousel = memo(({ group }) => {
+  const scrollRef = React.useRef(null);
+
+  const scroll = useCallback((direction) => {
+    if (scrollRef.current) {
+      const amount = 240;
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -amount : amount,
+        behavior: 'smooth'
+      });
+    }
+  }, []);
+
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-          <span className="text-white text-sm">●</span>
-        </div>
-        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-          <span>{group.emoji}</span>
-          {group.title}
-        </h3>
-      </div>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+    <div className="relative">
+      {/* Setas de navegação - apenas desktop */}
+      <button
+        onClick={() => scroll('left')}
+        className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white rounded-full shadow-md border border-slate-200 items-center justify-center hover:bg-orange-50 hover:border-orange-300 transition-colors"
+        aria-label="Rolar para esquerda"
+      >
+        <ChevronLeft className="w-4 h-4 text-slate-600" />
+      </button>
+
+      {/* Container scrollável */}
+      <div
+        ref={scrollRef}
+        className="flex gap-3 md:gap-4 overflow-x-auto pb-2 px-1 scrollbar-hide scroll-smooth snap-x snap-mandatory md:snap-none"
+        style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         {group.services.map((service) => (
-          <ServiceCard
-            key={service.name}
-            service={service}
-          />
+          <div key={service.name} className="snap-start">
+            <ServiceItem service={service} />
+          </div>
         ))}
+
+        {/* Link "Ver todos" para Outros Serviços */}
+        {group.linkTo && (
+          <Link
+            to={createPageUrl(group.linkTo)}
+            className="flex-shrink-0 w-20 md:w-24 flex flex-col items-center justify-center group"
+          >
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-100 rounded-2xl flex items-center justify-center mb-2 group-hover:bg-slate-200 transition-colors">
+              <ChevronRight className="w-6 h-6 text-slate-500" />
+            </div>
+            <span className="text-[11px] md:text-xs text-center text-orange-600 font-semibold leading-tight">
+              Ver todos
+            </span>
+          </Link>
+        )}
       </div>
+
+      {/* Seta direita - apenas desktop */}
+      <button
+        onClick={() => scroll('right')}
+        className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white rounded-full shadow-md border border-slate-200 items-center justify-center hover:bg-orange-50 hover:border-orange-300 transition-colors"
+        aria-label="Rolar para direita"
+      >
+        <ChevronRight className="w-4 h-4 text-slate-600" />
+      </button>
     </div>
   );
 });
@@ -397,24 +459,24 @@ const PopularCategories = memo(() => {
   );
 });
 
-// Banner laranja para Outros Serviços
-const OtherServicesBanner = memo(() => (
-  <section className="bg-gradient-to-r from-orange-500 to-orange-600 py-4">
-    <div className="max-w-7xl mx-auto px-4">
-      <Link to={createPageUrl("OtherServices")} className="flex items-center justify-center gap-2 text-white hover:opacity-90 transition-opacity">
-        <span className="font-semibold">✨ Outros Tipos de Serviços</span>
-        <span className="hidden sm:inline text-orange-100">- Automotivo · Beleza · Pets · Eventos · Tecnologia e mais</span>
-        <ChevronRight className="w-5 h-5" />
-      </Link>
-    </div>
-  </section>
-));
+// Seção de categorias com gavetas (accordion)
+const CategoryAccordionSection = memo(() => {
+  const [openIndex, setOpenIndex] = useState(null);
 
-// Bloco 3 - Todos os Serviços (FOCO OBRA) com novo design
-const AllServicesSection = memo(({ isLoading }) => {
+  const toggleCategory = useCallback((index) => {
+    setOpenIndex((prev) => (prev === index ? null : index));
+  }, []);
+
+  // Agrupar categorias em linhas de 2 (desktop)
+  const DESKTOP_COLS = 2;
+  const rows = [];
+  for (let i = 0; i < serviceGroups.length; i += DESKTOP_COLS) {
+    rows.push(serviceGroups.slice(i, i + DESKTOP_COLS));
+  }
+
   return (
     <section className="py-12 bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-4xl mx-auto px-4">
         {/* Título principal */}
         <div className="text-center mb-10">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">
@@ -425,18 +487,62 @@ const AllServicesSection = memo(({ isLoading }) => {
           </p>
         </div>
 
-        {isLoading ? (
-          <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {serviceGroups.map((group, index) => (
-              <ServiceGroupCard key={index} group={group} />
-            ))}
-          </div>
-        )}
+        {/* Cards de categoria em gavetas */}
+        <div className="space-y-3">
+          {rows.map((row, rowIndex) => {
+            // Verificar se algum card desta linha está aberto
+            const openGroupInRow = row.find((_, colIndex) => {
+              const globalIndex = rowIndex * DESKTOP_COLS + colIndex;
+              return globalIndex === openIndex;
+            });
+            const openGroupGlobalIndex = openGroupInRow
+              ? serviceGroups.indexOf(openGroupInRow)
+              : null;
 
+            return (
+              <div key={rowIndex}>
+                {/* Linha de cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {row.map((group, colIndex) => {
+                    const globalIndex = rowIndex * DESKTOP_COLS + colIndex;
+                    const isOpen = globalIndex === openIndex;
+
+                    return (
+                      <button
+                        key={group.title}
+                        onClick={() => toggleCategory(globalIndex)}
+                        className={`w-full flex items-center gap-3 px-4 py-4 rounded-xl border transition-all text-left ${
+                          isOpen
+                            ? 'bg-white border-orange-300 shadow-md ring-1 ring-orange-200'
+                            : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'
+                        }`}
+                      >
+                        <div className={`w-10 h-10 ${group.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                          <span className="text-lg">{group.emoji}</span>
+                        </div>
+                        <span className="font-semibold text-slate-800 text-sm md:text-base flex-1">
+                          {group.title}
+                        </span>
+                        <ChevronDown
+                          className={`w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+                            isOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Painel expandido (abaixo da linha) */}
+                {openGroupGlobalIndex !== null && (
+                  <div className="mt-3 bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-6 animate-accordion-down overflow-hidden">
+                    <ServiceCarousel group={serviceGroups[openGroupGlobalIndex]} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
@@ -691,8 +797,8 @@ export default function Home() {
     captureReferralCode();
   }, [refCode]);
 
-  // Buscar categorias do banco (para possível usó futuro)
-  const { isLoading: loadingCategories } = useQuery({
+  // Buscar categorias do banco (para possível uso futuro)
+  useQuery({
     queryKey: ['home-categories'],
     queryFn: () => Category.filter({
       orderBy: { field: 'order', direction: 'asc' },
@@ -710,11 +816,8 @@ export default function Home() {
       {/* Bloco 2 - Categorias Populares (Atalhos) */}
       <PopularCategories />
 
-      {/* Banner Outros Serviços */}
-      <OtherServicesBanner />
-
-      {/* Bloco 3 - Todos os Serviços (FOCO OBRA) */}
-      <AllServicesSection isLoading={loadingCategories} />
+      {/* Bloco 3 - Categorias com Gavetas (Accordion + Carrossel) */}
+      <CategoryAccordionSection />
 
       {/* Como Funciona */}
       <HowItWorks />

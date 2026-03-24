@@ -5,12 +5,9 @@ import { Label } from "@/componentes/interface do usuário/label";
 import { Calendar } from "@/componentes/interface do usuário/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/componentes/interface do usuário/popover";
 import { Button } from "@/componentes/interface do usuário/button";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/componentes/interface do usuário/command";
-import { Search, MapPin, Briefcase, Calendar as CalendarIcon, Star, Loader2, Check, ChevronsUpDown } from "lucide-react";
+import { Search, MapPin, Briefcase, Calendar as CalendarIcon, Star, Check, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Category } from "@/lib/entities";
-import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 // Cidades do Alto Vale do Itajaí - SC
@@ -45,53 +42,89 @@ const cidadesAltoVale = [
   "Witmarsum"
 ];
 
+// Função para gerar slug igual à Home
+function toSlug(name) {
+  return name.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+// Todas as categorias de profissões (igual à Home)
+const allProfessionGroups = [
+  {
+    name: "Construção, Reforma e Estrutura",
+    items: [
+      "Pedreiro", "Mestre de Obras", "Empreiteiro", "Pintor", "Gesso/Drywall",
+      "Azulejista", "Porcelanista", "Reboco/Acabamento", "Telhadista", "Calheiro",
+      "Impermeabilização", "Isolamento", "Fundações", "Concreto", "Pré-moldados",
+      "Demolição", "Reformas Geral"
+    ]
+  },
+  {
+    name: "Elétrica, Hidráulica e Climatização",
+    items: [
+      "Eletricista Residencial", "Eletricista Industrial", "Automação Residencial",
+      "Energia Solar", "CFTV/Câmeras", "Encanador", "Bombeiro Hidráulico", "Gás",
+      "Aquecimento", "Ar Condicionado", "Ventilação/Exaustão", "Piscinas",
+      "Irrigação", "Desentupimento"
+    ]
+  },
+  {
+    name: "Limpeza, Manutenção e Conservação",
+    items: [
+      "Limpeza Residencial", "Limpeza Comercial", "Limpeza Pós-obra",
+      "Limpeza Fachada", "Limpeza Telhado", "Lavagem Pátio",
+      "Limpeza Caixa d'água", "Dedetização", "Controle Pragas",
+      "Jardinagem", "Paisagismo", "Roçada", "Poda",
+      "Manutenção Predial", "Marido Aluguel"
+    ]
+  },
+  {
+    name: "Madeira, Móveis e Acabamentos",
+    items: [
+      "Marceneiro", "Carpinteiro", "Montador Móveis", "Restauração",
+      "Instalação Portas", "Instalação Janelas", "Vidraçaria", "Serralheria",
+      "Alumínio/Esquadrias", "Pisos Laminados", "Pisos Vinílicos", "Rodapés",
+      "Forros", "Gessó Decorativo", "Papel Parede", "Persianas"
+    ]
+  },
+  {
+    name: "Máquinas, Terraplanagem e Logística",
+    items: [
+      "Terraplanagem", "Escavação", "Retroescavadeira", "Caminhão Munck",
+      "Guindaste", "Compactação", "Locação Máquinas", "Caçamba",
+      "Frete", "Mudança", "Carreto", "Guincho Pesado"
+    ]
+  },
+  {
+    name: "Lojas, Fornecedores e Materiais",
+    items: [
+      "Materiais Construção", "Areia / Brita", "Concreto Usinado", "Pré-moldados",
+      "Madeireira", "Casa de Tintas", "Vidraçaria", "Serralheria",
+      "Marmoraria", "Elétrica (Loja)", "Hidráulica (Loja)", "Ferramentas",
+      "Equipamentos", "Distribuidores"
+    ]
+  },
+  {
+    name: "Projetos e Engenharia",
+    items: [
+      "Arquiteto", "Engenheiro Civil", "Projetos Elétricos", "Projetos Hidráulicos",
+      "Laudos Técnicos", "Habite-se", "Regularização Imóveis", "Topografia",
+      "Orçamentos Técnicos"
+    ]
+  }
+].map(group => ({
+  name: group.name,
+  items: group.items.map(name => ({ name, slug: toSlug(name) }))
+}));
+
 export default function SearchFilters({ filters, onFilterChange, hideLocationFields = false }) {
   const [selectedDate, setSelectedDate] = useState(filters.availableDate || null);
   const [openCategoryCombobox, setOpenCategoryCombobox] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Buscar categorias do banco
-  const { data: categories = [], isLoading: loadingCategories } = useQuery({
-    queryKey: ['search-filter-categories'],
-    queryFn: () => Category.filter({
-      filters: { is_active: true },
-      orderBy: { field: 'order', direction: 'asc' },
-      limit: 500
-    }),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
-
-  // Transformar categorias em grupos para o Command
-  const professionGroups = useMemo(() => {
-    if (!categories.length) return [];
-
-    // Agrupar por category_group
-    const groups = {};
-    categories.forEach(cat => {
-      const group = cat.category_group || 'Outros';
-      if (!groups[group]) {
-        groups[group] = [];
-      }
-      groups[group].push(cat);
-    });
-
-    // Ordenar grupos - home primeiro, depois other_services
-    const sortedGroupNamês = Object.keys(groups).sort((a, b) => {
-      // Grupos de construção primeiro
-      const homeGroups = ['Construção', 'Elétrica/Hidráulica', 'Limpeza/Jardim', 'Madeira/Metal', 'Projetos'];
-      const aIsHome = homeGroups.some(g => a.includes(g));
-      const bIsHome = homeGroups.some(g => b.includes(g));
-      if (aIsHome && !bIsHome) return -1;
-      if (!aIsHome && bIsHome) return 1;
-      return a.localeCompare(b);
-    });
-
-    return sortedGroupNamês.map(groupName => ({
-      name: groupName,
-      items: groups[groupName]
-    }));
-  }, [categories]);
+  const professionGroups = allProfessionGroups;
 
   // Label da profissão selecionada
   const selectedProfessionLabel = useMemo(() => {
@@ -135,20 +168,12 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
                 variant="outline"
                 role="combobox"
                 aria-expanded={openCategoryCombobox}
-                disabled={loadingCategories}
                 className="w-full h-12 justify-between pl-10 border-2 border-orange-200 hover:bg-orange-50 focus:ring-orange-500 focus:border-orange-500"
               >
                 <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500" />
-                {loadingCategories ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Carregando...
-                  </div>
-                ) : (
-                  <span className="truncate">
-                    {selectedProfessionLabel}
-                  </span>
-                )}
+                <span className="truncate">
+                  {selectedProfessionLabel}
+                </span>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
