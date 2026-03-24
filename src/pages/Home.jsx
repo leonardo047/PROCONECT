@@ -1,5 +1,5 @@
 import React, { memo, useEffect, Suspense, lazy, useState, useCallback } from 'react';
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ProfessionalService, ClientReferralService, Category } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
@@ -462,10 +462,16 @@ const PopularCategories = memo(() => {
 // Seção de categorias com gavetas (accordion)
 const CategoryAccordionSection = memo(() => {
   const [openIndex, setOpenIndex] = useState(null);
+  const navigate = useNavigate();
 
   const toggleCategory = useCallback((index) => {
+    const group = serviceGroups[index];
+    if (group.linkTo) {
+      navigate(createPageUrl(group.linkTo));
+      return;
+    }
     setOpenIndex((prev) => (prev === index ? null : index));
-  }, []);
+  }, [navigate]);
 
   // Agrupar categorias em linhas de 2 (desktop)
   const DESKTOP_COLS = 2;
@@ -512,11 +518,15 @@ const CategoryAccordionSection = memo(() => {
                   <span className="font-semibold text-slate-800 text-sm md:text-base flex-1">
                     {group.title}
                   </span>
-                  <ChevronDown
-                    className={`w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
-                      isOpen ? 'rotate-180' : ''
-                    }`}
-                  />
+                  {group.linkTo ? (
+                    <ChevronRight className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                  ) : (
+                    <ChevronDown
+                      className={`w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${
+                        isOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  )}
                 </button>
 
                 {/* Mobile: painel abre logo abaixo do item clicado */}
