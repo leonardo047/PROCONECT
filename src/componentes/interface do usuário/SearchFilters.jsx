@@ -70,28 +70,31 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
     gcTime: 30 * 60 * 1000,
   });
 
-  // Usar categorias do banco como fonte principal, fallback para hardcoded
+  // Mesclar: arquivo centralizado como base + categorias extras do banco
   const professionGroups = useMemo(() => {
-    if (dbCategories.length === 0) return hardcodedProfessionGroups;
-
-    // Agrupar categorias do banco por category_group
-    const dbGroups = {};
-
-    dbCategories.forEach(cat => {
-      const groupName = (cat.category_group || 'Outros').replace(/^[\p{Emoji}\s]+/u, '').trim() || 'Outros';
-      if (!dbGroups[groupName]) {
-        dbGroups[groupName] = [];
-      }
-      dbGroups[groupName].push({ name: cat.name, slug: cat.slug });
-    });
-
-    // Converter grupos do banco para o mesmo formato
-    const groups = Object.entries(dbGroups).map(([name, items]) => ({
-      name,
-      items
+    // Começar com TODAS as profissões do arquivo centralizado
+    const merged = hardcodedProfessionGroups.map(group => ({
+      name: group.name,
+      items: [...group.items]
     }));
 
-    return groups.length > 0 ? groups : hardcodedProfessionGroups;
+    // Coletar todos os slugs já presentes no centralizado
+    const existingSlugs = new Set(merged.flatMap(g => g.items.map(i => i.slug)));
+
+    // Adicionar categorias do banco que NÃO existem no centralizado
+    dbCategories.forEach(cat => {
+      if (existingSlugs.has(cat.slug)) return;
+      const groupName = (cat.category_group || 'Outros').replace(/^[\p{Emoji}\s]+/u, '').trim() || 'Outros';
+      let group = merged.find(g => g.name === groupName);
+      if (!group) {
+        group = { name: groupName, items: [] };
+        merged.push(group);
+      }
+      group.items.push({ name: cat.name, slug: cat.slug });
+      existingSlugs.add(cat.slug);
+    });
+
+    return merged;
   }, [dbCategories]);
 
   // Label da profissão selecionada
