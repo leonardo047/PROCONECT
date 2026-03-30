@@ -11,6 +11,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Category } from "@/lib/entities";
 import { useQuery } from "@tanstack/react-query";
+import { professionGroups as centralizedProfessionGroups } from "@/lib/constants/professionCategories";
 
 // Cidades do Alto Vale do Itajaí - SC
 const cidadesAltoVale = [
@@ -44,82 +45,8 @@ const cidadesAltoVale = [
   "Witmarsum"
 ];
 
-// Função para gerar slug igual à Home
-function toSlug(name) {
-  return name.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '');
-}
-
-// Categorias hardcoded (home)
-const hardcodedProfessionGroups = [
-  {
-    name: "Construção, Reforma e Estrutura",
-    items: [
-      "Pedreiro", "Mestre de Obras", "Empreiteiro", "Pintor", "Gesso/Drywall",
-      "Azulejista", "Porcelanista", "Reboco/Acabamento", "Telhadista", "Calheiro",
-      "Impermeabilização", "Isolamento", "Fundações", "Concreto", "Pré-moldados",
-      "Demolição", "Reformas Geral"
-    ]
-  },
-  {
-    name: "Elétrica, Hidráulica e Climatização",
-    items: [
-      "Eletricista Residencial", "Eletricista Industrial", "Automação Residencial",
-      "Energia Solar", "CFTV/Câmeras", "Encanador", "Bombeiro Hidráulico", "Gás",
-      "Aquecimento", "Ar Condicionado", "Ventilação/Exaustão", "Piscinas",
-      "Irrigação", "Desentupimento"
-    ]
-  },
-  {
-    name: "Limpeza, Manutenção e Conservação",
-    items: [
-      "Limpeza Residencial", "Limpeza Comercial", "Limpeza Pós-obra",
-      "Limpeza Fachada", "Limpeza Telhado", "Lavagem Pátio",
-      "Limpeza Caixa d'água", "Dedetização", "Controle Pragas",
-      "Jardinagem", "Paisagismo", "Roçada", "Poda",
-      "Manutenção Predial", "Marido Aluguel"
-    ]
-  },
-  {
-    name: "Madeira, Móveis e Acabamentos",
-    items: [
-      "Marceneiro", "Carpinteiro", "Montador Móveis", "Restauração",
-      "Instalação Portas", "Instalação Janelas", "Vidraçaria", "Serralheria",
-      "Alumínio/Esquadrias", "Pisos Laminados", "Pisos Vinílicos", "Rodapés",
-      "Forros", "Gessó Decorativo", "Papel Parede", "Persianas"
-    ]
-  },
-  {
-    name: "Máquinas, Terraplanagem e Logística",
-    items: [
-      "Terraplanagem", "Escavação", "Retroescavadeira", "Caminhão Munck",
-      "Guindaste", "Compactação", "Locação Máquinas", "Caçamba",
-      "Frete", "Mudança", "Carreto", "Guincho Pesado"
-    ]
-  },
-  {
-    name: "Lojas, Fornecedores e Materiais",
-    items: [
-      "Materiais Construção", "Areia / Brita", "Concreto Usinado", "Pré-moldados",
-      "Madeireira", "Casa de Tintas", "Vidraçaria", "Serralheria",
-      "Marmoraria", "Elétrica (Loja)", "Hidráulica (Loja)", "Ferramentas",
-      "Equipamentos", "Distribuidores"
-    ]
-  },
-  {
-    name: "Projetos e Engenharia",
-    items: [
-      "Arquiteto", "Engenheiro Civil", "Projetos Elétricos", "Projetos Hidráulicos",
-      "Laudos Técnicos", "Habite-se", "Regularização Imóveis", "Topografia",
-      "Orçamentos Técnicos"
-    ]
-  }
-].map(group => ({
-  name: group.name,
-  items: group.items.map(name => ({ name, slug: toSlug(name) }))
-}));
+// Categorias centralizadas importadas de @/lib/constants/professionCategories
+const hardcodedProfessionGroups = centralizedProfessionGroups;
 
 // Normaliza texto para comparação (remove acentos e converte para minúsculo)
 function normalize(text) {
