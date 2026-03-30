@@ -131,11 +131,11 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
   const [openCategoryCombobox, setOpenCategoryCombobox] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Buscar categorias de "Outros Serviços" do Supabase
+  // Buscar TODAS as categorias ativas do Supabase (igual ao BecomeProfessional)
   const { data: dbCategories = [] } = useQuery({
     queryKey: ['search-filters-all-categories'],
     queryFn: () => Category.filter({
-      filters: { location: 'other_services', is_active: true },
+      filters: { is_active: true },
       orderBy: { field: 'order', direction: 'asc' },
       limit: 500
     }),
@@ -143,19 +143,14 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
     gcTime: 30 * 60 * 1000,
   });
 
-  // Mesclar categorias hardcoded com as do banco (Outros Serviços)
+  // Usar categorias do banco como fonte principal, fallback para hardcoded
   const professionGroups = useMemo(() => {
     if (dbCategories.length === 0) return hardcodedProfessionGroups;
 
     // Agrupar categorias do banco por category_group
     const dbGroups = {};
-    // Set de slugs hardcoded para evitar duplicatas
-    const hardcodedSlugs = new Set();
-    hardcodedProfessionGroups.forEach(g => g.items.forEach(i => hardcodedSlugs.add(i.slug)));
 
     dbCategories.forEach(cat => {
-      if (hardcodedSlugs.has(cat.slug)) return; // Evitar duplicatas
-      // Remover emoji do nome do grupo para exibição mais limpa
       const groupName = (cat.category_group || 'Outros').replace(/^[\p{Emoji}\s]+/u, '').trim() || 'Outros';
       if (!dbGroups[groupName]) {
         dbGroups[groupName] = [];
@@ -164,12 +159,12 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
     });
 
     // Converter grupos do banco para o mesmo formato
-    const extraGroups = Object.entries(dbGroups).map(([name, items]) => ({
+    const groups = Object.entries(dbGroups).map(([name, items]) => ({
       name,
       items
     }));
 
-    return [...hardcodedProfessionGroups, ...extraGroups];
+    return groups.length > 0 ? groups : hardcodedProfessionGroups;
   }, [dbCategories]);
 
   // Label da profissão selecionada

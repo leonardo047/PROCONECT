@@ -219,9 +219,14 @@ export default function SearchProfessionals() {
   const filteredProfessionals = useMemo(() => {
     let results = [...allProfessionals];
 
-    // Filtrar por profissão
+    // Filtrar por profissão (normalizar para evitar mismatch de slug)
     if (filters.profession !== 'all') {
-      results = results.filter(p => p.profession === filters.profession);
+      const normalizeSlug = (s) => (s || '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_|_$/g, '');
+      const filterSlug = normalizeSlug(filters.profession);
+      results = results.filter(p => normalizeSlug(p.profession) === filterSlug);
     }
 
     if (searchMode === 'traditional') {
