@@ -9,9 +9,12 @@ import { Search, MapPin, Briefcase, Calendar as CalendarIcon, Star, Check, Chevr
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { Category } from "@/lib/entities";
-import { useQuery } from "@tanstack/react-query";
 import { professionGroups as centralizedProfessionGroups } from "@/lib/constants/professionCategories";
+
+// Dropdown usa APENAS a lista centralizada (sem "Outros Tipos de Serviços")
+const dropdownProfessionGroups = centralizedProfessionGroups.filter(
+  g => g.name !== "Outros Tipos de Serviços"
+);
 
 // Cidades do Alto Vale do Itajaí - SC
 const cidadesAltoVale = [
@@ -45,9 +48,6 @@ const cidadesAltoVale = [
   "Witmarsum"
 ];
 
-// Categorias centralizadas importadas de @/lib/constants/professionCategories
-const hardcodedProfessionGroups = centralizedProfessionGroups;
-
 // Normaliza texto para comparação (remove acentos e converte para minúsculo)
 function normalize(text) {
   return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -58,44 +58,8 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
   const [openCategoryCombobox, setOpenCategoryCombobox] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Buscar TODAS as categorias ativas do Supabase (igual ao BecomeProfessional)
-  const { data: dbCategories = [] } = useQuery({
-    queryKey: ['search-filters-all-categories'],
-    queryFn: () => Category.filter({
-      filters: { is_active: true },
-      orderBy: { field: 'order', direction: 'asc' },
-      limit: 500
-    }),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
-
-  // Mesclar: arquivo centralizado como base + categorias extras do banco
-  const professionGroups = useMemo(() => {
-    // Começar com TODAS as profissões do arquivo centralizado
-    const merged = hardcodedProfessionGroups.map(group => ({
-      name: group.name,
-      items: [...group.items]
-    }));
-
-    // Coletar todos os slugs já presentes no centralizado
-    const existingSlugs = new Set(merged.flatMap(g => g.items.map(i => i.slug)));
-
-    // Adicionar categorias do banco que NÃO existem no centralizado
-    dbCategories.forEach(cat => {
-      if (existingSlugs.has(cat.slug)) return;
-      const groupName = (cat.category_group || 'Outros').replace(/^[\p{Emoji}\s]+/u, '').trim() || 'Outros';
-      let group = merged.find(g => g.name === groupName);
-      if (!group) {
-        group = { name: groupName, items: [] };
-        merged.push(group);
-      }
-      group.items.push({ name: cat.name, slug: cat.slug });
-      existingSlugs.add(cat.slug);
-    });
-
-    return merged;
-  }, [dbCategories]);
+  // Usar diretamente a lista centralizada (sem "Outros")
+  const professionGroups = dropdownProfessionGroups;
 
   // Label da profissão selecionada
   const selectedProfessionLabel = useMemo(() => {
