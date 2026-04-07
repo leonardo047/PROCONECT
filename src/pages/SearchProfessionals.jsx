@@ -18,6 +18,33 @@ import { createPageUrl } from "@/utils";
 // Itens por página
 const ITEMS_PER_PAGE = 12;
 
+const normalizeSlug = (s) => (s || '').toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, '_')
+  .replace(/^_|_$/g, '');
+
+const professionAliases = {
+  pintor: ['pintura_residencial', 'pintura_comercial', 'pintura_predial'],
+  pintura_residencial: ['pintor'],
+  limpeza: ['limpeza_residencial', 'limpeza_comercial'],
+  limpeza_residencial: ['limpeza'],
+  eletricista: ['eletricista_residencial', 'eletricista_industrial'],
+  eletricista_residencial: ['eletricista'],
+};
+
+const professionMatches = (selectedProfession, professionalProfession) => {
+  const selected = normalizeSlug(selectedProfession);
+  const professional = normalizeSlug(professionalProfession);
+  if (!selected || !professional) return false;
+  if (selected === professional) return true;
+
+  const selectedAliases = professionAliases[selected] || [];
+  const professionalAliases = professionAliases[professional] || [];
+  if (selectedAliases.includes(professional) || professionalAliases.includes(selected)) return true;
+
+  return selected.includes(professional) || professional.includes(selected);
+};
+
 // Calculate distance between two coordinates (Haversine formula)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
@@ -221,12 +248,7 @@ export default function SearchProfessionals() {
 
     // Filtrar por profissão (normalizar para evitar mismatch de slug)
     if (filters.profession !== 'all') {
-      const normalizeSlug = (s) => (s || '').toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_|_$/g, '');
-      const filterSlug = normalizeSlug(filters.profession);
-      results = results.filter(p => normalizeSlug(p.profession) === filterSlug);
+      results = results.filter(p => professionMatches(filters.profession, p.profession));
     }
 
     if (searchMode === 'traditional') {
