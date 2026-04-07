@@ -9,6 +9,8 @@ import { Search, MapPin, Briefcase, Calendar as CalendarIcon, Star, Check, Chevr
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { Category } from "@/lib/entities";
 import { professionGroups as centralizedProfessionGroups } from "@/lib/constants/professionCategories";
 
 // Dropdown usa APENAS a lista centralizada (sem "Outros Tipos de Serviços")
@@ -58,8 +60,31 @@ export default function SearchFilters({ filters, onFilterChange, hideLocationFie
   const [openCategoryCombobox, setOpenCategoryCombobox] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Usar diretamente a lista centralizada (sem "Outros")
-  const professionGroups = dropdownProfessionGroups;
+  // Preferir categorias do banco para manter o mesmo padrão usado no cadastro.
+  // Fallback para lista centralizada se o banco não retornar dados.
+  const { data: categories = [] } = useQuery({
+    queryKey: ['search-filter-categories'],
+    queryFn: () => Category.filter({
+      filters: { is_active: true },
+      orderBy: { field: 'order', direction: 'asc' },
+      limit: 500
+    }),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  const professionGroups = useMemo(() => {
+    if (!categories.length) return dropdownProfessionGroups;
+
+    const grouped = categories.reduce((acc, cat) => {
+      const groupName = cat.category_group || 'Outros';
+      if (!acc[groupName]) acc[groupName] = [];
+      acc[groupName].push({ name: cat.name, slug: cat.slug });
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([name, items]) => ({ name, items }));
+  }, [categories]);
 
   // Label da profissão selecionada
   const selectedProfessionLabel = useMemo(() => {
